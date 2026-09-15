@@ -8,9 +8,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "quilt-core": "0.2.1",
-    "quilt-vanilla": "0.2.1",
-    "quilt-react": "0.2.1",
+    "quilt-core": "0.2.2",
+    "quilt-vanilla": "0.2.2",
+    "quilt-react": "0.2.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

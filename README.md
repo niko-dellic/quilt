@@ -45,11 +45,15 @@ See [host compatibility](docs/compatibility.md) for tested environments and limi
 npm install quilt-vanilla
 
 # React
-npm install quilt-react react react-dom
+npm install quilt-react
 
 # Layout model only
 npm install quilt-core
 ```
+
+The adapters install their Quilt dependencies automatically. React applications need
+React and React DOM 18.3 or 19. These are peer dependencies, so Quilt shares the
+application’s React installation. In an existing React app, the command above is enough.
 
 Use ESM imports and a bundler with CSS support. Import the adapter stylesheet once
 and give the workspace container an explicit height. TypeScript React applications
