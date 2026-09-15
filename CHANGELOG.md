@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+- Simplify React installation to `npm install quilt-react` and clarify automatic Quilt dependencies and shared React peer dependencies.
+- Align registry and local-archive installation instructions. No library runtime or API changes.
+
 ## 0.2.1
 
 - Add workspace fullscreen controls to the vanilla and React demos while preserving mounted panes and keeping configuration dialogs accessible.

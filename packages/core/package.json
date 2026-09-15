@@ -1,6 +1,6 @@
 {
   "name": "quilt-core",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Framework-independent pane layout model, validation, commands, and subscriptions",
   "type": "module",
   "license": "MIT",

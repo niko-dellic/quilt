@@ -5,10 +5,18 @@ React components and hooks over the shared Quilt engine and DOM renderer. React 
 ## Install
 
 ```sh
-npm install quilt-react react react-dom
+npm install quilt-react
 ```
 
-Core and DOM are installed automatically. TypeScript apps also need matching `@types/react` and `@types/react-dom`. Use an ESM-capable bundler with CSS imports. For local archives, see [packaging instructions](https://github.com/niko-dellic/quilt/blob/main/docs/packaging.md).
+`quilt-core` and `quilt-vanilla` are installed automatically.
+
+Requires React and React DOM 18.3 or 19. They are peer dependencies so Quilt shares
+your application’s React instance. In an existing React application, no additional
+install command is needed. When creating a new application, configure React and
+React DOM as application dependencies; npm 7 and newer also resolve missing peers
+automatically unless peer installation is disabled.
+
+TypeScript apps also need matching `@types/react` and `@types/react-dom`. Use an ESM-capable bundler with CSS imports. For local archives, see [packaging instructions](https://github.com/niko-dellic/quilt/blob/main/docs/packaging.md).
 
 ## Use
 
