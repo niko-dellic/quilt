@@ -1,5 +1,8 @@
 # Configuration and API
 
+This guide explains behavior and constraints. The [generated API reference](api-reference/index.md)
+lists the current public signatures for Core, Vanilla, and React.
+
 ## Core layout JSON v1
 
 ```ts

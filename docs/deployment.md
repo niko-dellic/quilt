@@ -34,3 +34,7 @@ TypeDoc compatibility; package builds continue using TypeScript 7.
 The docs version follows the root package version. Publish public API documentation
 with the corresponding release; use preview deployments to review unreleased changes.
 Public API source links point at the matching release tag.
+
+The docs-only TypeScript configuration resolves package re-exports to their public
+source entry points so generated references can link to tracked source. Application,
+package, demo, and quickstart builds still resolve public compiled package imports.

@@ -1,7 +1,11 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "quilt-core": ["../../packages/core/src/index.ts"],
+      "quilt-vanilla": ["../../packages/dom/src/index.ts"]
+    }
   },
   "include": ["../../packages/core/src", "../../packages/dom/src", "../../packages/react/src"]
 }
