@@ -361,6 +361,13 @@ export function setupShell(getMounted: () => MountedLayout | undefined) {
   exportTheme.className = 'demo-export-theme';
   exportTheme.textContent = 'Export theme';
   settings.append(exportTheme);
+  const themeGuide = document.createElement('a');
+  themeGuide.href = 'https://quilt-layouts.vercel.app/docs/theming';
+  themeGuide.target = '_blank';
+  themeGuide.rel = 'noopener noreferrer';
+  themeGuide.className = 'demo-theme-guide';
+  themeGuide.textContent = 'Theme guide ↗';
+  settings.append(themeGuide);
   const disposeExport = installThemeExport(
     exportTheme,
     () => getMounted()?.exportWorkspace().theme,

@@ -4,7 +4,8 @@
   "version": "0.2.4",
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "tools/docs"
   ],
   "scripts": {
     "build": "npm run build -w quilt-core && npm run build -w quilt-vanilla && npm run build -w quilt-react",
@@ -15,7 +16,7 @@
     "dev": "vite --host localhost --port 5186",
     "build:demos": "vite build",
     "pack:all": "node scripts/pack.mjs",
-    "check": "npm run docs:check && npm run format:check && npm run test:release && npm run build && npm run typecheck && npm test && npm run test:browser && npm run build:demos && npm run test:packed && npm run test:examples",
+    "check": "npm run docs:check && npm run format:check && npm run test:release && npm run build && npm run typecheck && npm test && npm run test:browser && npm run build:demos && npm run test:packed && npm run test:examples && npm run docs:build && npm run docs:test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "release:version": "node scripts/release-version.mjs",
@@ -26,7 +27,12 @@
     "package:desktop": "npm run build && node scripts/build-desktop.mjs --package",
     "test:desktop": "node scripts/test-desktop.mjs",
     "docs:sync": "node scripts/sync-readmes.mjs",
-    "docs:check": "node scripts/sync-readmes.mjs --check"
+    "docs:check": "node scripts/sync-readmes.mjs --check",
+    "docs:api": "npm run generate -w quilt-docs",
+    "docs:dev": "npm run dev -w quilt-docs",
+    "docs:build": "npm run build -w quilt-docs",
+    "docs:test": "node scripts/check-docs.mjs",
+    "build:site": "npm run build:demos && npm run docs:build"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.0",

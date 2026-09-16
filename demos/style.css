@@ -900,3 +900,14 @@ h1 {
 .demo-export-theme {
   grid-column: 1 / -1;
 }
+
+.demo-theme-guide {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.source-link + .source-link {
+  margin-left: 0;
+}

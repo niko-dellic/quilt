@@ -1,0 +1,16 @@
+{
+  "name": "quilt-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "dev": "node generate.mjs && vitepress dev ../../docs",
+    "build": "node generate.mjs && vitepress build ../../docs"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "typedoc": "0.28.20",
+    "typedoc-plugin-markdown": "4.13.0",
+    "vitepress": "1.6.4"
+  }
+}

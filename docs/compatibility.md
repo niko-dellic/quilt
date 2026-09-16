@@ -18,7 +18,7 @@ dependency to either published package.
 
 ## Electron reference host
 
-[The starter](../examples/electron) uses `BrowserWindow` with
+[The starter](https://github.com/niko-dellic/quilt/blob/main/examples/electron) uses `BrowserWindow` with
 `contextIsolation: true`, `sandbox: true`, and `nodeIntegration: false`.
 Only Quilt's `about:blank` child windows are allowed; child navigation and further
 child creation are denied. No preload or Node access is needed by pane content.
@@ -43,6 +43,6 @@ renderer while handling readiness, messaging, and lifecycle in a host-specific l
 
 [Quilt Demo](https://quilt-layouts.vercel.app/electron.html) packages the vanilla and React
 demos with Electron. Source and packaging instructions are in
-[desktop/README.md](../desktop/README.md). These builds have no trusted developer certificate; macOS bundles use an ad-hoc
-signature and are not notarized. The [release notes](desktop-release.md) explain
+[desktop/README.md](https://github.com/niko-dellic/quilt/blob/main/desktop/README.md). These builds have no trusted developer certificate; macOS bundles use an ad-hoc
+signature and are not notarized. The [release notes](https://github.com/niko-dellic/quilt/blob/main/docs/desktop-release.md) explain
 OS approval prompts.
