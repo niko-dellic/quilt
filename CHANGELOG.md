@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4
+
+- Move theme JSON export into the Theming pane in both demos and the desktop showcase.
+- Add matching Colors, Spacing, and Scrollbars accordions plus font-family and frozen-border controls.
+- Remove the standalone theme builder and redirect its old website URL to the vanilla demo. Update shared package documentation.
+
 ## 0.2.3
 
 - Add a website theme builder with live preview, all public theme tokens, presets, JSON file export/import, and companion-window preview.

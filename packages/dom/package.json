@@ -1,6 +1,6 @@
 {
   "name": "quilt-vanilla",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Vanilla DOM split panes, tabs, themes, and same-origin window popouts",
   "type": "module",
   "license": "MIT",
@@ -30,7 +30,7 @@
     "prepack": "node ../../scripts/build-package.mjs dom --dependencies"
   },
   "dependencies": {
-    "quilt-core": "0.2.3"
+    "quilt-core": "0.2.4"
   },
   "sideEffects": [
     "**/*.css"
