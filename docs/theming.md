@@ -72,6 +72,48 @@ Theme preferences are separate from core layout JSON and included as configured 
 library does not read OS preferences or write browser storage. The demo theme
 selector switches chrome presets; visualization palettes remain authored data.
 
+## Theme builder and theme files
+
+Use the [theme builder](https://quilt-layouts.vercel.app/themes.html) to start from a
+preset, edit tokens with a live preview, and export `quilt-theme.json`. Import the
+same file into the builder to continue editing. Invalid files leave the current
+theme unchanged. The builder runs in your browser and does not upload files or
+save changes between visits.
+
+The file is a plain `LayoutTheme` object, not a workspace preset:
+
+```json
+{
+  "panel": "#171717",
+  "text": "#fafafa",
+  "accent": "#82baff",
+  "headerHeight": "2.5rem"
+}
+```
+
+With a bundler that supports JSON imports (and TypeScript's `resolveJsonModule`):
+
+```tsx
+import theme from './quilt-theme.json';
+import { Layout, type LayoutTheme } from 'quilt-react';
+
+const customTheme = theme satisfies LayoutTheme;
+// Vanilla: mounted.setTheme(customTheme);
+<Layout store={store} components={components} theme={customTheme} />;
+```
+
+For a user-selected file, parse its text and pass the object to `setTheme` in a
+try/catch. Quilt rejects unknown token names and non-string values; CSS value
+interpretation belongs to the browser. The builder also checks CSS syntax before
+applying or exporting values. Empty fields omit overrides, preserving inheritance.
+Importing or selecting a preset replaces the previous theme.
+
+Only configured tokens are exported, not computed colors, layout settings, pane
+data, fonts, or stylesheets. A value such as `var(--brand-color)` still requires
+that application variable; its preview uses the surrounding page's CSS when
+available. Install fonts and provide application styles in companion documents
+as described below. Relative lengths resolve in the consuming application's context.
+
 ## Families, density and portable presets
 
 `themeFamilies.neutral`, `.zinc`, `.stone` and `.mist` each expose `light` and
@@ -109,8 +151,7 @@ workspace.setTheme({
 ```
 
 ```tsx
-import { Layout } from 'quilt-react';
-import { themeFamilies } from 'quilt-vanilla';
+import { Layout, themeFamilies } from 'quilt-react';
 // Changing this prop updates chrome without remounting registered content.
 <Layout store={store} components={components} theme={themeFamilies.stone.light} />;
 ```

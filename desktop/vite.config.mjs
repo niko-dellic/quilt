@@ -13,6 +13,7 @@ export default defineConfig({
           .replaceAll('href="/"', 'href="./vanilla.html"')
           .replaceAll('href="/vanilla.html"', 'href="./vanilla.html"')
           .replaceAll('href="/react.html"', 'href="./react.html"')
+          .replace(/<a href="\/themes.html">Themes<\/a>/g, '')
           .replace(
             /<a href="\/electron.html">Electron<\/a>/g,
             '<span style="padding:6px 12px">Desktop demo</span>',

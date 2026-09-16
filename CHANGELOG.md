@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+- Add a website theme builder with live preview, all public theme tokens, presets, JSON file export/import, and companion-window preview.
+- Share the root README overview, WebP demo, and documentation links with all npm package READMEs; check synchronization during validation.
+- Document reusable theme files and link the builder from the website and package pages.
+
 ## 0.2.2
 
 - Simplify React installation to `npm install quilt-react` and clarify automatic Quilt dependencies and shared React peer dependencies.

@@ -1,7 +1,7 @@
 {
   "name": "quilt-workspace",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "workspaces": [
     "packages/*"
@@ -15,7 +15,7 @@
     "dev": "vite --host localhost --port 5186",
     "build:demos": "vite build",
     "pack:all": "node scripts/pack.mjs",
-    "check": "npm run format:check && npm run test:release && npm run build && npm run typecheck && npm test && npm run test:browser && npm run build:demos && npm run test:packed && npm run test:examples",
+    "check": "npm run docs:check && npm run format:check && npm run test:release && npm run build && npm run typecheck && npm test && npm run test:browser && npm run build:demos && npm run test:packed && npm run test:examples",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "release:version": "node scripts/release-version.mjs",
@@ -24,7 +24,9 @@
     "release:rehearse": "node scripts/rehearse-release.mjs",
     "build:desktop": "npm run build && node scripts/build-desktop.mjs",
     "package:desktop": "npm run build && node scripts/build-desktop.mjs --package",
-    "test:desktop": "node scripts/test-desktop.mjs"
+    "test:desktop": "node scripts/test-desktop.mjs",
+    "docs:sync": "node scripts/sync-readmes.mjs",
+    "docs:check": "node scripts/sync-readmes.mjs --check"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.0",
