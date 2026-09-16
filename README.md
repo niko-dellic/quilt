@@ -3,6 +3,8 @@
 [![CI](https://github.com/niko-dellic/quilt/actions/workflows/ci.yml/badge.svg)](https://github.com/niko-dellic/quilt/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/quilt-react)](https://www.npmjs.com/package/quilt-react)
 
+<!-- shared-overview:start -->
+
 Quilt is a TypeScript library for split panes, tab groups, and popout windows.
 It provides a framework-independent layout model, a DOM renderer, and React bindings.
 Applications supply pane content and manage their own data and storage.
@@ -18,6 +20,7 @@ Applications supply pane content and manage their own data and storage.
 
 - [Vanilla TypeScript](https://quilt-layouts.vercel.app/vanilla.html)
 - [React](https://quilt-layouts.vercel.app/react.html)
+- [Theme builder](https://quilt-layouts.vercel.app/themes.html) — customize, export, and import theme JSON
 - [Electron desktop downloads](https://quilt-layouts.vercel.app/electron.html) for macOS, Windows, and Ubuntu/Debian
 
 ![Quilt demo showing pane arrangements, scene interaction, and workspace presets](docs/media/demo-walkthrough.webp)
@@ -25,6 +28,8 @@ Applications supply pane content and manage their own data and storage.
 See [screenshots and controls](docs/showcase.md) or the [application examples](examples/README.md).
 The desktop application contains the same vanilla and React demos and runs offline.
 Demo builds have no trusted developer certificate; see the [installation notes](docs/desktop-release.md).
+
+<!-- shared-overview:end -->
 
 ## Packages
 
@@ -181,6 +186,8 @@ See [save/load and storage examples](docs/integration.md#workspace-json).
   Vue bindings are not implemented; see [host compatibility](docs/compatibility.md).
 - If a workspace is smaller than its pane constraints allow, it scrolls.
 
+<!-- shared-docs:start -->
+
 ## Documentation
 
 - [Configuration and API](docs/api.md)
@@ -191,6 +198,8 @@ See [save/load and storage examples](docs/integration.md#workspace-json).
 - [0.2.1 upgrade checklist](docs/migration.md)
 - [Local packages and consumer integration](docs/packaging.md)
 - [Changelog](CHANGELOG.md)
+
+<!-- shared-docs:end -->
 
 ## Development
 

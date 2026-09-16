@@ -11,3 +11,10 @@ Validation: `npm run check`. The full gate builds packages, checks demo/test typ
 The npm packages are `quilt-core`, `quilt-vanilla`, and `quilt-react`. `npm run pack:all` writes three local archives and a checksum manifest in `artifacts/packages`. Do not commit node_modules, dist, test output, or generated archives. See [release instructions](docs/releases.md) for npm publication and desktop builds.
 
 Keep changes focused. Tests should cover observable behaviors and failure recovery, particularly cross-document lifetime and preservation of application-owned data.
+
+## Shared package documentation
+
+Edit the `shared-overview` and `shared-docs` sections in the root README, then run
+`npm run docs:sync`. Package installation and usage sections stay package-specific.
+Generated sections use absolute image and documentation URLs for npm.
+`npm run docs:check` (included in `npm run check`) rejects stale package READMEs.
