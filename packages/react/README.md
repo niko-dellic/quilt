@@ -51,17 +51,17 @@ TypeScript apps also need matching `@types/react` and `@types/react-dom`. Use an
 Provide `<div id="app"></div>` in your HTML.
 
 ```tsx
-import { createRoot } from "react-dom/client";
-import { Layout, LayoutStore, createLayout } from "quilt-react";
-import type { PaneProps } from "quilt-react";
-import "quilt-react/styles.css";
+import { createRoot } from 'react-dom/client';
+import { Layout, LayoutStore, createLayout } from 'quilt-react';
+import type { PaneProps } from 'quilt-react';
+import 'quilt-react/styles.css';
 
 const store = new LayoutStore(
   createLayout({
-    pane: { id: "notes", type: "notes", title: "Notes" },
+    pane: { id: 'notes', type: 'notes', title: 'Notes' },
   }),
 );
-const data = { text: "Hello" };
+const data = { text: 'Hello' };
 const getPaneState = () => data;
 function Notes({ state: model }: PaneProps<typeof data>) {
   return (
@@ -74,13 +74,13 @@ function Notes({ state: model }: PaneProps<typeof data>) {
   );
 }
 const components = { notes: Notes };
-const root = createRoot(document.getElementById("app")!);
+const root = createRoot(document.getElementById('app')!);
 root.render(
   <Layout<typeof data>
     store={store}
     components={components}
     getPaneState={getPaneState}
-    style={{ width: "100%", height: 600 }}
+    style={{ width: '100%', height: 600 }}
   />,
 );
 // Call when removing the workspace:

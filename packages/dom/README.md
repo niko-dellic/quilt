@@ -43,22 +43,22 @@ Core is installed automatically; React is not required. Use an ESM-capable bundl
 Provide a host in your HTML: `<div id="workspace" style="width:100%;height:600px"></div>`.
 
 ```ts
-import { createLayout, LayoutStore, mountLayout } from "quilt-vanilla";
-import "quilt-vanilla/styles.css";
+import { createLayout, LayoutStore, mountLayout } from 'quilt-vanilla';
+import 'quilt-vanilla/styles.css';
 
 const store = new LayoutStore(
   createLayout({
-    pane: { id: "notes", type: "notes", title: "Notes" },
+    pane: { id: 'notes', type: 'notes', title: 'Notes' },
   }),
 );
-const data = { text: "Hello" }; // survives view remounts
-const mounted = mountLayout(document.getElementById("workspace")!, {
+const data = { text: 'Hello' }; // survives view remounts
+const mounted = mountLayout(document.getElementById('workspace')!, {
   store,
   getPaneState: () => data,
   renderers: {
     notes: ({ element, document: doc, state }) => {
       const model = state as typeof data;
-      const input = doc.createElement("textarea");
+      const input = doc.createElement('textarea');
       input.value = model.text;
       input.oninput = () => {
         model.text = input.value;

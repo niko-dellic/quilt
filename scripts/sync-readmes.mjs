@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { format } from 'prettier';
+import { format, resolveConfig } from 'prettier';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const source = read('README.md');
@@ -31,7 +31,7 @@ for (const pkg of ['core', 'dom', 'react']) {
       output = output.replace('## Install', `${block}\n\n## Install`);
     else output = output.trimEnd() + `\n\n${block}\n`;
   }
-  output = await format(output, { filepath: path });
+  output = await format(output, { ...(await resolveConfig(resolve(root, path))), filepath: path });
   if (check && output !== read(path)) throw new Error(`${path} is stale. Run npm run docs:sync.`);
   if (!check) writeFileSync(resolve(root, path), output);
 }

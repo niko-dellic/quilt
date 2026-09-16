@@ -41,20 +41,20 @@ Use ESM imports. For local development archives, see [packaging instructions](ht
 ## Use
 
 ```ts
-import { createLayout, LayoutStore, validate } from "quilt-core";
+import { createLayout, LayoutStore, validate } from 'quilt-core';
 
 const store = new LayoutStore(
   createLayout({
-    pane: { id: "notes", type: "notes", title: "Notes" },
+    pane: { id: 'notes', type: 'notes', title: 'Notes' },
   }),
 );
 const unsubscribe = store.subscribe(({ action, layout }) => {
   console.log(action, JSON.stringify(layout));
 });
-store.split("main", "horizontal", {
-  id: "preview",
-  type: "preview",
-  title: "Preview",
+store.split('main', 'horizontal', {
+  id: 'preview',
+  type: 'preview',
+  title: 'Preview',
 });
 console.log(validate(store.export())); // []
 unsubscribe();
