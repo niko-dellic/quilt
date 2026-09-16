@@ -72,13 +72,15 @@ Theme preferences are separate from core layout JSON and included as configured 
 library does not read OS preferences or write browser storage. The demo theme
 selector switches chrome presets; visualization palettes remain authored data.
 
-## Theme builder and theme files
+## Exporting theme files from the demos
 
-Use the [theme builder](https://quilt-layouts.vercel.app/themes.html) to start from a
-preset, edit tokens with a live preview, and export `quilt-theme.json`. Import the
-same file into the builder to continue editing. Invalid files leave the current
-theme unchanged. The builder runs in your browser and does not upload files or
-save changes between visits.
+Open the **Theming** tab in the [vanilla](https://quilt-layouts.vercel.app/vanilla.html)
+or [React](https://quilt-layouts.vercel.app/react.html) demo. Choose a preset, edit
+the controls in its accordions, and click **Export theme** at the bottom to download
+`quilt-theme.json`. Colors, font family, spacing, scrollbars, and frozen borders
+accept CSS values, including custom-property references and relative lengths.
+Invalid CSS values leave the applied theme unchanged. Export captures the actual
+mounted theme, including settings loaded through Workspace JSON.
 
 The file is a plain `LayoutTheme` object, not a workspace preset:
 
@@ -104,9 +106,10 @@ const customTheme = theme satisfies LayoutTheme;
 
 For a user-selected file, parse its text and pass the object to `setTheme` in a
 try/catch. Quilt rejects unknown token names and non-string values; CSS value
-interpretation belongs to the browser. The builder also checks CSS syntax before
-applying or exporting values. Empty fields omit overrides, preserving inheritance.
-Importing or selecting a preset replaces the previous theme.
+interpretation belongs to the browser. The demo fields also check CSS syntax before applying values. Empty fields clear
+custom overrides. Selecting a preset replaces color overrides and retains density
+and geometry settings. Theme-file import belongs to your application; the demos
+load complete workspace presets through Layout JSON.
 
 Only configured tokens are exported, not computed colors, layout settings, pane
 data, fonts, or stylesheets. A value such as `var(--brand-color)` still requires

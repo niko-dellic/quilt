@@ -19,7 +19,7 @@ Applications supply pane content and manage their own data and storage.
 
 - [Vanilla TypeScript](https://quilt-layouts.vercel.app/vanilla.html)
 - [React](https://quilt-layouts.vercel.app/react.html)
-- [Theme builder](https://quilt-layouts.vercel.app/themes.html) — customize, export, and import theme JSON
+- Customize and export theme JSON from the **Theming** tab in either demo.
 - [Electron desktop downloads](https://quilt-layouts.vercel.app/electron.html) for macOS, Windows, and Ubuntu/Debian
 
 ![Quilt demo showing pane arrangements, scene interaction, and workspace presets](https://raw.githubusercontent.com/niko-dellic/quilt/main/docs/media/demo-walkthrough.webp)

@@ -880,3 +880,23 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+
+.demo-theme-value {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 8px 12px;
+  border: 1px solid var(--layouts-line);
+  border-radius: 5px;
+  background: var(--layouts-panel);
+  color: var(--layouts-text);
+  font: inherit;
+  font-size: 12px;
+}
+.demo-theme-value[aria-invalid='true'] {
+  border-color: #c76363;
+}
+.demo-field-wide,
+.demo-export-theme {
+  grid-column: 1 / -1;
+}

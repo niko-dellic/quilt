@@ -19,7 +19,6 @@ export default defineConfig({
         vanilla: resolve('vanilla.html'),
         react: resolve('react.html'),
         electron: resolve('electron.html'),
-        themes: resolve('themes.html'),
       },
     },
   },

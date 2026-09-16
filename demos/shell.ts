@@ -1,8 +1,9 @@
-import { themes, themeFamilies } from 'quilt-vanilla';
+import { themes, themeFamilies, themeProperties } from 'quilt-vanilla';
 import type { AutoCollapse } from 'quilt-core';
 import { store, workspaceSession } from './model.js';
 import { defaultThemeName } from './theme.js';
-import type { MountedLayout } from 'quilt-vanilla';
+import { addThemeFields, installThemeExport } from './theme-export.js';
+import type { LayoutTheme, MountedLayout } from 'quilt-vanilla';
 // Controls belong to the demo session and survive pane moves and layout resets.
 let settings: HTMLElement | undefined;
 let settingsHost: HTMLElement | undefined;
@@ -24,6 +25,8 @@ export function mountTheming(element: HTMLElement) {
   };
 }
 export function setupShell(getMounted: () => MountedLayout | undefined) {
+  const overrides: LayoutTheme = {};
+  let syncThemeFields = (_theme: LayoutTheme) => {};
   let headerHeight = 32,
     headerWidth = 32,
     fontSize = 11,
@@ -72,13 +75,10 @@ export function setupShell(getMounted: () => MountedLayout | undefined) {
           themeSelect.value.split('-')[1] as 'dark' | 'light'
         ]
       : themes[themeSelect.value as keyof typeof themes];
-    for (const [key, value] of Object.entries(theme)) {
-      document.documentElement.style.setProperty(`--layouts-${key}`, value);
-    }
     document.documentElement.style.colorScheme = themeSelect.value.includes('dark')
       ? 'dark'
       : 'light';
-    getMounted()?.setTheme({
+    const configured: LayoutTheme = {
       ...theme,
       fontSize: `${fontSize}px`,
       iconSize: `${iconSize}px`,
@@ -101,9 +101,37 @@ export function setupShell(getMounted: () => MountedLayout | undefined) {
       cornerHandleFill: cornerStyle === 'dot' ? `var(--layouts-${cornerColor})` : 'transparent',
       resizeHandleWidth: `${handleWidth}px`,
       disabledResizeHandleWidth: showDisabledHandles ? `${handleWidth}px` : '0px',
-    });
+      ...overrides,
+    };
+    for (const key of [
+      'bg',
+      'panel',
+      'header',
+      'text',
+      'muted',
+      'line',
+      'accent',
+      'focus',
+    ] as const) {
+      document.documentElement.style.setProperty(themeProperties[key], configured[key]!);
+    }
+    getMounted()?.setTheme(configured);
+    syncThemeFields(configured);
   };
-  themeSelect.onchange = applyTheme;
+  themeSelect.onchange = () => {
+    for (const key of [
+      'bg',
+      'panel',
+      'header',
+      'text',
+      'muted',
+      'line',
+      'accent',
+      'focus',
+    ] as const)
+      delete overrides[key];
+    applyTheme();
+  };
   applyTheme();
   const labelControl = (control: HTMLElement, text: string) => {
     const label = document.createElement('label');
@@ -263,12 +291,12 @@ export function setupShell(getMounted: () => MountedLayout | undefined) {
   };
   themeField.after(placementField, barField, amountField);
   updateAmount();
-  const section = (name: string) => {
+  const section = (name: string, open = true) => {
     const region = document.createElement('section');
     region.className = 'demo-settings-section';
     region.setAttribute('aria-label', name);
     const details = document.createElement('details');
-    details.open = true;
+    details.open = open;
     const summary = document.createElement('summary');
     summary.textContent = name;
     const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -285,6 +313,9 @@ export function setupShell(getMounted: () => MountedLayout | undefined) {
     return { region, content };
   };
   const themeSection = section('Theme');
+  const colorSection = section('Colors', false);
+  const spacingSection = section('Spacing', false);
+  const scrollbarSection = section('Scrollbars', false);
   const fontSection = section('Font');
   const tabSection = section('Tab');
   const resizeSection = section('Resizing');
@@ -302,11 +333,40 @@ export function setupShell(getMounted: () => MountedLayout | undefined) {
   const resizing = resizeSection.content;
   settings.prepend(
     themeSection.region,
+    colorSection.region,
     fontSection.region,
     tabSection.region,
     resizeSection.region,
     cornerSection.region,
+    spacingSection.region,
+    scrollbarSection.region,
   );
+  syncThemeFields = addThemeFields({
+    labelControl,
+    sections: {
+      colors: colorSection.content,
+      font: fontSection.content,
+      spacing: spacingSection.content,
+      scrollbars: scrollbarSection.content,
+      resizing,
+    },
+    onChange: (key, value) => {
+      if (value) overrides[key] = value;
+      else delete overrides[key];
+      applyTheme();
+    },
+  });
+  const exportTheme = document.createElement('button');
+  exportTheme.type = 'button';
+  exportTheme.className = 'demo-export-theme';
+  exportTheme.textContent = 'Export theme';
+  settings.append(exportTheme);
+  const disposeExport = installThemeExport(
+    exportTheme,
+    () => getMounted()?.exportWorkspace().theme,
+  );
+  window.addEventListener('pagehide', disposeExport, { once: true });
+  applyTheme();
   for (const [name, initial, min, max, update] of [
     [
       'Resize handle width',

@@ -3,5 +3,12 @@
   "framework": "vite",
   "installCommand": "npm ci",
   "buildCommand": "npm run build && npm run build:demos",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/themes.html",
+      "destination": "/vanilla.html",
+      "permanent": true
+    }
+  ]
 }

@@ -2,8 +2,8 @@
 
 All three packages share a stable version. Release creation is explicit; ordinary merges never publish.
 
-1. Create a branch and run `npm run release:version -- 0.2.3` (substitute the next version).
-2. Add a `## 0.2.3` entry to `CHANGELOG.md`. Review the version and internal dependency changes, then merge a pull request after CI passes.
+1. Create a branch and run `npm run release:version -- 0.2.4` (substitute the next version).
+2. Add a `## 0.2.4` entry to `CHANGELOG.md`. Review the version and internal dependency changes, then merge a pull request after CI passes.
 3. Open GitHub Actions → Release → Run workflow on `main`. Enter the committed version and leave **publish** unchecked to rehearse the complete release.
 4. Run again with **publish** checked. Approve the `npm` environment deployment after verification succeeds.
 
