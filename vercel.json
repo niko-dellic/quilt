@@ -9,6 +9,11 @@
       "source": "/themes.html",
       "destination": "/vanilla.html",
       "permanent": true
+    },
+    {
+      "source": "/themes",
+      "destination": "/vanilla",
+      "permanent": true
     }
   ],
   "cleanUrls": true
