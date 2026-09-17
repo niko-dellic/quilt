@@ -51,5 +51,5 @@ for (const [folder, name] of [
 }
 writeFileSync(
   resolve(out, 'index.md'),
-  `# API reference\n\nPublic exports for Quilt **${version}**. These pages are generated from TypeScript.\n\n- [Vanilla](./quilt-vanilla/index.md): mounting, handles, registration, themes, and shared model exports.\n- [React](./quilt-react/index.md): components, hooks, and shared renderer APIs.\n- [Core](./quilt-core/index.md): the framework-independent layout model and commands.\n\nStart with the [quickstarts](../getting-started.md) for a working integration, or [API concepts](../api.md) for behavior and constraints.\n`,
+  `# API reference\n\nPublic exports for Quilt **${version}**. These pages are generated from TypeScript.\n\n- [Vanilla](./quilt-vanilla/index.md): mounting, handles, registration, themes, and shared model exports.\n- [React](./quilt-react/index.md): components, hooks, and shared renderer APIs.\n- [Core](./quilt-core/index.md): the framework-independent layout model and commands.\n\nStart with the [quickstarts](../index.md) for a working integration, or [API concepts](../api.md) for behavior and constraints.\n`,
 );

@@ -101,7 +101,7 @@ The stylesheet is identical to `quilt-vanilla/styles.css`; import either once. S
 
 ## Documentation
 
-- [Getting started](https://quilt-layouts.vercel.app/docs/getting-started)
+- [Getting started](https://quilt-layouts.vercel.app/docs/)
 - [API reference](https://quilt-layouts.vercel.app/docs/api-reference/)
 - [Themes and tab bars](https://quilt-layouts.vercel.app/docs/theming)
 - [Registration, React context, persistence, and confirmation](https://quilt-layouts.vercel.app/docs/integration)

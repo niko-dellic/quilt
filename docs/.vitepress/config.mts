@@ -8,15 +8,17 @@ export default defineConfig({
   description: 'Split panes, tabs, and popout windows for your application.',
   base: '/docs/',
   cleanUrls: true,
+  appearance: 'force-auto',
   outDir: '../dist/docs',
   lastUpdated: true,
   srcExclude: ['deployment.md', 'desktop-release.md', 'packaging.md', 'releases.md'],
   head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
   themeConfig: {
     outline: [2, 3],
-    siteTitle: `Quilt ${version}`,
+    siteTitle: `<span class="brand-wordmark">quilt</span> <span class="version">${version}</span>`,
+    logoLink: { link: '/', target: '_self' },
     nav: [
-      { text: 'Guide', link: '/getting-started' },
+      { text: 'Guide', link: '/' },
       { text: 'API', link: '/api-reference/' },
       { text: 'Demos', link: 'https://quilt-layouts.vercel.app/vanilla.html' },
     ],
@@ -24,8 +26,7 @@ export default defineConfig({
       {
         text: 'Start here',
         items: [
-          { text: 'Introduction', link: '/' },
-          { text: 'Getting started', link: '/getting-started' },
+          { text: 'Getting started', link: '/' },
           { text: 'Vanilla', link: '/quickstart-vanilla' },
           { text: 'React', link: '/quickstart-react' },
           { text: 'Core concepts', link: '/concepts' },
