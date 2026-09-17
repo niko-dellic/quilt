@@ -41,11 +41,11 @@
     10px ui-monospace,
     monospace;
   letter-spacing: 0;
-  border: 1px solid var(--quilt-site-line);
+  border: 1px solid var(--layouts-line, var(--quilt-site-line));
   border-radius: 4px;
   padding: 2px 5px;
   margin-left: 3px;
-  color: var(--quilt-site-muted);
+  color: var(--layouts-muted, var(--quilt-site-muted));
 }
 
 .demo-top .site-docs-nav {
