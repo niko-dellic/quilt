@@ -1,3 +1,5 @@
+@import './site-brand.css';
+
 :root {
   --layouts-bg: #fafafa;
   --layouts-panel: #ffffff;
@@ -63,37 +65,6 @@ textarea:focus-visible {
   gap: 40px;
   border-bottom: 1px solid var(--layouts-line);
   padding: 0 36px;
-}
-.brand {
-  font-size: 24px;
-  font-weight: 620;
-  letter-spacing: -1px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.brand-wordmark {
-  line-height: 1;
-  /* Optically center the lowercase lettering against the square icon. */
-  transform: translateY(-1px);
-}
-.brand-icon {
-  display: block;
-  width: 29px;
-  height: 29px;
-  flex-shrink: 0;
-  object-fit: contain;
-}
-.version {
-  font:
-    10px ui-monospace,
-    monospace;
-  letter-spacing: 0;
-  border: 1px solid var(--layouts-line);
-  border-radius: 4px;
-  padding: 2px 5px;
-  margin-left: 3px;
-  color: var(--layouts-muted);
 }
 .demo-top nav {
   display: flex;

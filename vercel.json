@@ -14,6 +14,11 @@
       "source": "/themes",
       "destination": "/vanilla",
       "permanent": true
+    },
+    {
+      "source": "/docs/getting-started",
+      "destination": "/docs/",
+      "permanent": true
     }
   ],
   "cleanUrls": true
