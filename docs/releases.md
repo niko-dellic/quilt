@@ -39,9 +39,9 @@ install Electron's development binary explicitly with
 ## Desktop demo releases
 
 Desktop binaries use a separate `desktop-v<version>` GitHub release. The
-[Desktop demo workflow](../.github/workflows/desktop.yml) packages and tests
+[Desktop demo workflow](https://github.com/niko-dellic/quilt/blob/main/.github/workflows/desktop.yml) packages and tests
 macOS arm64/x64, Windows x64, and Ubuntu x64 applications on matching runners.
 Run it on `main` with **publish** enabled to upload the binaries and SHA-256
 checksums. This does not publish npm packages. Existing release tags are not
-overwritten. See [desktop development](../desktop/README.md) for local commands
-and [desktop release notes](desktop-release.md) for installation details.
+overwritten. See [desktop development](https://github.com/niko-dellic/quilt/blob/main/desktop/README.md) for local commands
+and [desktop release notes](https://github.com/niko-dellic/quilt/blob/main/docs/desktop-release.md) for installation details.

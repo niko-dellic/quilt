@@ -64,96 +64,19 @@ Use ESM imports and a bundler with CSS support. Import the adapter stylesheet on
 and give the workspace container an explicit height. TypeScript React applications
 also need matching `@types/react` and `@types/react-dom` packages.
 
-## Vanilla
-
-Provide `<div id="workspace" style="height:600px"></div>` in the page.
+## Quickstart
 
 ```ts
-import { LayoutStore, mountLayout, createLayout, type PaneRenderer } from 'quilt-vanilla';
+import { createLayout, LayoutStore, mountLayout } from 'quilt-vanilla';
 import 'quilt-vanilla/styles.css';
 
-type NotesState = { text: string };
-const data: NotesState = { text: 'Notes' };
-const store = new LayoutStore(
-  createLayout({ pane: { id: 'notes', type: 'notes', title: 'Notes' } }),
-);
-const notes: PaneRenderer<NotesState> = ({ element, document: doc, state }) => {
-  const input = doc.createElement('textarea');
-  input.value = state.text;
-  input.oninput = () => {
-    state.text = input.value;
-  };
-  element.append(input);
-  return {
-    dispose() {
-      input.oninput = null;
-    },
-  };
-};
-const mounted = mountLayout(document.getElementById('workspace')!, {
-  store,
-  getPaneState: () => data,
-  renderers: { notes },
-});
-
-// Call when removing the workspace.
-function disposeWorkspace() {
-  mounted.dispose();
-  store.dispose();
-}
+const store = new LayoutStore(createLayout());
+const workspace = mountLayout(document.getElementById('workspace')!, { store });
+// Give #workspace an explicit height. Dispose both objects when removing it.
 ```
 
-Use the supplied `document` and `window` in renderers so content can mount in a
-companion window. Keep data outside the renderer's lifetime.
-
-## React
-
-Provide `<div id="app"></div>` in the page.
-
-```tsx
-import { createRoot } from 'react-dom/client';
-import { Layout, LayoutStore, createLayout, type PaneProps } from 'quilt-react';
-import 'quilt-react/styles.css';
-
-type NotesState = { text: string };
-const data: NotesState = { text: 'Notes' };
-const store = new LayoutStore(
-  createLayout({ pane: { id: 'notes', type: 'notes', title: 'Notes' } }),
-);
-function Notes({ state }: PaneProps<NotesState>) {
-  return (
-    <textarea
-      defaultValue={state.text}
-      onChange={(e) => {
-        state.text = e.target.value;
-      }}
-    />
-  );
-}
-const root = createRoot(document.getElementById('app')!);
-root.render(
-  <Layout<NotesState>
-    store={store}
-    components={{ notes: Notes }}
-    getPaneState={() => data}
-    style={{ height: 600 }}
-  />,
-);
-
-function disposeWorkspace() {
-  root.unmount();
-  queueMicrotask(() => store.dispose());
-}
-```
-
-Pane components inherit surrounding React providers through portals, including in
-companion windows. Keep the store stable. Changing callback or component-map
-identities does not rebuild the workspace.
-
-Moving a pane between documents remounts its view. React-local state does not
-survive that transition; use application-owned state for data that must persist.
-For live updates shared between views, subscribe to that state in each component.
-See [React integration](docs/integration.md#react-providers-and-updates).
+Follow the [Vanilla quickstart](https://quilt-layouts.vercel.app/docs/quickstart-vanilla)
+or [React quickstart](https://quilt-layouts.vercel.app/docs/quickstart-react) to add application content.
 
 ## Configuration and persistence
 
@@ -190,14 +113,14 @@ See [save/load and storage examples](docs/integration.md#workspace-json).
 
 ## Documentation
 
-- [Configuration and API](docs/api.md)
-- [Themes and tab bars](docs/theming.md)
-- [Registration, React context, persistence, and close confirmation](docs/integration.md)
-- [Pane and window lifecycle](docs/lifecycle.md)
-- [Application examples](examples/README.md)
-- [0.2.1 upgrade checklist](docs/migration.md)
-- [Local packages and consumer integration](docs/packaging.md)
-- [Changelog](CHANGELOG.md)
+- [Getting started](https://quilt-layouts.vercel.app/docs/getting-started)
+- [API reference](https://quilt-layouts.vercel.app/docs/api-reference/)
+- [Themes and tab bars](https://quilt-layouts.vercel.app/docs/theming)
+- [Registration, React context, persistence, and confirmation](https://quilt-layouts.vercel.app/docs/integration)
+- [Examples](https://quilt-layouts.vercel.app/docs/examples)
+- [Troubleshooting](https://quilt-layouts.vercel.app/docs/troubleshooting)
+- [Migration](https://quilt-layouts.vercel.app/docs/migration)
+- [Changelog](https://github.com/niko-dellic/quilt/blob/main/CHANGELOG.md)
 
 <!-- shared-docs:end -->
 

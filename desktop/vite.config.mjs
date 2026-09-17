@@ -10,6 +10,7 @@ export default defineConfig({
       transformIndexHtml: (html) =>
         html
           .replaceAll('__QUILT_VERSION__', version)
+          .replaceAll('href="/docs/"', 'href="https://quilt-layouts.vercel.app/docs/"')
           .replaceAll('href="/"', 'href="./vanilla.html"')
           .replaceAll('href="/vanilla.html"', 'href="./vanilla.html"')
           .replaceAll('href="/react.html"', 'href="./react.html"')

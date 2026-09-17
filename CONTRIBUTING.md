@@ -18,3 +18,12 @@ Edit the `shared-overview` and `shared-docs` sections in the root README, then r
 `npm run docs:sync`. Package installation and usage sections stay package-specific.
 Generated sections use absolute image and documentation URLs for npm.
 `npm run docs:check` (included in `npm run check`) rejects stale package READMEs.
+
+## Documentation
+
+Run `npm run build` before `npm run docs:build`. Edit user guides in `docs/` and
+public API comments alongside their exports. Start the guide server with
+`npm run docs:dev`; regenerate API pages with `npm run docs:api` when signatures
+change. `npm run docs:test` checks the built site's internal links and anchors and
+type-checks the complete Vanilla and React quickstarts. Keep release/deployment
+instructions in the contributor docs. Run `npm run docs:sync` after shared README edits.

@@ -71,13 +71,13 @@ See [API documentation](https://github.com/niko-dellic/quilt/blob/main/docs/api.
 
 ## Documentation
 
-- [Configuration and API](https://github.com/niko-dellic/quilt/blob/main/docs/api.md)
-- [Themes and tab bars](https://github.com/niko-dellic/quilt/blob/main/docs/theming.md)
-- [Registration, React context, persistence, and close confirmation](https://github.com/niko-dellic/quilt/blob/main/docs/integration.md)
-- [Pane and window lifecycle](https://github.com/niko-dellic/quilt/blob/main/docs/lifecycle.md)
-- [Application examples](https://github.com/niko-dellic/quilt/blob/main/examples/README.md)
-- [0.2.1 upgrade checklist](https://github.com/niko-dellic/quilt/blob/main/docs/migration.md)
-- [Local packages and consumer integration](https://github.com/niko-dellic/quilt/blob/main/docs/packaging.md)
+- [Getting started](https://quilt-layouts.vercel.app/docs/getting-started)
+- [API reference](https://quilt-layouts.vercel.app/docs/api-reference/)
+- [Themes and tab bars](https://quilt-layouts.vercel.app/docs/theming)
+- [Registration, React context, persistence, and confirmation](https://quilt-layouts.vercel.app/docs/integration)
+- [Examples](https://quilt-layouts.vercel.app/docs/examples)
+- [Troubleshooting](https://quilt-layouts.vercel.app/docs/troubleshooting)
+- [Migration](https://quilt-layouts.vercel.app/docs/migration)
 - [Changelog](https://github.com/niko-dellic/quilt/blob/main/CHANGELOG.md)
 
 <!-- shared-docs:end -->

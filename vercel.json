@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "npm ci",
-  "buildCommand": "npm run build && npm run build:demos",
+  "buildCommand": "npm run build && npm run build:site",
   "outputDirectory": "dist",
   "redirects": [
     {
@@ -10,5 +10,6 @@
       "destination": "/vanilla.html",
       "permanent": true
     }
-  ]
+  ],
+  "cleanUrls": true
 }

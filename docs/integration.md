@@ -271,5 +271,5 @@ and send data changes through your application's subscriptions. Removing
 `prepareWindow` affects future companions; it cannot undo application resources
 already installed in a document. The store itself is not an updateable option.
 
-See the [runnable starters](../examples/README.md) and
+See the [runnable starters](https://github.com/niko-dellic/quilt/blob/main/examples/README.md) and
 [host compatibility table](compatibility.md).
