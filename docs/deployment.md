@@ -38,3 +38,8 @@ Public API source links point at the matching release tag.
 The docs-only TypeScript configuration resolves package re-exports to their public
 source entry points so generated references can link to tracked source. Application,
 package, demo, and quickstart builds still resolve public compiled package imports.
+
+VitePress is pinned to `2.0.0-alpha.20`: its Vite 8 toolchain avoids the known
+development-server advisories in VitePress 1.6.4's dependency chain. This prerelease
+is build tooling only; validate the docs build, search, navigation, and link checks
+when upgrading it. It is not a dependency of the published Quilt packages.
