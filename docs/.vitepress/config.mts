@@ -16,7 +16,7 @@ export default defineConfig({
   themeConfig: {
     outline: [2, 3],
     siteTitle: `<span class="brand-wordmark">quilt</span> <span class="version">${version}</span>`,
-    logoLink: '/',
+    logoLink: { link: '/', target: '_self' },
     nav: [
       { text: 'Guide', link: '/' },
       { text: 'API', link: '/api-reference/' },
