@@ -733,9 +733,21 @@ function mountLayoutInternal(
       render();
     }),
   );
-  const observer = new ResizeObserver(measure);
+  // Geometry can change the stage's scrollbar gutter. Defer those writes out
+  // of ResizeObserver delivery so WebKit does not detect a nested resize loop.
+  let measureFrame = 0;
+  const observer = new ResizeObserver(() => {
+    if (!measureFrame && !disposed)
+      measureFrame = doc.defaultView!.requestAnimationFrame(() => {
+        measureFrame = 0;
+        if (!disposed) measure();
+      });
+  });
   observer.observe(stage);
-  scope.add(() => observer.disconnect());
+  scope.add(() => {
+    observer.disconnect();
+    if (measureFrame) doc.defaultView!.cancelAnimationFrame(measureFrame);
+  });
   scope.listen(doc, 'dragend', () => {
     dragId = undefined;
     for (const r of regions.values()) delete r.element.dataset.drop;

@@ -48,12 +48,19 @@ function Imperative(props: PaneProps) {
     if (!host.current) return;
     const element = host.current;
     const view = imperativeView({ ...props, element }) ?? { dispose() {} };
-    const observer = new ResizeObserver(() =>
-      view.resize?.(element.clientWidth, element.clientHeight),
-    );
+    let frame = 0;
+    const win = props.window;
+    const observer = new ResizeObserver(() => {
+      if (!frame)
+        frame = win.requestAnimationFrame(() => {
+          frame = 0;
+          view.resize?.(element.clientWidth, element.clientHeight);
+        });
+    });
     observer.observe(element);
     return () => {
       observer.disconnect();
+      if (frame) win.cancelAnimationFrame(frame);
       view.dispose();
     };
   }, [props.pane.id, props.document]);
