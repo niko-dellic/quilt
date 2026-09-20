@@ -1,14 +1,35 @@
-export { mountLayout } from './renderer.js';
-export type * from './types.js';
+export { Workspace } from './workspace-api.js';
+export type {
+  WorkspaceHandle,
+  WorkspaceOptions,
+  WorkspaceOptionUpdates,
+  WorkspaceEvents,
+  WorkspaceChange,
+  PaneHandle,
+  PaneType,
+  PaneTypes,
+  AddPaneOptions,
+  CloseOptions,
+} from './workspace-api.js';
+export type {
+  PaneContext,
+  PaneView,
+  PaneRenderer,
+  TabBarStyle,
+  TabBarOptions,
+  InitialConfiguration,
+  WorkspaceSettings,
+  KeyBinding,
+  CloseRequest,
+} from './types.js';
 
 export { TabRegistry } from './registry.js';
 export type { TabRegistration } from './registry.js';
 export { themes, themeFamilies } from './theme.js';
 export type { LayoutTheme } from './theme.js';
-export { LayoutStore, LayoutError, createLayout, parseLayout, validate } from 'quilt-core';
+export { LayoutError, createLayout, parseLayout, validate } from 'quilt-core';
 export type {
   AutoCollapse,
-  LayoutStoreOptions,
   Json,
   Capability,
   Axis,

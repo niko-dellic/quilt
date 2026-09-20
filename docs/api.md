@@ -3,6 +3,49 @@
 This guide explains behavior and constraints. The [generated API reference](api-reference/index.md)
 lists the current public signatures for Core, Vanilla, and React.
 
+## Workspace API
+
+Start with `new Workspace({ container, paneTypes })` in vanilla or `<Workspace paneTypes={...} />`
+in React. The library creates and owns the model. A container needs an explicit usable height.
+See the [vanilla quickstart](quickstart-vanilla.md) and [React quickstart](quickstart-react.md).
+
+| Operation                                              | Behavior                                                                                      |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `addPane(type, options?)`                              | Create from registered metadata; returns a pane handle, or `undefined` if its factory cancels |
+| `getPane(id)` / `getPanes()`                           | Retrieve handles for existing panes, including restored panes                                 |
+| `getLayout()` / `exportLayout()`                       | Stable immutable snapshot / mutable JSON copy                                                 |
+| `loadLayout(input)`                                    | Validate and replace arrangement, docking detached records                                    |
+| `exportWorkspace()` / `loadWorkspace(input)`           | Save/restore arrangement and appearance as parsed JSON objects                                |
+| `reset()`                                              | Restore the initial workspace configuration                                                   |
+| `on('change', listener)`                               | Subscribe to layout, theme, tab-bar, and auto-collapse changes; returns unsubscribe           |
+| `on('error', listener)`                                | Subscribe to renderer/model errors; returns unsubscribe                                       |
+| `closePane(id, options?)` / `closeGroup(id, options?)` | Asynchronous confirmation and permission checks; explicit `force: true` bypasses both         |
+| `dispose()`                                            | Release views, windows, listeners, dialogs, and the internal model                            |
+
+The remaining direct commands cover `activatePane`, `movePane`, `updatePane`, `splitGroup`,
+`joinGroup`, `joinGroups`, `removeEmptyGroup`, `resize`, `resizeMany`, `maximize`,
+`setTabDisplay`, `setTabPlacement`, `canRestoreClosedPane`, and `restoreClosedPane`.
+`insertPane(record, groupId)` is an advanced alternative for fully specified pane records.
+These explicit application commands retain core command validation and authority;
+only close commands add confirmation by default. Browser popouts always respect availability and permissions.
+
+`paneTypes` maps type names to `{ title, render, ...metadata }`. In React, `render` is a
+component. Optional `create` factories return partial pane metadata or `undefined` to cancel.
+`addPane` overrides factory metadata with explicitly supplied options, generates an ID if
+omitted, and uses the last active docked group or the first group. Explicit `groupId` and
+constraint failures never silently fall back to another group.
+
+A pane handle has `id`, `isDisposed`, `getSnapshot()`, `update(patch)`, `setTitle(title)`,
+`activate()`, `move(groupId, position?, index?)`, `popout(placement?)`, `return()`, `retry()`,
+and `close(options?)`. It survives view remounts and document transitions. Removal or a
+successful layout/workspace load invalidates it. Reacquire handles after loading or restoring
+closed panes. Stale synchronous operations throw; asynchronous operations reject.
+
+Change events contain `{ action, changes }`, where `changes` lists `layout`, `theme`,
+`tabBar`, and/or `autoCollapse`. A workspace load emits one consolidated event. Failed and
+cancelled changes emit none. Appearance-only events do not change the layout snapshot identity.
+Use `exportWorkspace()` inside a debounced save listener; subscriptions end on disposal.
+
 ## Core layout JSON v1
 
 ```ts
@@ -56,16 +99,16 @@ Sizes refer to the full pane region, including chrome. Defaults are minimum zero
 
 Capability flags default to true. Group-level operations require permission from affected panes: resizing a split checks both subtrees; tabbing and moving check the dragged pane and destination group; splitting checks the destination; joining checks the sibling region. Fixed bars normally disable all capabilities as well as specify size bounds. Host code can still deliberately reposition them.
 
-## Core exports
+## Advanced browser-free core exports
 
 `createLayout(options?: { pane?: Pane; groupId?: string }): Layout` creates validated,
 cloned JSON v1. With no pane it creates an empty group; otherwise it activates the supplied
 pane. The group defaults to `main`; supplied IDs are preserved. Invalid inputs throw
 `LayoutError`. Results have no popouts or maximized region and share no mutable data with inputs.
 
-Both adapter entry points re-export `LayoutStore`, `LayoutError`, `createLayout`,
+Both adapter entry points re-export `LayoutError`, `createLayout`,
 `parseLayout`, `validate`, and core types. The model type is named `LayoutSnapshot`
-in adapters to distinguish it from React's `Layout` component. React also exports
+in adapters to distinguish it from React's `Workspace` component. React also exports
 `TabRegistry`, `themes`, `themeFamilies`, and public DOM options/view/handle types.
 See [migration notes](migration.md) for removed pre-release APIs.
 
@@ -116,9 +159,9 @@ Options accept `{source: 'user' | 'api'}`; default is `api`. Flags only restrict
 
 ## DOM exports
 
-`mountLayout(host, options)` appends its own scoped root; it does not clear unrelated host content. Options:
+`new Workspace({ container, ...options })` appends its own scoped root; it does not clear unrelated host content. Options:
 
-- `store`: externally owned `LayoutStore`.
+- `initialLayout` or `initialWorkspace`: optional, mutually exclusive initial configuration. Omit both for an empty workspace. A preset supplies its saved theme, tab bar, and auto-collapse setting, taking precedence over initial appearance options. Quilt owns the store; external `store` input is rejected.
 - `renderers`: pane-type-to-renderer registry.
 - `getPaneState(id)`: optional application-owned reference for each view mount.
 - `tabs`: `TabRegistry` of available content. Factories return pane metadata, or undefined to cancel. Omitted instance IDs are generated.
@@ -133,32 +176,31 @@ Options accept `{source: 'user' | 'api'}`; default is `api`. Flags only restrict
 - `prepareWindow(window, pane)`: copy additional application styles/assets into a companion document.
 - `openWindow(pane, placement)`: optional synchronous, same-origin window factory; null means blocked. The library owns this returned window and replaces its body, so do not return an existing unrelated application window.
 
-The returned `MountedLayout` handle provides:
+The workspace additionally provides:
 
-| Method                                      | Purpose                                                                                  |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `updateOptions(partial)`                    | Update options in place; omitted keys remain unchanged, explicit `undefined` resets them |
-| `setTheme(theme)`                           | Replace theme overrides; `{}` clears them                                                |
-| `setTabBar(options)`                        | Replace tab-bar settings; `{}` restores defaults                                         |
-| `refreshTheme()`                            | Recompute CSS geometry and synchronize companions                                        |
-| `exportWorkspace()`                         | Export layout and appearance with a docked layout copy                                   |
-| `loadWorkspace(input)`                      | Validate and apply a workspace preset                                                    |
-| `popout(id, placement?): Promise<boolean>`  | Open a companion from a user action; resolve when mounting succeeds or fails             |
-| `returnPane(id)`                            | Dock a live companion pane                                                               |
-| `retryPane(id)`                             | Retry a failed view                                                                      |
-| `requestClose(id, kind?): Promise<boolean>` | Request pane or group closure, including confirmation when configured                    |
-| `dispose()`                                 | Release views, listeners, dialogs, and companions                                        |
+| Method                                     | Purpose                                                                                  |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `updateOptions(partial)`                   | Update options in place; omitted keys remain unchanged, explicit `undefined` resets them |
+| `setTheme(theme)`                          | Replace theme overrides; `{}` clears them                                                |
+| `setTabBar(options)`                       | Replace tab-bar settings; `{}` restores defaults                                         |
+| `refreshTheme()`                           | Recompute CSS geometry and synchronize companions                                        |
+| `exportWorkspace()`                        | Export layout and appearance with a docked layout copy                                   |
+| `loadWorkspace(input)`                     | Validate and apply a workspace preset                                                    |
+| `popout(id, placement?): Promise<boolean>` | Open a companion from a user action; resolve when mounting succeeds or fails             |
+| `returnPane(id)`                           | Dock a live companion pane                                                               |
+| `retryPane(id)`                            | Retry a failed view                                                                      |
+| `closePane(id) / closeGroup(id)`           | Request pane or group closure, including confirmation when configured                    |
+| `dispose()`                                | Release views, listeners, dialogs, companions, and the owned store                       |
 
-Dispose the mounted view before disposing the externally owned store.
-`requestClose` defaults to `kind: 'pane'`; use `'group'` with a group ID for a group close.
+Call `workspace.dispose()` once to release its resources. There is no public store property.
 
 ## React exports
 
-`Layout` accepts the same options, replacing `renderers` with `components: Record<string, ComponentType<PaneProps>>`, plus `className` and `style`. Its ref exposes the mounted handle. Mounting is deferred one microtask beyond React's commit; popout/requestClose resolve false before mounting completes; configuration methods throw a not-mounted error.
+`Workspace` accepts the same options except `container` (it creates its own host), replacing `renderers` with `components: Record<string, ComponentType<PaneProps>>`, plus `className` and `style`. Its ref exposes the mounted handle. Use `onReady(handle)` for initialization. Before readiness, synchronous methods throw `Workspace is not ready`; asynchronous methods reject with the same error. React owns disposal on unmount. Initial configuration changes do not reset the session.
 
-`reactRenderer(Component)` adapts a React component for mixed vanilla/React consumers. `useLayoutSnapshot(store)` subscribes with React's external-store API. React 18.3 and 19 are peer-compatible; packed-consumer tests compile and exercise both React versions.
+`reactRenderer(Component)` adapts a React component for mixed vanilla/React consumers. `useLayoutSnapshot(workspace)` subscribes with React's external-store API. React 18.3 and 19 are peer-compatible; packed-consumer tests compile and exercise both React versions.
 
-`PaneProps<State>` includes `document`, `window`, `pane`, `state`, `reportError`, and `location`; the vanilla `PaneContext<State>` also receives `element`. State defaults to `unknown`. See [typed state and option resets](integration.md#typescript-state-and-option-resets).
+`PaneProps<State>` includes `document`, `window`, `pane`, `state`, `reportError`, `signal`, `onCleanup`, and `location`; the vanilla `PaneContext<State>` also receives `element`. State defaults to `unknown`. See [typed state and option resets](integration.md#typescript-state-and-option-resets).
 
 ## Theme variables
 
@@ -167,7 +209,7 @@ Override `.layouts` variables in your application stylesheet: `--layouts-bg`, `-
 ## Tab icons and shortcuts
 
 `Pane.icon?: string` is an optional, serializable application key. Supply
-`renderIcon(key, document)` to the vanilla mount options or React `<Layout>`.
+`renderIcon(key, document)` to the vanilla mount options or React `<Workspace>`.
 Return a fresh decorative DOM element, or `undefined` for an unknown key.
 The library falls back to the first character of the title, keeps the full title
 as the accessible name and tooltip, and never interprets icon keys as markup.
@@ -183,8 +225,9 @@ Closing respects `capabilities.close`; locked tabs have no close button.
 Convenience shortcuts are disabled by default:
 
 ```ts
-mountLayout(host, {
-  store,
+new Workspace({
+  container: host,
+  initialLayout,
   renderers,
   shortcuts: true, // enable all conveniences
 });
@@ -211,7 +254,7 @@ what is already open. Registering a type does not mount it. Removing a
 registration prevents new instances without closing existing panes.
 
 ```ts
-import { TabRegistry, mountLayout } from 'quilt-vanilla';
+import { TabRegistry, Workspace } from 'quilt-vanilla';
 const tabs = new TabRegistry();
 const unregister = tabs.register({
   id: 'canvas',
@@ -226,7 +269,7 @@ const unregister = tabs.register({
     icon: 'canvas',
   }),
 });
-const workspace = mountLayout(host, { store, renderers, tabs });
+const workspace = new Workspace({ container: host, initialLayout, renderers, tabs });
 // unregister(); // also updates a currently open picker
 ```
 
@@ -246,7 +289,7 @@ Click its empty surface to reopen search, or close the region explicitly. Add ta
 region containing the selected type. Canvas is an ordinary pane renderer and can
 be added, tabbed, dragged, closed, maximized, and popped out under the same rules.
 
-Pass `tabs` to React `<Layout>` too. Keep the registry object stable and register
+Pass `tabs` to React `<Workspace>` too. Keep the registry object stable and register
 or unregister entries as features mount or unmount. Content creation uses registered choices; the legacy `createPane` callback has been removed. Empty regions can still split into empty regions without a registry. Existing movement/split capability checks still
 apply. See [Theming](theming.md) for the separate theme API.
 

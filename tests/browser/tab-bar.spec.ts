@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
 import type {} from './harness.js';
-
 test.beforeEach(async ({ page }) => {
   await page.goto('/tests/browser/harness.html');
   await expect(page.getByRole('textbox', { name: 'A', exact: true })).toBeVisible();
 });
-
 test('default stays reserved; taper shapes and region overrides update without remounts', async ({
   page,
 }) => {
@@ -65,7 +63,6 @@ test('default stays reserved; taper shapes and region overrides update without r
   await expect(left).toHaveAttribute('data-tab-bar', 'full');
   expect((await left.locator('.layouts-body').boundingBox())!.y).toBe(reserved);
 });
-
 test('resize and title changes switch the cap without moving content; exposed area receives input', async ({
   page,
 }) => {
@@ -86,7 +83,7 @@ test('resize and title changes switch the cap without moving content; exposed ar
   const before = (await left.locator('.layouts-header').boundingBox())!.width;
   await page.evaluate(() =>
     window.harness.store.updatePane({
-      ...window.harness.store.getSnapshot().panes.a!,
+      ...window.harness.store.getLayout().panes.a!,
       title: 'A much longer tab title',
     }),
   );
@@ -96,7 +93,6 @@ test('resize and title changes switch the cap without moving content; exposed ar
   await page.evaluate(() => window.harness.setTheme({ headerHeight: '48px' }));
   await expect(left.locator('.layouts-tab-cap')).toHaveCSS('width', '48px');
 });
-
 test('rejects invalid options atomically and clears header metrics for hidden headers', async ({
   page,
 }) => {
@@ -116,7 +112,7 @@ test('rejects invalid options atomically and clears header metrics for hidden he
   await expect(left).toHaveAttribute('data-tab-bar', 'tapered');
   await page.evaluate(() =>
     window.harness.store.updatePane({
-      ...window.harness.store.getSnapshot().panes.a!,
+      ...window.harness.store.getLayout().panes.a!,
       header: false,
     }),
   );
@@ -124,14 +120,16 @@ test('rejects invalid options atomically and clears header metrics for hidden he
   await expect(left).toHaveCSS('--layouts-tab-bar-height', '0px');
   await expect(left).toHaveCSS('--layouts-tab-bar-width', '0px');
 });
-
 test('crowded tabs keep the menu and keyboard navigation; disposing removes measured chrome', async ({
   page,
 }) => {
   await page.evaluate(() => {
     window.harness.setTabBar({ mode: 'tapered' });
     for (let i = 0; i < 20; i++)
-      window.harness.store.add({ id: `extra-${i}`, type: 'test', title: `Extra tab ${i}` }, 'left');
+      window.harness.store.insertPane(
+        { id: `extra-${i}`, type: 'test', title: `Extra tab ${i}` },
+        'left',
+      );
   });
   const left = page.locator('[data-node-id="left"]');
   await expect(left).toHaveAttribute('data-tab-bar-filled', 'true');
@@ -143,14 +141,13 @@ test('crowded tabs keep the menu and keyboard navigation; disposing removes meas
     'true',
   );
   await page.evaluate(() => {
-    for (let i = 0; i < 20; i++) window.harness.store.close(`extra-${i}`);
+    for (let i = 0; i < 20; i++) window.harness.store.closePane(`extra-${i}`, { force: true });
   });
   await expect(left).toHaveAttribute('data-tab-bar-filled', 'false');
   await page.evaluate(() => window.harness.dispose());
   await expect(page.locator('.layouts-tab-measure,.layouts-tab-cap,.layouts')).toHaveCount(0);
   expect(await page.evaluate(() => window.harness.stats.live)).toBe(0);
 });
-
 test('React prop updates retain local pane state', async ({ page }) => {
   await page.goto('/tests/browser/react-tab-bar.html');
   const input = page.getByRole('textbox', { name: 'Retained state' });
@@ -165,13 +162,12 @@ test('React prop updates retain local pane state', async ({ page }) => {
   await page.locator('output').click();
   await expect(page.locator('output')).toHaveText('1');
 });
-
 test('empty groups retain fitted close and settings chrome', async ({ page }) => {
   await page.evaluate(() => {
-    const snapshot = window.harness.store.export();
+    const snapshot = window.harness.store.exportLayout();
     snapshot.root = { kind: 'group', id: 'empty', panes: [], active: null };
     snapshot.panes = {};
-    window.harness.store.load(snapshot);
+    window.harness.store.loadLayout(snapshot);
     window.harness.setTabBar({ mode: 'tapered' });
   });
   const group = page.locator('[data-node-id="empty"]');
@@ -183,7 +179,6 @@ test('empty groups retain fitted close and settings chrome', async ({ page }) =>
   const close = (await group.getByRole('button', { name: 'Close empty pane' }).boundingBox())!;
   expect(close.x + close.width).toBeLessThanOrEqual(header.x + header.width);
 });
-
 test('vertical edge fits controls without reserving cap space and keeps overlay on overflow', async ({
   page,
 }) => {
@@ -204,7 +199,6 @@ test('vertical edge fits controls without reserving cap space and keeps overlay 
   await expect(left).toHaveAttribute('data-tab-bar-filled', 'false');
   await expect(left.locator('.layouts-tab-cap')).toHaveCount(0);
 });
-
 test('fitted bars have one closed outline covering all edges without intercepting controls', async ({
   page,
 }) => {
@@ -236,16 +230,15 @@ test('fitted bars have one closed outline covering all edges without interceptin
   await page.evaluate(() => window.harness.setTabBar({ mode: 'full' }));
   await expect(left.locator('.layouts-tab-outline')).toHaveCount(0);
 });
-
 test('fractional widths stay contained and settle across close-button breakpoints', async ({
   page,
 }) => {
   await page.evaluate(() => {
     window.harness.store.updatePane({
-      ...window.harness.store.getSnapshot().panes.b!,
+      ...window.harness.store.getLayout().panes.b!,
       title: 'Inspector',
     });
-    window.harness.store.add({ id: 'activity', type: 'test', title: 'Activity' }, 'right');
+    window.harness.store.insertPane({ id: 'activity', type: 'test', title: 'Activity' }, 'right');
   });
   for (const shape of ['angle', 'round', 'scoop', 'vertical'] as const) {
     await page.evaluate((shape) => window.harness.setTabBar({ mode: 'tapered', shape }), shape);
@@ -254,7 +247,11 @@ test('fractional widths stay contained and settle across close-button breakpoint
         const region = document.querySelector<HTMLElement>('[data-node-id="right"]')!;
         const parent = region.parentElement!;
         window.harness.store.resize('split', 1 - width / (parent.clientWidth - 6));
-        const frames: { width: number; occupied: number; filled: string | undefined }[] = [];
+        const frames: {
+          width: number;
+          occupied: number;
+          filled: string | undefined;
+        }[] = [];
         for (let i = 0; i < 8; i++) {
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           const outline = region.querySelector<SVGElement>('.layouts-tab-outline')!;
@@ -272,7 +269,6 @@ test('fractional widths stay contained and settle across close-button breakpoint
     }
   }
 });
-
 test('fitted bars collapse before their end reaches the pane edge', async ({ page }) => {
   const left = page.locator('[data-node-id="left"]');
   for (const shape of ['angle', 'round', 'scoop', 'vertical'] as const) {
@@ -299,12 +295,11 @@ test('fitted bars collapse before their end reaches the pane edge', async ({ pag
     expect((await left.locator('.layouts-body').boundingBox())!.y).toBe(bodyY);
   }
 });
-
 test('left icon rail reserves space, labels icons, navigates vertically and restores top tabs', async ({
   page,
 }) => {
   await page.evaluate(() => {
-    window.harness.store.move('b', 'left');
+    window.harness.store.movePane('b', 'left');
     window.harness.setTabBar({ placement: 'left', display: 'compact' });
   });
   const group = page.locator('[data-node-id="left"]');
@@ -340,11 +335,10 @@ test('left icon rail reserves space, labels icons, navigates vertically and rest
     disposals: 0,
   });
 });
-
 test('left fitted shapes keep content fixed and collapse with bottom clearance', async ({
   page,
 }) => {
-  await page.evaluate(() => window.harness.store.move('b', 'left'));
+  await page.evaluate(() => window.harness.store.movePane('b', 'left'));
   const group = page.locator('[data-node-id="left"]');
   for (const shape of ['angle', 'round', 'scoop', 'vertical'] as const) {
     await group.evaluate((el) => {
@@ -373,7 +367,6 @@ test('left fitted shapes keep content fixed and collapse with bottom clearance',
     expect(after.y).toBe(body.y);
   }
 });
-
 test('tooltips follow actual label visibility in both orientations', async ({ page }) => {
   const tab = page.locator('[data-node-id="left"]').getByRole('tab', { name: 'A', exact: true });
   const label = tab.locator('.layouts-tab-label');

@@ -3,9 +3,13 @@ import type { WorkspacePreset } from './workspace.js';
 import type { Messages } from './messages.js';
 import type { TabRegistry } from './registry.js';
 import type { LayoutTheme } from './theme.js';
-import type { LayoutStore, Pane, WindowPlacement } from 'quilt-core';
+import type { LayoutStore, Layout, Pane, WindowPlacement } from 'quilt-core';
 export interface PaneContext<State = unknown> {
   element: HTMLElement;
+  /** Aborted when this view is torn down, including a failed mount. */
+  signal: AbortSignal;
+  /** Register view-owned cleanup; callbacks run once in reverse order. */
+  onCleanup(callback: () => void): void;
   reportError(error: unknown): void;
   document: Document;
   window: Window;
@@ -21,7 +25,7 @@ export interface PaneView {
   resize?(width: number, height: number): void;
   update?(pane: Pane): void;
 }
-export type PaneRenderer<State = unknown> = (context: PaneContext<State>) => PaneView;
+export type PaneRenderer<State = unknown> = (context: PaneContext<State>) => PaneView | void;
 export interface TabBarStyle {
   /** Left placement uses an icon-only rail; mode and shape apply in either placement. */
   placement?: 'top' | 'left';
@@ -40,13 +44,10 @@ export interface TabBarOptions extends TabBarStyle {
   /** Partial overrides keyed by stable group ID; not serialized in Layout JSON. */
   regions?: Record<string, TabBarStyle>;
 }
-export interface ResolvedLayoutOptions<State = unknown> {
+/** Live appearance, interactions, and application integration callbacks. */
+export interface WorkspaceSettings<State = unknown> {
   tabBar?: TabBarOptions;
-  store: LayoutStore;
-  tabs?: TabRegistry;
   theme?: LayoutTheme;
-  renderers?: Record<string, PaneRenderer<State>>;
-  registry?: PaneRegistry<PaneRenderer<State>>;
   messages?: Messages;
   popouts?: boolean;
   confirmClose?: (request: CloseRequest) => boolean | Promise<boolean>;
@@ -68,12 +69,25 @@ export interface ResolvedLayoutOptions<State = unknown> {
   /** Override window creation for applications with a managed same-origin host. Must return synchronously. */
   openWindow?: (pane: Pane, placement: WindowPlacement) => Window | null;
 }
+/** Internal renderer configuration; mounted workspaces create this model themselves. */
+export interface ResolvedLayoutOptions<State = unknown> extends WorkspaceSettings<State> {
+  store: LayoutStore;
+  tabs?: TabRegistry;
+  renderers?: Record<string, PaneRenderer<State>>;
+  registry?: PaneRegistry<PaneRenderer<State>>;
+}
+/** Initial configuration is consumed once. Use workspace commands for later changes. */
+export type InitialConfiguration =
+  | { initialLayout?: Layout; initialWorkspace?: never }
+  | { initialLayout?: never; initialWorkspace: WorkspacePreset };
+/** Commands and subscriptions for a workspace-owned store. */
+export type WorkspaceStore = Omit<LayoutStore, 'dispose'>;
 /** Choose a unified registry OR the low-level renderer and creation maps. */
 export type LayoutOptions<State = unknown> = Omit<
   ResolvedLayoutOptions<State>,
-  'registry' | 'renderers' | 'tabs' | 'getPaneState'
+  'store' | 'registry' | 'renderers' | 'tabs' | 'getPaneState'
 > &
-  (unknown extends State
+  InitialConfiguration & { store?: never } & (unknown extends State
     ? { getPaneState?: (paneId: string) => State }
     : { getPaneState: (paneId: string) => State }) &
   (
@@ -99,6 +113,7 @@ export interface CloseRequest {
   signal: AbortSignal;
 }
 export interface MountedLayout<State = unknown> {
+  readonly store: WorkspaceStore;
   updateOptions(options: LayoutOptionUpdates<State>): void;
   exportWorkspace(): WorkspacePreset;
   loadWorkspace(input: unknown): void;

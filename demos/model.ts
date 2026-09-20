@@ -1,5 +1,5 @@
 import { TabRegistry } from 'quilt-vanilla';
-import { LayoutStore } from 'quilt-core';
+import type { WorkspaceHandle } from 'quilt-vanilla';
 import type { Layout, Node as LayoutNode, Pane } from 'quilt-core';
 export const initial: Layout = {
   version: 1,
@@ -156,7 +156,10 @@ export const initial: Layout = {
     ],
   },
 };
-export const store = new LayoutStore(initial);
+export let workspace: WorkspaceHandle;
+export function bindWorkspace(value: WorkspaceHandle) {
+  workspace = value;
+}
 // Presets share pane IDs and application data; each keeps its session layout edits.
 function workspaceLayout(content: LayoutNode): Layout {
   const layout = structuredClone(initial);
@@ -255,13 +258,13 @@ export const workspaceSession = {
   select(id: WorkspaceId) {
     if (id === activeWorkspace) return;
     const preset = workspaces.find((workspace) => workspace.id === id)!;
-    workspaceLayouts.set(activeWorkspace, store.export());
-    store.load(workspaceLayouts.get(id) ?? preset.layout);
+    workspaceLayouts.set(activeWorkspace, workspace.exportLayout());
+    workspace.loadLayout(workspaceLayouts.get(id) ?? preset.layout);
     activeWorkspace = id;
     workspaceListeners.forEach((listener) => listener());
   },
   reset() {
-    store.load(workspaces.find((workspace) => workspace.id === activeWorkspace)!.layout);
+    workspace.loadLayout(workspaces.find((workspace) => workspace.id === activeWorkspace)!.layout);
   },
 };
 export interface DemoData {
@@ -326,7 +329,6 @@ export const tabs = new TabRegistry([
     }),
   })),
 ]);
-
 export interface Camera {
   azimuth: number;
   elevation: number;

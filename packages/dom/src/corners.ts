@@ -12,6 +12,7 @@ export function bindCorners(
   scope: Scope,
   split: (pane: Pane | undefined, group: Group, direction: Direction, ratio: number) => void,
   report: (error: unknown) => void,
+  measureBounds: typeof bounds = bounds,
 ) {
   const doc = host.ownerDocument;
   let drag: Scope | undefined;
@@ -116,7 +117,7 @@ export function bindCorners(
           const layout = options.store.getSnapshot();
           const current = findNode(layout.root, id);
           if (!current) return;
-          const constraints = bounds(current, layout);
+          const constraints = measureBounds(current, layout);
           const min = horizontal ? constraints.minWidth : constraints.minHeight;
           const max = horizontal ? constraints.maxWidth : constraints.maxHeight;
           const total = horizontal ? rect.width : rect.height;

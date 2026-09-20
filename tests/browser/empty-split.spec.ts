@@ -1,12 +1,11 @@
 import { expect, test } from '@playwright/test';
-
 for (const registry of [true, false]) {
   test(`empty layouts support repeated corner splits (${registry ? 'with' : 'without'} registry)`, async ({
     page,
   }) => {
     await page.goto(`/tests/browser/harness.html${registry ? '' : '?no-registry'}`);
     await page.evaluate(() =>
-      window.harness.store.load({
+      window.harness.store.loadLayout({
         version: 1,
         root: { kind: 'group', id: 'empty', panes: [], active: null },
         panes: {},
@@ -45,9 +44,11 @@ for (const registry of [true, false]) {
       await page.locator('#host').click({ position: { x: 1, y: 1 } });
       await expect(page.getByRole('dialog')).toHaveCount(0);
     }
-    await page.evaluate(() => window.harness.store.load(window.harness.store.export()));
+    await page.evaluate(() => window.harness.store.loadLayout(window.harness.store.exportLayout()));
     await expect(page.locator('.layouts-group')).toHaveCount(3);
-    expect(await page.evaluate(() => Object.keys(window.harness.store.export().panes))).toEqual([]);
+    expect(
+      await page.evaluate(() => Object.keys(window.harness.store.exportLayout().panes)),
+    ).toEqual([]);
     expect(await page.evaluate(() => window.harness.stats.errors)).toEqual([]);
   });
 }

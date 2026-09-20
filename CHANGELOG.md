@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0
+
+- Breaking: vanilla uses `new Workspace({ container, ...options })`; React uses `<Workspace>`, `WorkspaceProps`, and `WorkspaceHandle`. Previous mounted entry points are removed. Standalone `LayoutStore` is available only from `quilt-core`.
+- Plain `paneTypes` maps and `addPane()` return pane handles with stable identity and explicit invalidation on removal or workspace replacement.
+- Workspace `on('change')` covers arrangement and appearance; complete workspace loads emit one consolidated event.
+- Programmatic pane/group closes honor confirmation and permissions by default, with explicit `{ force: true }` for application authority.
+
+- Breaking: mounted vanilla and React workspaces own their store. Use `initialLayout` or `initialWorkspace`, then call workspace methods directly; no store is exposed.
+- One vanilla disposal call and automatic React unmount cleanup replace separate store cleanup.
+- Pane contexts expose an abort signal and cleanup registration, including rollback after failed mounts. Simple renderers can return nothing.
+- Cleanup errors no longer prevent pane replacement, retry, or companion teardown.
+- React provides `onReady`; early asynchronous ref calls reject consistently. Initial configuration is mount-only.
+- Updated demos, starters, packed consumers, and lifecycle/migration documentation.
+- Automatically enforce tab chrome minimum sizes in vanilla and React, including vertical/floating bars and theme changes, without modifying saved layouts.
+
 ## 0.2.4
 
 - Move theme JSON export into the Theming pane in both demos and the desktop showcase.

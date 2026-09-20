@@ -21,12 +21,12 @@ From the repository root:
 npm ci
 npm run pack:all
 cd examples/vanilla
-npm install ../../artifacts/packages/quilt-core-0.2.4.tgz ../../artifacts/packages/quilt-vanilla-0.2.4.tgz
+npm install ../../artifacts/packages/quilt-core-0.3.0.tgz ../../artifacts/packages/quilt-vanilla-0.3.0.tgz
 npm run dev
 ```
 
 Use the same procedure in `examples/electron`, then `npm start`. For
-`examples/react`, include `../../artifacts/packages/quilt-react-0.2.4.tgz` in
+`examples/react`, include `../../artifacts/packages/quilt-react-0.3.0.tgz` in
 the install command. These local installs change that copy's dependency paths.
 The repository's `npm run test:examples` performs this in temporary copies,
 builds all three, and exercises the actual packed packages.

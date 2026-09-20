@@ -3,12 +3,38 @@
 Quilt owns arrangement and chrome. Applications own content, data, storage, and
 jobs. No storage backend or framework is required by core.
 
+## Plain pane types and handles
+
+Use a plain map for ordinary registration; no registry object is necessary:
+
+```ts
+const workspace = new Workspace({
+  container: host,
+  paneTypes: { notes: { title: 'Notes', render: renderNotes, confirmClose: true } },
+});
+const notes = workspace.addPane('notes', { id: 'project-notes', title: 'Project notes' });
+notes?.setTitle('Meeting notes');
+// In a user gesture: await notes?.popout();
+// await notes?.close(); honors permissions and optional confirmation.
+```
+
+React accepts the same map with a component as `render`. The map and callbacks may
+change identity without replacing the workspace. Only changed renderer/component types
+remount their affected views. `paneTypes` is mutually exclusive with `registry` and
+separate `renderers`/`components`/`tabs` options. Clear the previous registration option
+explicitly when switching registration forms through `updateOptions`.
+
+`getPane(id)` retrieves handles for saved or UI-created panes. A handle remains valid
+across movement and popouts but is invalidated by removal or successful load/reset.
+Reacquire it after restoring a closed pane or loading JSON. `id` is the stable unique
+identity; `title` is the changeable display label. Pane data remains application-owned.
+
 ## Unified registration
 
 Vanilla can register a pane type and renderer together:
 
 ```ts
-import { PaneRegistry, LayoutStore, createLayout, mountLayout } from 'quilt-vanilla';
+import { PaneRegistry, Workspace } from 'quilt-vanilla';
 import type { PaneRenderer } from 'quilt-vanilla';
 import 'quilt-vanilla/styles.css';
 
@@ -25,8 +51,7 @@ const registry = new PaneRegistry<PaneRenderer>([
     },
   },
 ]);
-const store = new LayoutStore(createLayout());
-const workspace = mountLayout(host, { store, registry });
+const workspace = new Workspace({ container: host, registry });
 ```
 
 Selecting a type creates a pane with a generated ID. An optional `create(context)`
@@ -37,7 +62,7 @@ removes its creation choice and uses the unknown-type placeholder for existing
 instances; their IDs, metadata, and external data remain intact.
 
 For React, use `PaneRegistry<ComponentType<PaneProps>>` and provide components as
-`view`. Pass it to `<Layout registry={registry} store={store} />`. Low-level
+`view`. Pass it to `<Workspace registry={registry} initialLayout={initialLayout} />`. Low-level
 `tabs` plus `renderers`/`components` remain supported, but cannot be combined with
 the unified registry on one mount.
 
@@ -45,13 +70,13 @@ the unified registry on one mount.
 
 ```tsx
 <YourApplicationProvider>
-  <Layout store={store} components={{ notes: Notes }} onError={reportError} />
+  <Workspace initialLayout={initialLayout} components={{ notes: Notes }} onError={reportError} />
 </YourApplicationProvider>
 ```
 
 Pane components inherit the surrounding providers. Inline maps/callbacks do not
-remount them. Changing a component for one type remounts only that type. Keep the
-store stable; replacing it starts another session. Standalone `reactRenderer`
+remount them. Changing a component for one type remounts only that type. Initial configuration is consumed once. To start a new session, unmount and remount
+`Workspace` (or change its React key). Standalone `reactRenderer`
 creates its own root and requires a provider wrapper.
 
 `updateOptions(partial)` updates vanilla renderers, registrations, callbacks,
@@ -88,7 +113,7 @@ types remain in the layout with placeholders until their renderer is registered.
 
 Popouts are temporary. Export docks a copy using compatible return locations,
 without closing live windows. Import never opens windows and has no pending
-reopen state. Raw `store.export()`/`getSnapshot()` remain available for the live
+reopen state. Raw `workspace.exportLayout()`/`getLayout()` remain available for the live
 core model; these include actual detached records and exclude appearance.
 
 Only configured theme overrides are serialized, not application stylesheets,
@@ -122,12 +147,11 @@ function scheduleSave() {
   clearTimeout(timer);
   timer = setTimeout(flushSave, 250);
 }
-const unsubscribe = store.subscribe(scheduleSave);
+const unsubscribe = workspace.on('change', scheduleSave);
 function dispose() {
   unsubscribe();
   flushSave();
   workspace.dispose();
-  store.dispose();
 }
 ```
 
@@ -166,7 +190,7 @@ pane's controls.
 ## Optional confirmation and localization
 
 ```ts
-store.updatePane({ ...store.getSnapshot().panes.notes!, confirmClose: true });
+workspace.updatePane({ ...workspace.getLayout().panes.notes!, confirmClose: true });
 workspace.updateOptions({
   messages: {
     'Close selected panes?': 'Close these documents?',
@@ -231,7 +255,7 @@ other frameworks are not included.
 
 Use `PaneContext<NotesState>`, `PaneRenderer<NotesState>`, or
 `PaneProps<NotesState>` to type application state. The default remains `unknown`.
-Use `MountedLayout<NotesState>` for an explicitly typed handle or React ref;
+Use `WorkspaceHandle<NotesState>` for an explicitly typed handle or React ref;
 vanilla infers the handle state from its mount options. A typed layout requires a matching `getPaneState(id)`. The type describes the
 state shared by its pane renderers; for heterogeneous panes use a discriminated
 state union or per-pane application stores and narrow the union inside each view.
@@ -241,8 +265,8 @@ type NotesState = { text: string };
 function Notes({ state }: PaneProps<NotesState>) {
   return <p>{state.text}</p>;
 }
-<Layout<NotesState>
-  store={store}
+<Workspace<NotesState>
+  initialLayout={initialLayout}
   components={{ notes: Notes }}
   getPaneState={(id) => notesById.get(id)!}
 />;
@@ -273,3 +297,51 @@ already installed in a document. The store itself is not an updateable option.
 
 See the [runnable starters](https://github.com/niko-dellic/quilt/blob/main/examples/README.md) and
 [host compatibility table](compatibility.md).
+
+## Workspace ownership and readiness
+
+Quilt creates one store per mounted workspace. Pass `initialLayout` or
+`initialWorkspace`, never both; omit both for an empty workspace. A workspace
+preset supplies its saved appearance and auto-collapse configuration, overriding
+initial `theme`/`tabBar` options. Initial inputs are not controlled props: use
+`workspace.loadWorkspace(preset)` or `workspace` commands for later changes.
+Externally constructed stores are only for standalone core use.
+
+Vanilla returns a ready handle synchronously. Call `workspace.dispose()` when
+removing the host; it releases the renderer and store. React does this on unmount.
+React exposes `onReady(handle)` for initialization and acquiring the workspace handle:
+
+```tsx
+<Workspace
+  initialWorkspace={savedPreset}
+  components={components}
+  onReady={(workspace) => connectApplicationControls(workspace)}
+/>
+```
+
+`onReady` runs once for each actual initialized session; changing its callback
+alone does not re-run it. It signals workspace readiness, not completion of every
+pane's asynchronous work. Before readiness, synchronous ref calls throw
+`Workspace is not ready`, and asynchronous calls reject with that error. Popouts
+are never queued: call them directly from a user gesture after readiness.
+
+For immutable React data, read current values from application context instead
+of returning a new object from `getPaneState` on every render:
+
+```tsx
+const NotesContext = createContext<Record<string, string>>({});
+function Note({ pane }: PaneProps) {
+  const notes = useContext(NotesContext);
+  return <p>{notes[pane.id]}</p>;
+}
+function Editor({ notes }: { notes: Record<string, string> }) {
+  return (
+    <NotesContext.Provider value={notes}>
+      <Workspace initialLayout={initialLayout} components={{ notes: Note }} />
+    </NotesContext.Provider>
+  );
+}
+```
+
+Provider updates reach panes and companions. `getPaneState` remains a mount-time
+stable reference for application stores; it is not a reactive state selector.

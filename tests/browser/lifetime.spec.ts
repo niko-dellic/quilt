@@ -9,7 +9,7 @@ test('resize, move and maximize preserve pane instances', async ({ page }) => {
     for (let i = 0; i < 30; i++) {
       window.harness.store.resize('split', 0.3 + i * 0.01);
     }
-    window.harness.store.move('b', 'left');
+    window.harness.store.movePane('b', 'left');
     window.harness.store.maximize('left');
     window.harness.store.maximize(null);
   });
@@ -25,7 +25,7 @@ test('blocked popup retains the original view and layout', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'A', exact: true })).toBeVisible();
   const result = await page.evaluate(() => ({
     stats: window.harness.stats,
-    popouts: window.harness.store.export().popouts,
+    popouts: window.harness.store.exportLayout().popouts,
   }));
   expect(result.popouts).toEqual([]);
   expect(result.stats.mounts).toBe(2);
@@ -78,7 +78,7 @@ test('restoring JSON containing a popout never opens a window automatically', as
     layout.popouts = [
       { paneId: 'a', groupId: 'left', index: 0, placement: { width: 420, height: 320 } },
     ];
-    window.harness.store.load(layout);
+    window.harness.store.loadLayout(layout);
   });
   expect(context.pages()).toHaveLength(1);
   await page.getByRole('button', { name: 'A actions', exact: true }).click();
@@ -102,20 +102,18 @@ test('pointer resizing respects minimum pane dimensions', async ({ page }) => {
   await page.mouse.up();
   expect((await page.locator('[data-node-id="left"]').boundingBox())!.width).toBe(100);
 });
-
 test('loading a different node kind with the same id rebuilds chrome and retains panes', async ({
   page,
 }) => {
   await page.evaluate(() => {
-    const d = window.harness.store.export();
+    const d = window.harness.store.exportLayout();
     d.root = { kind: 'group', id: 'split', panes: ['a', 'b'], active: 'a' };
-    window.harness.store.load(d);
+    window.harness.store.loadLayout(d);
   });
   await expect(page.getByRole('tab', { name: 'A', exact: true })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'B', exact: true })).toBeVisible();
   expect((await page.evaluate(() => window.harness.stats)).errors).toEqual([]);
 });
-
 test('unknown types remain visible and do not execute layout params', async ({ page }) => {
   await page.evaluate(() => {
     window.harness.store.updatePane({
@@ -128,7 +126,6 @@ test('unknown types remain visible and do not execute layout params', async ({ p
   await expect(page.getByText('Unknown pane type: missing.', { exact: false })).toBeVisible();
   await expect(page.locator('img')).toHaveCount(0);
 });
-
 test('pane metadata and params update in a live companion', async ({ page }) => {
   const opened = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Pop out', exact: true }).click();

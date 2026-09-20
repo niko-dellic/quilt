@@ -22,7 +22,7 @@ Browsers may open tabs instead of windows or restrict placement.
 ## React state resets when a pane moves to a window
 
 Changing documents remounts the view. Put durable state outside the pane component,
-and subscribe to it from the view. Declarative `<Layout>` panes receive application
+and subscribe to it from the view. Declarative `<Workspace>` panes receive application
 providers through portals. The imperative `reactRenderer` creates a separate root.
 
 ## A theme property disappears after setTheme

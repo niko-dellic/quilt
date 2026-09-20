@@ -1,11 +1,10 @@
 import { createContext, useContext, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createLayout, LayoutStore, Layout, PaneRegistry } from 'quilt-react';
-import type { MountedLayout, PaneProps } from 'quilt-react';
+import { createLayout, Workspace } from 'quilt-react';
+import type { WorkspaceHandle, PaneProps, PaneTypes } from 'quilt-react';
 import type { ComponentType } from 'react';
 import 'quilt-react/styles.css';
 import './style.css';
-
 interface NoteState {
   text: string;
 }
@@ -30,12 +29,12 @@ function Note({ state }: PaneProps<NoteState>) {
     </div>
   );
 }
-const registry = new PaneRegistry<ComponentType<PaneProps<NoteState>>>([
-  { type: 'note', title: 'Note', view: Note, confirmClose: true },
-]);
-const store = new LayoutStore(createLayout({ pane: { id: 'note', type: 'note', title: 'Note' } }));
+const paneTypes: PaneTypes<ComponentType<PaneProps<NoteState>>> = {
+  note: { title: 'Note', render: Note, confirmClose: true },
+};
+const initialLayout = createLayout({ pane: { id: 'note', type: 'note', title: 'Note' } });
 function App() {
-  const workspace = useRef<MountedLayout<NoteState>>(null);
+  const workspace = useRef<WorkspaceHandle<NoteState>>(null);
   const [json, setJson] = useState('');
   const [status, setStatus] = useState('');
   const [label, setLabel] = useState('Application notes');
@@ -88,7 +87,7 @@ function App() {
         </button>
         <button
           onClick={() => {
-            void workspace.current?.requestClose('note');
+            void workspace.current?.closePane('note');
           }}
         >
           Close note
@@ -97,10 +96,10 @@ function App() {
       </div>
       <div id="workspace">
         {active && (
-          <Layout<NoteState>
+          <Workspace<NoteState>
             ref={workspace}
-            store={store}
-            registry={registry}
+            initialLayout={initialLayout}
+            paneTypes={paneTypes}
             getPaneState={(id) => {
               if (!notes.has(id)) notes.set(id, { text: 'Edit me, then pop out and return.' });
               return notes.get(id)!;
@@ -122,7 +121,6 @@ const root = createRoot(document.querySelector('#app')!);
 root.render(<App />);
 function dispose() {
   root.unmount();
-  store.dispose();
   window.removeEventListener('pagehide', dispose);
 }
 window.addEventListener('pagehide', dispose);

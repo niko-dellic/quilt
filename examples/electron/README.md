@@ -1,6 +1,6 @@
 # Quilt Electron starter
 
-A source example using Quilt 0.2.4 and Electron, with a notes pane, themes,
+A source example using Quilt 0.3.0 and Electron, with a notes pane, themes,
 workspace JSON, and close confirmation.
 
 For a runnable application containing the web demos, use the

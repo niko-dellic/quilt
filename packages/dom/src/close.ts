@@ -41,7 +41,12 @@ export function closeRequests(
     };
     let cleanup = () => {};
     try {
-      if (!panes.length || panes.some((pane) => !options.store.can(pane.id, 'close'))) return false;
+      const target = kind === 'group' ? findNode(options.store.getSnapshot().root, id) : undefined;
+      if (
+        (!panes.length && target?.kind !== 'group') ||
+        panes.some((pane) => !options.store.can(pane.id, 'close'))
+      )
+        return false;
       if (requiringConfirmation.length) {
         const decision = options.confirmClose
           ? Promise.resolve(options.confirmClose(request))

@@ -67,12 +67,11 @@ also need matching `@types/react` and `@types/react-dom` packages.
 ## Quickstart
 
 ```ts
-import { createLayout, LayoutStore, mountLayout } from 'quilt-vanilla';
+import { Workspace } from 'quilt-vanilla';
 import 'quilt-vanilla/styles.css';
 
-const store = new LayoutStore(createLayout());
-const workspace = mountLayout(document.getElementById('workspace')!, { store });
-// Give #workspace an explicit height. Dispose both objects when removing it.
+const workspace = new Workspace({ container: document.getElementById('workspace')! });
+// Give #workspace an explicit height. Call workspace.dispose() when removing it.
 ```
 
 Follow the [Vanilla quickstart](https://quilt-layouts.vercel.app/docs/quickstart-vanilla)

@@ -7,37 +7,35 @@ npm install quilt-vanilla
 Provide `<div id="workspace" style="height:600px"></div>` in the page.
 
 ```ts
-import { LayoutStore, mountLayout, createLayout, type PaneRenderer } from 'quilt-vanilla';
+import { Workspace, type PaneRenderer } from 'quilt-vanilla';
 import 'quilt-vanilla/styles.css';
 
 type NotesState = { text: string };
 const data: NotesState = { text: 'Notes' };
-const store = new LayoutStore(
-  createLayout({ pane: { id: 'notes', type: 'notes', title: 'Notes' } }),
-);
-const notes: PaneRenderer<NotesState> = ({ element, document: doc, state }) => {
+const notes: PaneRenderer<NotesState> = ({ element, document: doc, state, signal }) => {
   const input = doc.createElement('textarea');
   input.value = state.text;
-  input.oninput = () => {
-    state.text = input.value;
-  };
-  element.append(input);
-  return {
-    dispose() {
-      input.oninput = null;
+  input.addEventListener(
+    'input',
+    () => {
+      state.text = input.value;
     },
-  };
+    { signal },
+  );
+  element.append(input);
 };
-const mounted = mountLayout(document.getElementById('workspace')!, {
-  store,
+const workspace = new Workspace({
+  container: document.getElementById('workspace')!,
   getPaneState: () => data,
-  renderers: { notes },
+  paneTypes: { notes: { title: 'Notes', render: notes } },
 });
+
+const pane = workspace.addPane('notes', { id: 'notes' })!;
+pane.setTitle('My notes');
 
 // Call when removing the workspace.
 function disposeWorkspace() {
-  mounted.dispose();
-  store.dispose();
+  workspace.dispose();
 }
 ```
 

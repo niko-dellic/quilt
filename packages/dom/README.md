@@ -1,6 +1,6 @@
 # quilt-vanilla
 
-Vanilla DOM pane layouts, tabs, themes, resizing, and same-origin browser popouts. Re-exports the core API and does not install React. MIT licensed, ESM and TypeScript.
+Vanilla DOM pane layouts, tabs, themes, resizing, and same-origin browser popouts. Includes layout JSON helpers and does not install React. MIT licensed, ESM and TypeScript.
 
 <!-- shared-overview:start -->
 
@@ -43,49 +43,45 @@ Core is installed automatically; React is not required. Use an ESM-capable bundl
 Provide a host in your HTML: `<div id="workspace" style="width:100%;height:600px"></div>`.
 
 ```ts
-import { createLayout, LayoutStore, mountLayout } from 'quilt-vanilla';
+import { Workspace, type PaneRenderer } from 'quilt-vanilla';
 import 'quilt-vanilla/styles.css';
 
-const store = new LayoutStore(
-  createLayout({
-    pane: { id: 'notes', type: 'notes', title: 'Notes' },
-  }),
-);
-const data = { text: 'Hello' }; // survives view remounts
-const mounted = mountLayout(document.getElementById('workspace')!, {
-  store,
-  getPaneState: () => data,
-  renderers: {
-    notes: ({ element, document: doc, state }) => {
-      const model = state as typeof data;
-      const input = doc.createElement('textarea');
-      input.value = model.text;
-      input.oninput = () => {
-        model.text = input.value;
-      };
-      element.append(input);
-      return {
-        dispose() {
-          input.oninput = null;
-        },
-      };
+type NotesState = { text: string };
+const data: NotesState = { text: 'Notes' };
+const notes: PaneRenderer<NotesState> = ({ element, document: doc, state, signal }) => {
+  const input = doc.createElement('textarea');
+  input.value = state.text;
+  input.addEventListener(
+    'input',
+    () => {
+      state.text = input.value;
     },
-  },
+    { signal },
+  );
+  element.append(input);
+};
+const workspace = new Workspace({
+  container: document.getElementById('workspace')!,
+  getPaneState: () => data,
+  paneTypes: { notes: { title: 'Notes', render: notes } },
 });
-// Call when removing the workspace:
+
+const pane = workspace.addPane('notes', { id: 'notes' })!;
+pane.setTitle('My notes');
+
+// Call when removing the workspace.
 function disposeWorkspace() {
-  mounted.dispose();
-  store.dispose();
+  workspace.dispose();
 }
 ```
 
-The host needs an explicit height. Use a unified `PaneRegistry` to register creation metadata and renderers together, or supply a `TabRegistry` through `tabs` to offer new content; Quilt generates omitted pane IDs and preserves explicit IDs. `themes`, `themeFamilies`, `LayoutTheme`, and `MountedLayout` are public exports. The layout JSON type is `LayoutSnapshot` from this entry point.
+The host needs an explicit height. Use `paneTypes` to supply creation metadata and renderers together; advanced `PaneRegistry` and `TabRegistry` integrations are also supported. Quilt generates omitted pane IDs and preserves explicit IDs. `themes`, `themeFamilies`, `LayoutTheme`, and `WorkspaceHandle` are public exports. The layout JSON type is `LayoutSnapshot` from this entry point.
 
-Call `mounted.popout(id)` from a user action. Companions are same-origin and owned by the main session. Use the supplied document/window inside renderers and release every view-owned resource in `dispose`. Keep app data outside view lifetimes.
+Call `workspace.popout(id)` from a user action. Companions are same-origin and owned by the main session. Use the supplied document/window inside renderers and use `signal` and `onCleanup` to release view-owned resources. Keep app data outside view lifetimes.
 
 See [API](https://github.com/niko-dellic/quilt/blob/main/docs/api.md), [lifecycle](https://github.com/niko-dellic/quilt/blob/main/docs/lifecycle.md), and [migration](https://github.com/niko-dellic/quilt/blob/main/docs/migration.md).
 
-Use `mounted.exportWorkspace()` and `mounted.loadWorkspace(input)` to round-trip
+Use `workspace.exportWorkspace()` and `workspace.loadWorkspace(input)` to round-trip
 layout and appearance as JSON. Popouts export docked copies without closing live
 windows. `popout` returns `Promise<boolean>` and must be called from a user gesture.
 See [web integration](https://github.com/niko-dellic/quilt/blob/main/docs/integration.md)

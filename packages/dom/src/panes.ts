@@ -24,67 +24,94 @@ export function mountPane(
   const renderer = Object.hasOwn(options.renderers ?? {}, pane.type)
     ? options.renderers?.[pane.type]
     : undefined;
-  let view: PaneView;
+  let view: PaneView = { dispose() {} };
+  let observer: ResizeObserver | undefined;
+  let disposed = false;
+  const controller = new (win as Window & typeof globalThis).AbortController();
+  const cleanups: (() => void)[] = [];
+  const reportCleanup = (error: unknown) => {
+    try {
+      options.onError?.(error);
+    } catch {
+      /* Finish teardown even if reporting fails. */
+    }
+  };
+  const run = (callback: () => void) => {
+    try {
+      callback();
+    } catch (error) {
+      reportCleanup(error);
+    }
+  };
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    run(() => controller.abort());
+    run(() => observer?.disconnect());
+    run(() => view.dispose());
+    for (const cleanup of cleanups.splice(0).reverse()) run(cleanup);
+    element.remove();
+  };
   let result: MountedPane | undefined;
   const reportError = (error: unknown) => {
     if (result) result.failed = true;
     options.onError?.(error);
   };
-  if (renderer)
-    view = renderer({
-      element,
-      reportError,
-      document: doc,
-      window: win,
-      pane,
-      state: options.getPaneState?.(pane.id),
-      location,
-    });
-  else {
-    element.append(
-      el(
-        doc,
-        'div',
-        'layouts-placeholder',
-        message(options, 'Unknown pane type: {type}. Register a renderer to display this pane.', {
-          type: pane.type,
-        }),
-      ),
-    );
-    view = { dispose() {} };
-  }
-  const observer = new ResizeObserver((entries) => {
-    const rect = entries[0]?.contentRect;
-    if (rect) {
-      try {
-        view.resize?.(rect.width, rect.height);
-      } catch (error) {
-        options.onError?.(error);
-      }
+  try {
+    if (renderer)
+      view = renderer({
+        signal: controller.signal,
+        onCleanup(callback) {
+          if (disposed) run(callback);
+          else cleanups.push(callback);
+        },
+        element,
+        reportError,
+        document: doc,
+        window: win,
+        pane,
+        state: options.getPaneState?.(pane.id),
+        location,
+      }) ?? { dispose() {} };
+    else {
+      element.append(
+        el(
+          doc,
+          'div',
+          'layouts-placeholder',
+          message(options, 'Unknown pane type: {type}. Register a renderer to display this pane.', {
+            type: pane.type,
+          }),
+        ),
+      );
+      view = { dispose() {} };
     }
-  });
-  observer.observe(element);
-  let disposed = false;
-  result = {
-    element,
-    view,
-    pane,
-    signature: JSON.stringify(pane),
-    renderer,
-    dispose() {
-      if (disposed) return;
-      disposed = true;
-      observer.disconnect();
-      try {
-        view.dispose();
-      } finally {
-        element.remove();
+    observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (rect) {
+        try {
+          view.resize?.(rect.width, rect.height);
+        } catch (error) {
+          options.onError?.(error);
+        }
       }
-    },
-  };
-  if (location === 'main')
-    void view.ready?.catch((error) => {
-      if (!disposed) reportError(error);
     });
-  return result;
+    observer.observe(element);
+    result = {
+      element,
+      view,
+      pane,
+      signature: JSON.stringify(pane),
+      renderer,
+      dispose,
+    };
+    if (location === 'main')
+      void view.ready?.catch((error) => {
+        if (!disposed) reportError(error);
+      });
+    return result;
+  } catch (error) {
+    dispose();
+    throw error;
+  }
 }

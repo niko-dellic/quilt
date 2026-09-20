@@ -1,12 +1,13 @@
 import { defaultTheme } from './theme.js';
 import { renderIcon } from './icons.js';
 import 'quilt-vanilla/styles.css';
-import { mountLayout } from 'quilt-vanilla';
-import { store, getPaneState, tabs } from './model.js';
+import { Workspace } from 'quilt-vanilla';
+import { initial, bindWorkspace, getPaneState, tabs } from './model.js';
 import { renderers } from './views.js';
 import { setupShell } from './shell.js';
-const layout = mountLayout<unknown>(document.querySelector('#workspace')!, {
-  store,
+const layout = new Workspace<unknown>({
+  container: document.querySelector('#workspace')!,
+  initialLayout: initial,
   renderers,
   getPaneState,
   tabs,
@@ -15,5 +16,6 @@ const layout = mountLayout<unknown>(document.querySelector('#workspace')!, {
   shortcuts: true,
   tabBar: { attachment: 'floating', fit: 'fit' },
 });
+bindWorkspace(layout);
 setupShell(() => layout);
 window.addEventListener('pagehide', () => layout.dispose(), { once: true });

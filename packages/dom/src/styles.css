@@ -831,3 +831,52 @@
   flex: 0 0 calc(var(--layouts-icon-size, 16px) + 16px);
   min-width: calc(var(--layouts-icon-size, 16px) + 16px);
 }
+
+/* Chrome remains usable at the renderer's minimum region size, even with larger icons. */
+.layouts-group[data-tab-placement='top'] > .layouts-header {
+  min-height: calc(var(--layouts-icon-size, 16px) + 9px);
+}
+.layouts-group[data-tab-placement='top'][data-tab-display='automatic'] .layouts-tab-item {
+  min-width: max(32px, calc(var(--layouts-icon-size, 16px) + 8px));
+}
+.layouts-group[data-tab-placement='top'][data-tab-display='automatic']
+  .layouts-tab-item[data-active='true']:has(> .layouts-tab-close) {
+  min-width: max(
+    56px,
+    calc(var(--layouts-icon-size, 16px) + 11px + max(22px, var(--layouts-icon-size, 16px)))
+  );
+}
+.layouts-group[data-tab-placement='left'] > .layouts-header {
+  min-width: max(32px, calc(var(--layouts-icon-size, 16px) + 10px));
+}
+.layouts-group[data-tab-placement='left'] .layouts-tab-item,
+.layouts-group[data-tab-placement='left'] > .layouts-header > .layouts-button {
+  flex-basis: max(30px, calc(var(--layouts-icon-size, 16px) + 8px));
+  height: max(30px, calc(var(--layouts-icon-size, 16px) + 8px));
+}
+.layouts-group[data-tab-placement='left'][data-tab-display='automatic']
+  .layouts-tab-item[data-active='true']:has(> .layouts-tab-close) {
+  flex-basis: calc(
+    max(30px, var(--layouts-icon-size, 16px) + 8px) + max(22px, var(--layouts-icon-size, 16px))
+  );
+  height: calc(
+    max(30px, var(--layouts-icon-size, 16px) + 8px) + max(22px, var(--layouts-icon-size, 16px))
+  );
+}
+.layouts-group[data-tab-placement='left'][data-tab-display='automatic']
+  .layouts-tab-item[data-active='true']:has(> .layouts-tab-close)
+  > .layouts-tab {
+  flex-basis: max(30px, calc(var(--layouts-icon-size, 16px) + 8px));
+}
+
+.layouts-tab-item .layouts-tab-close {
+  flex-basis: max(22px, var(--layouts-icon-size, 16px));
+  width: max(22px, var(--layouts-icon-size, 16px));
+  max-height: max(24px, var(--layouts-icon-size, 16px));
+}
+.layouts-group[data-tab-placement='left'][data-tab-display='automatic']
+  .layouts-tab-item[data-active='true']
+  > .layouts-tab-close {
+  flex-basis: max(22px, var(--layouts-icon-size, 16px));
+  height: max(22px, var(--layouts-icon-size, 16px));
+}

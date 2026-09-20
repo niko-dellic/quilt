@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 import type { Axis, Group, Node, Split } from 'quilt-core';
-
 async function setup(page: import('@playwright/test').Page, axis: Axis = 'horizontal') {
   await page.goto('/tests/browser/harness.html');
   await page.evaluate((axis) => {
@@ -12,7 +11,7 @@ async function setup(page: import('@playwright/test').Page, axis: Axis = 'horizo
       ratio: 0.5,
       children: [a, b],
     });
-    window.harness.store.load({
+    window.harness.store.loadLayout({
       version: 1,
       maximized: null,
       popouts: [],
@@ -27,7 +26,6 @@ async function setup(page: import('@playwright/test').Page, axis: Axis = 'horizo
     });
   }, axis);
 }
-
 for (const axis of ['horizontal', 'vertical'] as const) {
   test(`${axis}: drag joins across ancestry, expands and contracts its range, preserving views`, async ({
     page,
@@ -72,15 +70,14 @@ for (const axis of ['horizontal', 'vertical'] as const) {
     expect(after.errors).toEqual([]);
   });
 }
-
 test('intermediate permissions block the range, and state changes cancel a pending join', async ({
   page,
 }) => {
   await setup(page);
   await page.evaluate(() => {
-    const layout = window.harness.store.export();
+    const layout = window.harness.store.exportLayout();
     layout.panes.c!.capabilities = { join: false };
-    window.harness.store.load(layout);
+    window.harness.store.loadLayout(layout);
   });
   const d = (await page.locator('[data-node-id="d"]').boundingBox())!;
   await page.locator('[data-node-id="b"] [data-corner="br"]').hover();
@@ -94,7 +91,7 @@ test('intermediate permissions block the range, and state changes cancel a pendi
   await page.mouse.down();
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
   await expect(page.locator('[data-corner-preview=join]')).toBeVisible();
-  await page.evaluate(() => window.harness.store.load(window.harness.store.export()));
+  await page.evaluate(() => window.harness.store.loadLayout(window.harness.store.exportLayout()));
   await expect(page.locator('.layouts-corner-overlay')).toHaveCount(0);
   await page.mouse.up();
   await expect(page.locator('.layouts-group')).toHaveCount(4);

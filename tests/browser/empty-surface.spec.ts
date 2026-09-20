@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
-
 for (const mode of ['disabled', 'protected'] as const) {
   test(`${mode}: the empty surface opens search from any point or keyboard`, async ({ page }) => {
     await page.goto('/tests/browser/harness.html');
     await page.evaluate((mode) => {
       const { store, tabs } = window.harness;
-      store.close('a');
+      store.closePane('a', { force: true });
       store.setAutoCollapse(mode);
       tabs.register({
         id: 'new',
@@ -40,13 +39,12 @@ for (const mode of ['disabled', 'protected'] as const) {
     await expect(surface).toHaveCount(0);
   });
 }
-
 test('a completely empty workspace can create content with no source pane', async ({ page }) => {
   await page.goto('/tests/browser/harness.html');
   await page.evaluate(() => {
     const { store, tabs } = window.harness;
-    store.close('a');
-    store.close('b');
+    store.closePane('a', { force: true });
+    store.closePane('b', { force: true });
     tabs.register({
       id: 'new',
       title: 'New tab',
@@ -62,12 +60,11 @@ test('a completely empty workspace can create content with no source pane', asyn
   await page.getByRole('option', { name: 'New tab', exact: true }).click();
   await expect(group.getByRole('tab', { name: 'C', exact: true })).toBeVisible();
 });
-
 test('outside clicks dismiss search without removing the pane; inside clicks keep it open', async ({
   page,
 }) => {
   await page.goto('/tests/browser/harness.html');
-  await page.evaluate(() => window.harness.store.close('a'));
+  await page.evaluate(() => window.harness.store.closePane('a', { force: true }));
   const left = page.locator('[data-node-id="left"]');
   const surface = left.locator('.layouts-empty');
   await surface.click();

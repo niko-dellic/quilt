@@ -46,6 +46,11 @@ export class TabRegistry {
 }
 
 let instanceSequence = 0;
+export function createPaneId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ?? `quilt-${Date.now().toString(36)}-${++instanceSequence}`
+  );
+}
 
 export interface PaneRegistration<T> {
   type: string;
@@ -90,10 +95,7 @@ export class PaneRegistry<T> {
           title: stored.title,
           ...(stored.icon !== undefined ? { icon: stored.icon } : {}),
           ...supplied,
-          id:
-            supplied.id ??
-            globalThis.crypto?.randomUUID?.() ??
-            `quilt-${Date.now().toString(36)}-${++instanceSequence}`,
+          id: supplied.id ?? createPaneId(),
         };
       },
     });

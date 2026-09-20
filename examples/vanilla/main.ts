@@ -1,41 +1,34 @@
-import { createLayout, LayoutStore, mountLayout, PaneRegistry } from 'quilt-vanilla';
-import type { PaneRenderer } from 'quilt-vanilla';
+import { createLayout, Workspace } from 'quilt-vanilla';
+import type { PaneTypes, PaneRenderer } from 'quilt-vanilla';
 import 'quilt-vanilla/styles.css';
 import './style.css';
-
 // Data belongs to the application, and survives view disposal or document changes.
 interface NoteState {
   text: string;
 }
 const notes = new Map<string, NoteState>();
-const registry = new PaneRegistry<PaneRenderer<NoteState>>([
-  {
-    type: 'note',
+const paneTypes: PaneTypes<PaneRenderer<NoteState>> = {
+  note: {
     title: 'Note',
     confirmClose: true,
-    view: ({ element, document: doc, state }) => {
+    render: ({ element, document: doc, state, signal }) => {
       const input = doc.createElement('textarea');
       input.setAttribute('aria-label', 'Note text');
       input.value = state.text;
       const change = () => {
         state.text = input.value;
       };
-      input.addEventListener('input', change);
+      input.addEventListener('input', change, { signal });
       element.classList.add('note');
       element.append(input);
-      return {
-        dispose() {
-          input.removeEventListener('input', change);
-          input.remove();
-        },
-      };
     },
   },
-]);
-const store = new LayoutStore(createLayout({ pane: { id: 'note', type: 'note', title: 'Note' } }));
-const workspace = mountLayout(document.querySelector<HTMLElement>('#workspace')!, {
-  store,
-  registry,
+};
+const initialLayout = createLayout({ pane: { id: 'note', type: 'note', title: 'Note' } });
+const workspace = new Workspace({
+  container: document.querySelector<HTMLElement>('#workspace')!,
+  initialLayout,
+  paneTypes,
   getPaneState(id) {
     if (!notes.has(id)) notes.set(id, { text: 'Edit me, then pop out and return.' });
     return notes.get(id)!;
@@ -73,11 +66,10 @@ document.querySelector<HTMLButtonElement>('#popout')!.onclick = async () => {
   report((await workspace.popout('note')) ? 'Popped out' : 'Could not pop out');
 };
 document.querySelector<HTMLButtonElement>('#close')!.onclick = () => {
-  void workspace.requestClose('note');
+  void workspace.closePane('note');
 };
 function dispose() {
   workspace.dispose();
-  store.dispose();
   window.removeEventListener('pagehide', dispose);
 }
 document.querySelector<HTMLButtonElement>('#dispose')!.onclick = dispose;

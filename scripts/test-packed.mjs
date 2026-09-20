@@ -71,7 +71,7 @@ try {
   );
   writeFileSync(
     join(temp, 'smoke.mjs'),
-    `import assert from 'node:assert/strict'; import { LayoutStore, createLayout } from '${metadata.core.name}'; import { mountLayout } from '${metadata.dom.name}'; const store = new LayoutStore(createLayout()); store.add({ id:'a', title:'A', type:'text' }, 'main'); assert.equal(store.export().panes.a.id, 'a'); assert.equal(typeof mountLayout, 'function'); store.dispose();`,
+    `import assert from 'node:assert/strict'; import { LayoutStore, createLayout } from '${metadata.core.name}'; import { Workspace } from '${metadata.dom.name}'; const store = new LayoutStore(createLayout()); store.add({ id:'a', title:'A', type:'text' }, 'main'); assert.equal(store.export().panes.a.id, 'a'); assert.equal(typeof Workspace, 'function'); store.dispose();`,
   );
   run(process.execPath, ['smoke.mjs'], temp);
   for (const file of ['core-consumer.ts', 'dom-consumer.ts', 'consumer.tsx']) {
@@ -218,7 +218,17 @@ try {
       await page.waitForFunction(
         () => window.consumer.stats.live === 0 && !document.querySelector('.layouts'),
       );
-      await page.evaluate(() => window.consumer.store.dispose());
+      assert.equal(
+        await page.evaluate(() => {
+          try {
+            window.consumer.store.on('change', () => {});
+            return false;
+          } catch {
+            return true;
+          }
+        }),
+        true,
+      );
       assert.deepEqual(errors, []);
       console.log(
         `Packed React ${version}: types, mount, snapshot, popout, return, cleanup passed.`,

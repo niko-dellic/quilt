@@ -35,7 +35,6 @@ for (const framework of ['vanilla', 'react']) {
     await expect(page.getByRole('tab', { name: 'Scene', exact: true })).toHaveCount(1);
   });
 }
-
 test('registry additions and removals update an open picker; factory errors preserve the layout', async ({
   page,
 }) => {
@@ -65,14 +64,13 @@ test('registry additions and removals update an open picker; factory errors pres
   await expect(page.getByRole('option', { name: 'Temporary', exact: true })).toHaveCount(0);
   await page.getByRole('option', { name: 'Invalid', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
-  expect(await page.evaluate(() => Object.keys(window.harness.store.getSnapshot().panes))).toEqual([
+  expect(await page.evaluate(() => Object.keys(window.harness.store.getLayout().panes))).toEqual([
     'a',
     'b',
   ]);
   await page.getByRole('option', { name: 'Test view', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'C', exact: true })).toBeVisible();
 });
-
 test('container CSS and live themes propagate to popouts without remounting', async ({ page }) => {
   await page.goto('/tests/browser/harness.html');
   await page
@@ -107,19 +105,17 @@ test('container CSS and live themes propagate to popouts without remounting', as
   );
   await popup.close();
 });
-
 for (const query of ['', '?no-registry']) {
   test(`populated regions require registered content choices ${query}`, async ({ page }) => {
     await page.goto(`/tests/browser/harness.html${query}`);
-    const before = await page.evaluate(() => window.harness.store.export());
+    const before = await page.evaluate(() => window.harness.store.exportLayout());
     await page.getByRole('button', { name: 'A actions', exact: true }).click();
     await expect(page.getByRole('button', { name: '+ Add tab', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Split', exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-    expect(await page.evaluate(() => window.harness.store.export())).toEqual(before);
+    expect(await page.evaluate(() => window.harness.store.exportLayout())).toEqual(before);
   });
 }
-
 test('a cancelling registry factory leaves existing content unchanged', async ({ page }) => {
   await page.goto('/tests/browser/harness.html');
   await page.evaluate(() =>
@@ -129,9 +125,9 @@ test('a cancelling registry factory leaves existing content unchanged', async ({
       create: () => undefined,
     }),
   );
-  const before = await page.evaluate(() => window.harness.store.export());
+  const before = await page.evaluate(() => window.harness.store.exportLayout());
   await page.getByRole('button', { name: 'A actions', exact: true }).click();
   await page.getByRole('button', { name: '+ Add tab', exact: true }).click();
   await page.getByRole('option', { name: 'Cancel creation', exact: true }).click();
-  expect(await page.evaluate(() => window.harness.store.export())).toEqual(before);
+  expect(await page.evaluate(() => window.harness.store.exportLayout())).toEqual(before);
 });

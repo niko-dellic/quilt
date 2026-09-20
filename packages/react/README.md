@@ -52,46 +52,38 @@ Provide `<div id="app"></div>` in your HTML.
 
 ```tsx
 import { createRoot } from 'react-dom/client';
-import { Layout, LayoutStore, createLayout } from 'quilt-react';
-import type { PaneProps } from 'quilt-react';
+import { Workspace, createLayout, type PaneProps } from 'quilt-react';
 import 'quilt-react/styles.css';
 
-const store = new LayoutStore(
-  createLayout({
-    pane: { id: 'notes', type: 'notes', title: 'Notes' },
-  }),
-);
-const data = { text: 'Hello' };
-const getPaneState = () => data;
-function Notes({ state: model }: PaneProps<typeof data>) {
+type NotesState = { text: string };
+const data: NotesState = { text: 'Notes' };
+const initialLayout = createLayout({ pane: { id: 'notes', type: 'notes', title: 'Notes' } });
+function Notes({ state }: PaneProps<NotesState>) {
   return (
     <textarea
-      defaultValue={model.text}
+      defaultValue={state.text}
       onChange={(e) => {
-        model.text = e.target.value;
+        state.text = e.target.value;
       }}
     />
   );
 }
-const components = { notes: Notes };
 const root = createRoot(document.getElementById('app')!);
 root.render(
-  <Layout<typeof data>
-    store={store}
-    components={components}
-    getPaneState={getPaneState}
-    style={{ width: '100%', height: 600 }}
+  <Workspace<NotesState>
+    initialLayout={initialLayout}
+    paneTypes={{ notes: { title: 'Notes', render: Notes } }}
+    getPaneState={() => data}
+    style={{ height: 600 }}
   />,
 );
-// Call when removing the workspace:
+
 function disposeWorkspace() {
   root.unmount();
-  // The binding queues pane disposal beyond the parent React commit.
-  queueMicrotask(() => store.dispose());
 }
 ```
 
-Keep the store stable. Component maps and adapter callbacks can change identity without rebuilding the workspace. Declarative panes inherit application providers through portals. `useLayoutSnapshot(store)` observes layout changes. The model type is `LayoutSnapshot`; `Layout` is the component. `MountedLayout`, `TabRegistry`, theme presets, and DOM configuration types are available here too. Attach a `MountedLayout` ref to call `popout` from a user gesture; before mounting completes, popout/requestClose resolve false; workspace configuration methods throw a clear not-mounted error.
+Initial configuration is consumed once. Component maps and adapter callbacks can change identity without rebuilding the workspace. Declarative panes inherit application providers through portals. `useLayoutSnapshot(workspace)` observes layout changes. The model type is `LayoutSnapshot`; `Workspace` is the component. `WorkspaceHandle`, `TabRegistry`, theme presets, and DOM configuration types are available here too. Attach a `WorkspaceHandle` ref to call `popout` from a user gesture; use `onReady(handle)` for initialization. Before readiness, synchronous operations throw and asynchronous operations reject with `Workspace is not ready`. React releases its renderer and owned store on unmount.
 
 Only standalone `reactRenderer` creates separate roots requiring explicit provider wrappers. React-local state does not survive crossing documents: retain data in an application-owned store, and subscribe inside each view when live synchronization is needed. Companion windows are same-origin and depend on the main session.
 

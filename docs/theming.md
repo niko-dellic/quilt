@@ -43,9 +43,10 @@ floating chrome with one value.
 Use the typed API for presets and runtime changes:
 
 ```ts
-import { mountLayout, themes } from 'quilt-vanilla';
-const workspace = mountLayout(host, {
-  store,
+import { Workspace, themes } from 'quilt-vanilla';
+const workspace = new Workspace({
+  container: host,
+  initialLayout,
   renderers,
   tabs,
   theme: { ...themes.light, accent: '#8060c0' },
@@ -97,11 +98,11 @@ With a bundler that supports JSON imports (and TypeScript's `resolveJsonModule`)
 
 ```tsx
 import theme from './quilt-theme.json';
-import { Layout, type LayoutTheme } from 'quilt-react';
+import { Workspace, type LayoutTheme } from 'quilt-react';
 
 const customTheme = theme satisfies LayoutTheme;
 // Vanilla: mounted.setTheme(customTheme);
-<Layout store={store} components={components} theme={customTheme} />;
+<Workspace initialLayout={initialLayout} components={components} theme={customTheme} />;
 ```
 
 For a user-selected file, parse its text and pass the object to `setTheme` in a
@@ -154,9 +155,13 @@ workspace.setTheme({
 ```
 
 ```tsx
-import { Layout, themeFamilies } from 'quilt-react';
+import { Workspace, themeFamilies } from 'quilt-react';
 // Changing this prop updates chrome without remounting registered content.
-<Layout store={store} components={components} theme={themeFamilies.stone.light} />;
+<Workspace
+  initialLayout={initialLayout}
+  components={components}
+  theme={themeFamilies.stone.light}
+/>;
 ```
 
 ### Mapping shadcn semantic roles
@@ -187,7 +192,7 @@ updates never reset pane view state, selection, or content renderers.
 ## Tab bars
 
 The default full-width tab bar reserves a header row. Set `tabBar` on
-`mountLayout` or React's `Layout` to use a content-fitting overlay instead:
+`Workspace` or React's `Workspace` to use a content-fitting overlay instead:
 
 ```ts
 const tabBar = {
@@ -265,7 +270,7 @@ in Layout JSON v1. Existing JSON without this field continues to inherit rendere
 settings. A saved choice takes precedence over global and region `tabBar.placement`
 settings; other bar settings still apply normally.
 
-Use `store.setTabPlacement(groupId, 'left')` (or `'top'`) to change it live without
+Use `workspace.setTabPlacement(groupId, 'left')` (or `'top'`) to change it live without
 remounting content. Pass `undefined` to remove the saved override. Moving a tab
 into another region adopts that destination's orientation; preserved regions
 retain their setting through popout and return.
@@ -325,7 +330,7 @@ pane menu and enabled middle-click gestures.
 
 Each region's **Tab display** menu offers Workspace default, Automatic, and Compact.
 Overrides persist as optional group `tabDisplay` in Layout JSON v1. Set them using
-`store.setTabDisplay(groupId, 'compact')`; pass `undefined` to inherit the workspace
+`workspace.setTabDisplay(groupId, 'compact')`; pass `undefined` to inherit the workspace
 setting again. Orientation and display overrides do not remount pane content.
 The Theming pane exposes the workspace display default and a rail width up to 240px.
 
@@ -408,3 +413,24 @@ shorthand. Family accepts a CSS font-family list. Font files stay app-owned.
 | `scrollbarSize`             | `6px`                   | Length           |
 | `controlHeight`             | `28px`                  | Length           |
 | `spacing`                   | `5px`                   | Length           |
+
+## Automatic minimum sizes
+
+Mounted workspaces keep each group's tab bar large enough for all its tabs in
+their smallest presentation, plus its close and menu controls. This applies to
+top and left bars, including floating bars, in both vanilla and React. Automatic
+display can hide labels while retaining the active tab's close button; compact
+display hides labels and close buttons.
+
+Quilt recalculates this minimum when tabs, orientation, permissions, or theme
+geometry change. Larger application-provided pane minimums still apply. If an
+application maximum is smaller than the required chrome, the chrome minimum
+takes precedence in the mounted view. A single pane with `header: false` has no
+tab-bar minimum.
+
+If the container cannot fit the combined minimums, the workspace scrolls rather
+than shrinking away tab controls. Pane content can still scroll independently.
+These measured constraints are renderer-owned: they do not modify exported
+layout JSON or the browser-free layout model. Use `refreshTheme()` after external
+CSSOM changes, as described above. Custom CSS that changes Quilt's structural
+chrome rules may require its own sizing adjustments.

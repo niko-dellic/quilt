@@ -5,7 +5,7 @@ the vanilla demo; the header switches to React. It runs offline without a separa
 Node.js installation.
 
 Download the application from the [desktop page](https://quilt-layouts.vercel.app/electron.html)
-or [GitHub Releases](https://github.com/niko-dellic/quilt/releases/tag/desktop-v0.2.4).
+or [GitHub Releases](https://github.com/niko-dellic/quilt/releases/tag/desktop-v0.3.0).
 See the [release notes](../docs/desktop-release.md) for installation instructions.
 
 ## Develop and verify

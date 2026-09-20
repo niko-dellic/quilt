@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-
 for (const placement of ['top', 'left'] as const) {
   for (const shape of ['angle', 'round', 'scoop', 'vertical'] as const) {
     test(`${placement} ${shape}: empty chrome fits close and settings controls`, async ({
@@ -9,7 +8,7 @@ for (const placement of ['top', 'left'] as const) {
       await page.evaluate(
         ({ placement, shape }) => {
           window.harness.setTabBar({ mode: 'tapered', placement, shape, taperWidth: 24 });
-          window.harness.store.close('a');
+          window.harness.store.closePane('a', { force: true });
         },
         { placement, shape },
       );
@@ -46,13 +45,12 @@ for (const placement of ['top', 'left'] as const) {
     });
   }
 }
-
 test('empty root settings remain usable without any source pane', async ({ page }) => {
   await page.goto('/tests/browser/harness.html');
   await page.evaluate(() => {
-    window.harness.store.close('a');
+    window.harness.store.closePane('a', { force: true });
     window.harness.store.removeEmptyGroup('left');
-    window.harness.store.close('b');
+    window.harness.store.closePane('b', { force: true });
     window.harness.setTabBar({ mode: 'tapered', shape: 'round' });
   });
   await expect(page.getByRole('button', { name: 'Close empty pane', exact: true })).toBeDisabled();
