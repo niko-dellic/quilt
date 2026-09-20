@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-
 for (const placement of ['top', 'left'] as const) {
   test(`${placement}: empty pane uses a centered shared tooltip and hides it on interaction`, async ({
     page,
@@ -7,7 +6,7 @@ for (const placement of ['top', 'left'] as const) {
     await page.goto('/tests/browser/harness.html');
     await page.evaluate((placement) => {
       window.harness.setTabBar({ mode: 'tapered', placement });
-      window.harness.store.close('a');
+      window.harness.store.closePane('a', { force: true });
     }, placement);
     const group = page.locator('[data-node-id="left"]');
     const surface = group.locator('.layouts-empty');
@@ -34,10 +33,10 @@ for (const placement of ['top', 'left'] as const) {
     await surface.hover();
     await expect(tip).toBeVisible();
     await page.evaluate(() =>
-      window.harness.store.add({ id: 'c', title: 'C', type: 'test' }, 'left'),
+      window.harness.store.insertPane({ id: 'c', title: 'C', type: 'test' }, 'left'),
     );
     await expect(tip).toHaveCount(0);
-    await page.evaluate(() => window.harness.store.close('c'));
+    await page.evaluate(() => window.harness.store.closePane('c', { force: true }));
     await surface.hover({ position: { x: 100, y: 100 } });
     await expect(tip).toBeVisible();
     await page.evaluate(() => window.harness.dispose());

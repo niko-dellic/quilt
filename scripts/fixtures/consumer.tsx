@@ -1,17 +1,16 @@
-import { createRef, useEffect, createContext, useContext } from 'react';
+import { createRef, useState, useEffect, createContext, useContext } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  Layout,
-  LayoutStore,
+  Workspace,
   createLayout,
   useLayoutSnapshot,
   TabRegistry,
   PaneRegistry,
   themes,
 } from 'quilt-react';
-import type { MountedLayout, PaneProps, LayoutSnapshot, LayoutProps } from 'quilt-react';
+import type { WorkspaceHandle, PaneProps, LayoutSnapshot, WorkspaceProps } from 'quilt-react';
 import 'quilt-react/styles.css';
-const store = new LayoutStore(createLayout({ pane: { id: 'note', type: 'note', title: 'Note' } }));
+const initialLayout = createLayout({ pane: { id: 'note', type: 'note', title: 'Note' } });
 const state = { text: 'initial' };
 const Context = createContext('missing');
 const stats = { live: 0 };
@@ -38,15 +37,24 @@ function Note({ state: data }: PaneProps) {
 }
 const components = { note: Note };
 const tabs = new TabRegistry();
-const ref = createRef<MountedLayout>();
-function App() {
+const ref = createRef<WorkspaceHandle>();
+let ownedStore: WorkspaceHandle;
+function Snapshot({ store }: { store: WorkspaceHandle }) {
   const snapshot: LayoutSnapshot = useLayoutSnapshot(store);
+  return <output>{snapshot.panes.note?.title}</output>;
+}
+function App() {
+  const [store, setStore] = useState<WorkspaceHandle>();
   return (
     <>
-      <output>{snapshot.panes.note?.title}</output>
-      <Layout
+      {store && <Snapshot store={store} />}
+      <Workspace
         ref={ref}
-        store={store}
+        initialLayout={initialLayout}
+        onReady={(handle) => {
+          ownedStore = handle;
+          setStore(handle);
+        }}
         components={components}
         tabs={tabs}
         theme={themes.light}
@@ -57,7 +65,7 @@ function App() {
     </>
   );
 }
-const props: LayoutProps = { store, components };
+const props: WorkspaceProps = { initialLayout, components };
 // @ts-expect-error Content creation requires TabRegistry.
 props.createPane = () => undefined;
 const root = createRoot(document.getElementById('app')!);
@@ -66,19 +74,48 @@ root.render(
     <App />
   </Context.Provider>,
 );
-Object.assign(window, { consumer: { store, stats, state, dispose: () => root.unmount() } });
-
+Object.assign(window, {
+  consumer: {
+    get store() {
+      return ownedStore;
+    },
+    stats,
+    state,
+    dispose: () => root.unmount(),
+  },
+});
 const unified = new PaneRegistry<import('react').ComponentType<PaneProps>>();
 // @ts-expect-error Unified registration excludes component maps.
-const conflict: LayoutProps = { store, registry: unified, components };
+const conflict: WorkspaceProps = { initialLayout, registry: unified, components };
 // @ts-expect-error Unified registration excludes tabs.
-const conflictTabs: LayoutProps = { store, registry: unified, tabs };
+const conflictTabs: WorkspaceProps = { initialLayout, registry: unified, tabs };
 void conflict;
 void conflictTabs;
-function TypedNote({ state }: PaneProps<{ text: string }>) {
+function TypedNote({
+  state,
+}: PaneProps<{
+  text: string;
+}>) {
   return <p>{state.text}</p>;
 }
 const typedLayout = (
-  <Layout store={store} components={{ note: TypedNote }} getPaneState={() => ({ text: 'typed' })} />
+  <Workspace
+    initialLayout={initialLayout}
+    components={{ note: TypedNote }}
+    getPaneState={() => ({ text: 'typed' })}
+  />
 );
 void typedLayout;
+// @ts-expect-error A mounted React layout cannot accept an external store.
+const externalStoreProps: WorkspaceProps = { store: {} as WorkspaceHandle };
+const presetForTypes = {
+  version: 1 as const,
+  layout: initialLayout,
+  theme: {},
+  tabBar: {},
+  autoCollapse: 'disabled' as const,
+};
+// @ts-expect-error Initial sources are mutually exclusive.
+const conflictingInitialProps: WorkspaceProps = { initialLayout, initialWorkspace: presetForTypes };
+void externalStoreProps;
+void conflictingInitialProps;

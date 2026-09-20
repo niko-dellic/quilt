@@ -11,14 +11,12 @@ Provide `<div id="app"></div>` in the page.
 
 ```tsx
 import { createRoot } from 'react-dom/client';
-import { Layout, LayoutStore, createLayout, type PaneProps } from 'quilt-react';
+import { Workspace, createLayout, type PaneProps } from 'quilt-react';
 import 'quilt-react/styles.css';
 
 type NotesState = { text: string };
 const data: NotesState = { text: 'Notes' };
-const store = new LayoutStore(
-  createLayout({ pane: { id: 'notes', type: 'notes', title: 'Notes' } }),
-);
+const initialLayout = createLayout({ pane: { id: 'notes', type: 'notes', title: 'Notes' } });
 function Notes({ state }: PaneProps<NotesState>) {
   return (
     <textarea
@@ -31,9 +29,9 @@ function Notes({ state }: PaneProps<NotesState>) {
 }
 const root = createRoot(document.getElementById('app')!);
 root.render(
-  <Layout<NotesState>
-    store={store}
-    components={{ notes: Notes }}
+  <Workspace<NotesState>
+    initialLayout={initialLayout}
+    paneTypes={{ notes: { title: 'Notes', render: Notes } }}
     getPaneState={() => data}
     style={{ height: 600 }}
   />,
@@ -41,12 +39,11 @@ root.render(
 
 function disposeWorkspace() {
   root.unmount();
-  queueMicrotask(() => store.dispose());
 }
 ```
 
 Pane components inherit surrounding React providers through portals, including in
-companion windows. Keep the store stable. Changing callback or component-map
+companion windows. Initial configuration is read once. Changing callback or component-map
 identities does not rebuild the workspace.
 
 Moving a pane between documents remounts its view. React-local state does not

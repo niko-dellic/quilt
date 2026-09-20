@@ -48,12 +48,11 @@ for (const framework of ['vanilla', 'react']) {
     });
   }
 }
-
 test('compact tabs retain icons, active close, labels for accessibility, and mounted views', async ({
   page,
 }) => {
   await page.goto('/tests/browser/harness.html?shortcuts');
-  await page.evaluate(() => window.harness.store.move('b', 'left'));
+  await page.evaluate(() => window.harness.store.movePane('b', 'left'));
   const host = page.locator('#host');
   await host.evaluate((el) => {
     el.style.width = '210px';
@@ -78,21 +77,20 @@ test('compact tabs retain icons, active close, labels for accessibility, and mou
     live: 2,
   });
 });
-
 test('shortcuts are disabled by default and close capability is respected', async ({ page }) => {
   await page.goto('/tests/browser/harness.html');
   const a = page.getByRole('tab', { name: 'A', exact: true });
   await a.hover();
   for (const shortcut of ['Alt+Space', '`']) {
     await page.keyboard.press(shortcut);
-    expect(await page.evaluate(() => window.harness.store.getSnapshot().maximized)).toBeNull();
+    expect(await page.evaluate(() => window.harness.store.getLayout().maximized)).toBeNull();
   }
   await a.click({ button: 'middle' });
   await expect(a).toBeVisible();
   await page.goto('/tests/browser/harness.html?shortcuts');
   await page.evaluate(() =>
     window.harness.store.updatePane({
-      ...window.harness.store.getSnapshot().panes.a!,
+      ...window.harness.store.getLayout().panes.a!,
       capabilities: { close: false },
     }),
   );

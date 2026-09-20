@@ -1,12 +1,22 @@
-import { StrictMode, createContext, useContext, useEffect, useState, createRef } from 'react';
+import {
+  StrictMode,
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  createRef,
+} from 'react';
 import { createRoot } from 'react-dom/client';
-import { Layout, LayoutStore, createLayout } from 'quilt-react';
-import type { PaneProps, MountedLayout } from 'quilt-react';
+import { Workspace, createLayout } from 'quilt-react';
+import type { PaneProps, WorkspaceHandle } from 'quilt-react';
 import 'quilt-react/styles.css';
 const context = createContext('missing');
-const store = new LayoutStore(createLayout({ pane: { id: 'a', type: 'note', title: 'Note' } }));
-const handle = createRef<MountedLayout>();
-const stats = { mounts: 0, live: 0, errors: [] as string[] };
+const initialLayout = createLayout({ pane: { id: 'a', type: 'note', title: 'Note' } });
+const handle = createRef<WorkspaceHandle>();
+const stats = { mounts: 0, live: 0, ready: 0, early: [] as string[], errors: [] as string[] };
+let ownedStore: WorkspaceHandle;
+const ownedStores: WorkspaceHandle[] = [];
 let fail = false;
 function Note(props: PaneProps) {
   const value = useContext(context);
@@ -29,12 +39,22 @@ function Alternate() {
   return <p>Replacement</p>;
 }
 function App() {
+  useLayoutEffect(() => {
+    try {
+      handle.current!.exportWorkspace();
+    } catch (error) {
+      stats.early.push(String(error));
+    }
+    void handle.current!.popout('a').catch((error) => stats.early.push(String(error)));
+  }, []);
   const [version, setVersion] = useState(0);
+  const [session, setSession] = useState(0);
   const [replacement, setReplacement] = useState(false);
   return (
     <context.Provider value={`context ${version}`}>
       <button onClick={() => setVersion((value) => value + 1)}>Rerender</button>
       <button onClick={() => setReplacement(true)}>Replace</button>
+      <button onClick={() => setSession((value) => value + 1)}>Remount</button>
       <button
         onClick={() => {
           void handle.current?.popout('a');
@@ -42,10 +62,34 @@ function App() {
       >
         Pop out
       </button>
-      <Layout
+      <Workspace
         ref={handle}
-        store={store}
-        components={{ note: replacement ? Alternate : Note }}
+        key={session}
+        {...(new URLSearchParams(location.search).has('preset')
+          ? {
+              initialWorkspace: {
+                version: 1 as const,
+                layout: initialLayout,
+                theme: { panel: '#123456' },
+                tabBar: { placement: 'left' as const },
+                autoCollapse: 'protected' as const,
+              },
+            }
+          : {
+              initialLayout: {
+                ...initialLayout,
+                panes: {
+                  ...initialLayout.panes,
+                  a: { ...initialLayout.panes.a!, title: `Initial ${version}` },
+                },
+              },
+            })}
+        onReady={(workspace) => {
+          stats.ready++;
+          ownedStore = workspace;
+          ownedStores.push(ownedStore);
+        }}
+        paneTypes={{ note: { title: 'Note', render: replacement ? Alternate : Note } }}
         onError={(error) => stats.errors.push(String(error))}
         style={{ height: 400 }}
       />
@@ -59,7 +103,10 @@ root.render(
   </StrictMode>,
 );
 export const integration = {
-  store,
+  ownedStores,
+  get store() {
+    return ownedStore;
+  },
   stats,
   handle,
   fail: () => {

@@ -1,9 +1,9 @@
 import { themes, themeFamilies, themeProperties } from 'quilt-vanilla';
 import type { AutoCollapse } from 'quilt-core';
-import { store, workspaceSession } from './model.js';
+import { workspace, workspaceSession } from './model.js';
 import { defaultThemeName } from './theme.js';
 import { addThemeFields, installThemeExport } from './theme-export.js';
-import type { LayoutTheme, MountedLayout } from 'quilt-vanilla';
+import type { LayoutTheme, WorkspaceHandle } from 'quilt-vanilla';
 // Controls belong to the demo session and survive pane moves and layout resets.
 let settings: HTMLElement | undefined;
 let settingsHost: HTMLElement | undefined;
@@ -24,7 +24,7 @@ export function mountTheming(element: HTMLElement) {
     },
   };
 }
-export function setupShell(getMounted: () => MountedLayout | undefined) {
+export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
   const overrides: LayoutTheme = {};
   let syncThemeFields = (_theme: LayoutTheme) => {};
   let headerHeight = 32,
@@ -151,8 +151,8 @@ export function setupShell(getMounted: () => MountedLayout | undefined) {
     option.textContent = mode[0]!.toUpperCase() + mode.slice(1);
     collapseSelect.append(option);
   }
-  collapseSelect.value = store.getAutoCollapse();
-  collapseSelect.onchange = () => store.setAutoCollapse(collapseSelect.value as AutoCollapse);
+  collapseSelect.value = workspace.getAutoCollapse();
+  collapseSelect.onchange = () => workspace.setAutoCollapse(collapseSelect.value as AutoCollapse);
   const collapseField = labelControl(collapseSelect, 'Auto collapse');
   const barSelect = document.createElement('select');
   barSelect.setAttribute('aria-label', 'Taper options');
@@ -567,7 +567,6 @@ export function setupShell(getMounted: () => MountedLayout | undefined) {
     applyTheme();
   };
   resizing.append(collapseField, disabledLabel);
-
   applySettings = () => {
     applyTheme();
     applyBar();
@@ -588,7 +587,7 @@ export function setupShell(getMounted: () => MountedLayout | undefined) {
       const input: unknown = JSON.parse(output.value);
       if (input && typeof input === 'object' && 'layout' in input)
         getMounted()?.loadWorkspace(input);
-      else store.load(input); // Accept earlier layout-only JSON too.
+      else workspace.loadLayout(input); // Accept earlier layout-only JSON too.
       dialog.close();
     } catch (e) {
       error.textContent = e instanceof Error ? e.message : String(e);

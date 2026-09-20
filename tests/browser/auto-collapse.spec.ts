@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-
 for (const mode of ['disabled', 'protected', 'enabled'] as const) {
   test(`${mode}: last-tab close and popout follow the selected policy`, async ({ page }) => {
     await page.goto('/tests/browser/harness.html');
@@ -14,7 +13,7 @@ for (const mode of ['disabled', 'protected', 'enabled'] as const) {
     await expect(page.getByRole('tab', { name: 'A', exact: true })).toBeVisible();
     if (mode !== 'enabled')
       await expect(left.getByRole('tab', { name: 'A', exact: true })).toBeVisible();
-    await page.evaluate(() => window.harness.store.reset());
+    await page.evaluate(() => window.harness.store.loadLayout(window.harness.fixture));
     await page.getByRole('button', { name: 'Close A', exact: true }).click();
     if (mode === 'disabled') {
       await expect(left.getByRole('button', { name: 'Close empty pane' })).toBeVisible();
@@ -25,7 +24,6 @@ for (const mode of ['disabled', 'protected', 'enabled'] as const) {
     await expect(page.getByRole('button', { name: 'Close empty pane' })).toBeDisabled();
   });
 }
-
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: pending regions survive while searches dismiss outside the pane`, async ({
     page,
@@ -66,7 +64,6 @@ for (const framework of ['vanilla', 'react']) {
     await expect(setting).toHaveValue('protected');
   });
 }
-
 test('pending picker subscriptions clean up on removal, selection, and disposal', async ({
   page,
 }) => {

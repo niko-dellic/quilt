@@ -19,8 +19,8 @@ Use an ESM bundler with CSS support; the [starters](examples.md) use Vite.
 ## Learn the essentials
 
 1. [Create a workspace](quickstart-vanilla.md) or [mount React panes](quickstart-react.md).
-2. Learn how [panes, groups, and the store](concepts.md) fit together.
-3. [Register pane types](integration.md#unified-registration) to let users add content.
+2. Learn how [workspaces, panes, and groups](concepts.md) fit together.
+3. [Register pane types](integration.md#plain-pane-types-and-handles) to let users add content.
 4. [Style the chrome](theming.md) and export a theme from the demo.
 5. [Save and restore a workspace](integration.md#workspace-json) using your own storage.
 

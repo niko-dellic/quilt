@@ -1,5 +1,4 @@
 import { test, expect, type Page } from '@playwright/test';
-
 // Inspect cancellation directly as well as exercising browser keyboard input.
 const press = (page: Page) =>
   page.evaluate(() => {
@@ -12,7 +11,6 @@ const press = (page: Page) =>
     (document.activeElement ?? document.body).dispatchEvent(event);
     return event.defaultPrevented;
   });
-
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: T opens a pane tab without opening a browser tab`, async ({
     page,
@@ -31,7 +29,6 @@ for (const framework of ['vanilla', 'react']) {
     ).toHaveAttribute('aria-selected', 'true');
     expect(context.pages()).toHaveLength(pagesBefore);
   });
-
   test(`${framework}: T opens the hovered region picker and prevents default`, async ({ page }) => {
     await page.goto(`/${framework}.html`);
     await page.getByRole('tab', { name: 'Scene', exact: true }).focus();
@@ -47,7 +44,6 @@ for (const framework of ['vanilla', 'react']) {
     ).toHaveAttribute('aria-selected', 'true');
   });
 }
-
 test('T respects opt-in, focus fallback, text entry, and move capabilities', async ({ page }) => {
   for (const enabled of [false, true]) {
     await page.goto(`/tests/browser/harness.html${enabled ? '?shortcuts' : ''}`);
@@ -74,7 +70,7 @@ test('T respects opt-in, focus fallback, text entry, and move capabilities', asy
     await tab.hover();
     await page.evaluate(() =>
       window.harness.store.updatePane({
-        ...window.harness.store.getSnapshot().panes.a!,
+        ...window.harness.store.getLayout().panes.a!,
         capabilities: { move: false },
       }),
     );

@@ -1,3 +1,4 @@
+import { chromeMinimum } from './chrome-size.js';
 import { closeRequests } from './close.js';
 import { dockLayout, parseWorkspace } from './workspace.js';
 import { validateTheme, themePixels } from './theme.js';
@@ -9,9 +10,18 @@ import { bindCorners } from './corners.js';
 import { applyTheme } from './theme.js';
 import { fillTabs } from './tabs.js';
 import { bindShortcuts } from './shortcuts.js';
-import { allocate, bounds, DIVIDER, findNode, groups, paneIds } from 'quilt-core';
+import {
+  LayoutStore,
+  createLayout,
+  allocate,
+  bounds as modelBounds,
+  DIVIDER,
+  findNode,
+  groups,
+  paneIds,
+} from 'quilt-core';
 import type { Group, Layout, Node, Pane } from 'quilt-core';
-import type { LayoutOptions, ResolvedLayoutOptions, MountedLayout } from './types.js';
+import type { LayoutOptions, ResolvedLayoutOptions, MountedLayout, TabBarStyle } from './types.js';
 import { Scope, el, syncChildren } from './lifetime.js';
 import { mountPane } from './panes.js';
 import type { MountedPane } from './panes.js';
@@ -26,19 +36,51 @@ interface Region {
   divider?: HTMLElement;
   signature?: string;
   updateTabBar?: () => void;
+  tabStyle?: () => TabBarStyle;
 }
 let nextMount = 0;
 export function mountLayout<State = unknown>(
   host: HTMLElement,
   input: LayoutOptions<State>,
 ): MountedLayout<State> {
-  // State typing is a boundary contract; the renderer only forwards the value.
-  return mountLayoutInternal(
-    host,
-    input as unknown as ResolvedLayoutOptions,
-  ) as MountedLayout<State>;
+  if ('store' in input)
+    throw new Error('Quilt owns its store; pass initialLayout or initialWorkspace');
+  if (input.initialLayout !== undefined && input.initialWorkspace !== undefined)
+    throw new Error('initialLayout and initialWorkspace are mutually exclusive');
+  if (input.registry && (input.renderers || input.tabs))
+    throw new Error('registry cannot be combined with renderers or tabs');
+  const preset =
+    input.initialWorkspace === undefined ? undefined : parseWorkspace(input.initialWorkspace);
+  const theme = preset?.theme ?? input.theme ?? {};
+  const tabBar = preset?.tabBar ?? input.tabBar ?? {};
+  validateTheme(theme);
+  validateTabBar(tabBar);
+  const store = new LayoutStore(
+    dockLayout(preset?.layout ?? input.initialLayout ?? createLayout()),
+    {
+      autoCollapse: preset?.autoCollapse ?? 'disabled',
+    },
+  );
+  // The initialization scope rolls back even if setup fails before returning a handle.
+  const scope = new Scope();
+  scope.add(() => store.dispose());
+  try {
+    return mountLayoutInternal(
+      host,
+      { ...input, store, theme, tabBar } as unknown as ResolvedLayoutOptions,
+      scope,
+    ) as MountedLayout<State>;
+  } catch (error) {
+    scope.dispose();
+    throw error;
+  }
 }
-function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): MountedLayout {
+
+function mountLayoutInternal(
+  host: HTMLElement,
+  input: ResolvedLayoutOptions,
+  scope: Scope,
+): MountedLayout {
   const options = { ...input };
   const configure = () => {
     if (options.registry) {
@@ -58,8 +100,7 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
   const doc = host.ownerDocument,
     win = doc.defaultView;
   if (!win) throw new Error('Layout host must belong to a live document');
-  const scope = new Scope(),
-    regions = new Map<string, Region>(),
+  const regions = new Map<string, Region>(),
     panes = new Map<string, MountedPane>();
   const root = el(doc, 'div', 'layouts');
   applyTheme(root, options.theme ?? {});
@@ -69,6 +110,7 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
   status.setAttribute('role', 'status');
   root.append(stage, status);
   host.append(root);
+  scope.add(() => root.remove());
   let disposed = false,
     rendering = false,
     again = false,
@@ -89,9 +131,20 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
       error(e);
     }
   };
-  const requestClose = closeRequests(root, options, scope, error);
+  const closeScope = new Scope();
+  scope.add(() => closeScope.dispose());
+  const requestClose = closeRequests(root, options, closeScope, error);
   const windows = new Windows(doc, options, error, root);
+  scope.add(() => windows.dispose());
+  scope.add(() => {
+    for (const pane of panes.values()) pane.dispose();
+    panes.clear();
+    for (const region of regions.values()) region.scope.dispose();
+    regions.clear();
+  });
   const menu = createPaneMenu(root, options, windows, render, error, requestClose);
+  scope.add(() => menu.dispose());
+  scope.add(() => dragScope?.dispose());
   bindShortcuts(root, options, scope, act, (group) => {
     const region = regions.get(group.id);
     if (region) menu.addTab(region.header ?? region.element, group);
@@ -123,24 +176,25 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
       r.header = el(doc, 'header', 'layouts-header');
       r.body = el(doc, 'div', 'layouts-body');
       r.element.append(r.header, r.body);
+      r.tabStyle = () => {
+        const current = findNode(options.store.getSnapshot().root, node.id);
+        return {
+          ...tabBar,
+          ...(tabBar.regions?.[node.id] ?? {}),
+          ...(current?.kind === 'group' && current.tabDisplay
+            ? { display: current.tabDisplay }
+            : {}),
+          ...(current?.kind === 'group' && current.tabPlacement
+            ? { placement: current.tabPlacement }
+            : {}),
+        };
+      };
       r.updateTabBar = bindTabBar(
         r.element,
         r.header,
         root,
         r.scope,
-        () => {
-          const current = findNode(options.store.getSnapshot().root, node.id);
-          return {
-            ...tabBar,
-            ...(tabBar.regions?.[node.id] ?? {}),
-            ...(current?.kind === 'group' && current.tabDisplay
-              ? { display: current.tabDisplay }
-              : {}),
-            ...(current?.kind === 'group' && current.tabPlacement
-              ? { placement: current.tabPlacement }
-              : {}),
-          };
-        },
+        r.tabStyle,
         () => options.messages ?? {},
       );
       bindCorners(
@@ -150,6 +204,7 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
         r.scope,
         (pane, group, direction, ratio) => menu.open(r.header!, pane, group, direction, ratio),
         error,
+        bounds,
       );
       r.element.setAttribute('aria-label', message(options, 'Pane region'));
       r.scope.listen(r.element, 'dragover', (event) => {
@@ -203,10 +258,15 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
         dragScope?.dispose();
         const drag = new Scope();
         dragScope = drag;
-        const resize = isolatedResize(geometryLayout(), node.id, (child, axis) => {
-          const rect = regions.get(child.id)!.element.getBoundingClientRect();
-          return axis === 'horizontal' ? rect.width : rect.height;
-        });
+        const resize = isolatedResize(
+          geometryLayout(),
+          node.id,
+          (child, axis) => {
+            const rect = regions.get(child.id)!.element.getBoundingClientRect();
+            return axis === 'horizontal' ? rect.width : rect.height;
+          },
+          bounds,
+        );
         r.divider!.setPointerCapture(e.pointerId);
         root.classList.add('layouts-resizing');
         drag.add(() => {
@@ -258,10 +318,15 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
           n.axis === 'horizontal' ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown'];
         if (keys.includes(e.key)) {
           e.preventDefault();
-          const resize = isolatedResize(geometryLayout(), node.id, (child, axis) => {
-            const rect = regions.get(child.id)!.element.getBoundingClientRect();
-            return axis === 'horizontal' ? rect.width : rect.height;
-          });
+          const resize = isolatedResize(
+            geometryLayout(),
+            node.id,
+            (child, axis) => {
+              const rect = regions.get(child.id)!.element.getBoundingClientRect();
+              return axis === 'horizontal' ? rect.width : rect.height;
+            },
+            bounds,
+          );
           act(() =>
             options.store.resizeMany(
               resize.ratios(
@@ -558,9 +623,29 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
       return node.axis === 'horizontal' ? b.minWidth < b.maxWidth : b.minHeight < b.maxHeight;
     });
   }
+  const chromeSizes = new Map<string, { minWidth: number; minHeight: number }>();
+  function bounds(node: Node, layout: Layout) {
+    return modelBounds(node, layout, (group, constraints) => {
+      const chrome = chromeSizes.get(group.id);
+      if (!chrome) return constraints;
+      const minWidth = Math.max(constraints.minWidth, chrome.minWidth);
+      const minHeight = Math.max(constraints.minHeight, chrome.minHeight);
+      return {
+        minWidth,
+        minHeight,
+        maxWidth: Math.max(constraints.maxWidth, minWidth),
+        maxHeight: Math.max(constraints.maxHeight, minHeight),
+      };
+    });
+  }
   // Renderer-only gaps participate in bounds/allocation without modifying Layout JSON.
   function geometryLayout(): Layout {
     const layout = options.store.getSnapshot();
+    chromeSizes.clear();
+    for (const [id, region] of regions) {
+      if (region.header && region.tabStyle && region.element.isConnected)
+        chromeSizes.set(id, chromeMinimum(region.element, region.header, region.tabStyle()));
+    }
     const pixels = (property: string, fallback: number) => themePixels(root, property, fallback);
     const width = pixels('--layouts-resize-handle-width', DIVIDER);
     const disabledWidth = pixels('--layouts-disabled-resize-handle-width', 0);
@@ -702,12 +787,22 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
     themeObserver.observe(ancestor, { attributes: true });
   themeObserver.observe(doc.head, { childList: true, subtree: true, characterData: true });
   scope.add(() => themeObserver.disconnect());
+  // Cancel asynchronous actions before tearing down views and the owned store.
+  scope.add(() => {
+    closeScope.dispose();
+    windows.dispose();
+  });
   render();
   return {
+    store: options.store,
     requestClose,
     refreshTheme,
     updateOptions(next) {
       if (disposed) return;
+      if ('store' in next || 'initialLayout' in next || 'initialWorkspace' in next)
+        throw new Error(
+          'Initial configuration cannot be updated; use loadWorkspace or store commands',
+        );
       const candidate = { ...options, ...next };
       if (candidate.registry && (next.renderers || next.tabs))
         throw new Error('registry cannot be combined with renderers or tabs');
@@ -801,21 +896,7 @@ function mountLayoutInternal(host: HTMLElement, input: ResolvedLayoutOptions): M
     dispose() {
       if (disposed) return;
       disposed = true;
-      menu.dispose();
-      dragScope?.dispose();
       scope.dispose();
-      windows.dispose();
-      for (const p of panes.values()) {
-        try {
-          p.dispose();
-        } catch (e) {
-          error(e);
-        }
-      }
-      for (const r of regions.values()) r.scope.dispose();
-      panes.clear();
-      regions.clear();
-      root.remove();
     },
   };
 }

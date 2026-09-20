@@ -31,9 +31,9 @@ npm run pack:all
 
 The `artifacts/packages/` output directory contains:
 
-- `quilt-core-0.2.4.tgz`
-- `quilt-vanilla-0.2.4.tgz`
-- `quilt-react-0.2.4.tgz`
+- `quilt-core-0.3.0.tgz`
+- `quilt-vanilla-0.3.0.tgz`
+- `quilt-react-0.3.0.tgz`
 - `manifest.json` recording repository, source commit, working-tree status, and SHA-256 digests.
 
 Pack a clean committed checkout for reproducible application integration. A null commit or `dirty: true` indicates development output, not a verified release source. `npm run test:packed` installs archives in an isolated temporary consumer, checks ESM/declarations/styles with TypeScript 5.9 and 7 under NodeNext and Bundler resolution (including checked side-effect imports), and confirms vanilla installation does not bring React along.
@@ -41,16 +41,16 @@ Pack a clean committed checkout for reproducible application integration. A null
 For a vanilla consumer, copy the core and DOM tarballs into its own vendor directory and install both together:
 
 ```sh
-npm install ./vendor/quilt/quilt-core-0.2.4.tgz \
-  ./vendor/quilt/quilt-vanilla-0.2.4.tgz
+npm install ./vendor/quilt/quilt-core-0.3.0.tgz \
+  ./vendor/quilt/quilt-vanilla-0.3.0.tgz
 ```
 
 For an existing React application, install the three Quilt tarballs together:
 
 ```sh
-npm install ./vendor/quilt/quilt-core-0.2.4.tgz \
-  ./vendor/quilt/quilt-vanilla-0.2.4.tgz \
-  ./vendor/quilt/quilt-react-0.2.4.tgz
+npm install ./vendor/quilt/quilt-core-0.3.0.tgz \
+  ./vendor/quilt/quilt-vanilla-0.3.0.tgz \
+  ./vendor/quilt/quilt-react-0.3.0.tgz
 ```
 
 Keep those archive files and the consumer lockfile together. Internal package dependencies resolve to the matching local packages when installed together. A subsequent `npm ci` must work without the Quilt checkout. Bump versions when replacing archives for a new release, and restart the consumer's dev server after dependency replacement.
@@ -60,8 +60,8 @@ For example, the vanilla consumer's `package.json` records relative archive path
 ```json
 {
   "dependencies": {
-    "quilt-core": "file:vendor/quilt/quilt-core-0.2.4.tgz",
-    "quilt-vanilla": "file:vendor/quilt/quilt-vanilla-0.2.4.tgz"
+    "quilt-core": "file:vendor/quilt/quilt-core-0.3.0.tgz",
+    "quilt-vanilla": "file:vendor/quilt/quilt-vanilla-0.3.0.tgz"
   }
 }
 ```
@@ -71,7 +71,7 @@ application or original checkout lives:
 
 ```ts
 import { LayoutStore } from 'quilt-core';
-import { mountLayout } from 'quilt-vanilla';
+import { Workspace } from 'quilt-vanilla';
 import 'quilt-vanilla/styles.css';
 ```
 

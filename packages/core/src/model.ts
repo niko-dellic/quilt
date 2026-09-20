@@ -205,18 +205,24 @@ function paneBounds(p: Pane): Bounds {
   };
 }
 export const DIVIDER = 4;
-export function bounds(node: Node, layout: Layout): Bounds {
+/** Aggregate model constraints, optionally resolving each group's bounds for a host renderer. */
+export function bounds(
+  node: Node,
+  layout: Layout,
+  resolveGroup?: (group: Group, constraints: Bounds) => Bounds,
+): Bounds {
   if (node.kind === 'group') {
     const values = node.panes.map((id) => paneBounds(layout.panes[id]!));
-    return {
+    const constraints = {
       minWidth: Math.max(0, ...values.map((b) => b.minWidth)),
       maxWidth: Math.min(Infinity, ...values.map((b) => b.maxWidth)),
       minHeight: Math.max(0, ...values.map((b) => b.minHeight)),
       maxHeight: Math.min(Infinity, ...values.map((b) => b.maxHeight)),
     };
+    return resolveGroup ? resolveGroup(node, constraints) : constraints;
   }
-  const a = bounds(node.children[0], layout),
-    b = bounds(node.children[1], layout);
+  const a = bounds(node.children[0], layout, resolveGroup),
+    b = bounds(node.children[1], layout, resolveGroup);
   return node.axis === 'horizontal'
     ? {
         minWidth: a.minWidth + b.minWidth + (node.gap ?? DIVIDER),

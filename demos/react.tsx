@@ -4,10 +4,10 @@ import { renderIcon } from './icons.js';
 import 'quilt-react/styles.css';
 import { createRoot } from 'react-dom/client';
 import { createRef, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { Layout } from 'quilt-react';
+import { Workspace } from 'quilt-react';
 import type { PaneProps } from 'quilt-react';
-import type { MountedLayout } from 'quilt-react';
-import { store, state, getPaneState, tabs } from './model.js';
+import type { WorkspaceHandle } from 'quilt-react';
+import { initial, bindWorkspace, state, getPaneState, tabs } from './model.js';
 import { imperativeView } from './views.js';
 import { setupShell } from './shell.js';
 function Notes() {
@@ -47,7 +47,7 @@ function Imperative(props: PaneProps) {
   useLayoutEffect(() => {
     if (!host.current) return;
     const element = host.current;
-    const view = imperativeView({ ...props, element });
+    const view = imperativeView({ ...props, element }) ?? { dispose() {} };
     const observer = new ResizeObserver(() =>
       view.resize?.(element.clientWidth, element.clientHeight),
     );
@@ -71,12 +71,16 @@ const components = {
   footer: Imperative,
 };
 const demoTabBar = { attachment: 'floating', fit: 'fit' } as const;
-const ref = createRef<MountedLayout>();
+const ref = createRef<WorkspaceHandle>();
 const root = createRoot(document.querySelector('#workspace')!);
 root.render(
-  <Layout
+  <Workspace
     ref={ref}
-    store={store}
+    initialLayout={initial}
+    onReady={(handle) => {
+      bindWorkspace(handle);
+      setupShell(() => handle);
+    }}
     components={components}
     getPaneState={getPaneState}
     tabs={tabs}
@@ -86,4 +90,3 @@ root.render(
     tabBar={demoTabBar}
   />,
 );
-setupShell(() => ref.current ?? undefined);

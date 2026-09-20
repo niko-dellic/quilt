@@ -42,7 +42,6 @@ test('corner split, escape cancellation and sibling join preserve panes', async 
   await expect(source.getByRole('tab', { name: 'Notes', exact: true })).toBeVisible();
   await expect(source.getByRole('tab', { name: 'Scene', exact: true })).toBeVisible();
 });
-
 test('split orientation follows the gesture; cancelling the picker removes only the empty region', async ({
   page,
 }) => {
@@ -65,13 +64,12 @@ test('split orientation follows the gesture; cancelling the picker removes only 
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect((await source.boundingBox())!.height).toBeCloseTo(before.height, 0);
 });
-
 test('an empty region restored from JSON can still choose content', async ({ page }) => {
   await page.goto('/tests/browser/harness.html');
   await page.evaluate(() => {
     const store = window.harness.store;
-    store.split('left', 'horizontal', null);
-    store.load(store.export());
+    store.splitGroup('left', 'horizontal', null);
+    store.loadLayout(store.exportLayout());
   });
   await page.getByRole('button', { name: 'Choose a tab', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Search tabs' })).toBeFocused();

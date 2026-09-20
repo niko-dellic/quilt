@@ -1,5 +1,51 @@
 # API migration
 
+## Workspace-first API in 0.3.0
+
+- Replace `mountLayout(host, options)` with `new Workspace({ container: host, ...options })`.
+- Rename React `<Layout>` to `<Workspace>`, `LayoutProps` to `WorkspaceProps`, and
+  `MountedLayout` to `WorkspaceHandle`. No compatibility aliases remain.
+- Remove mounted store construction/injection and manual store disposal. Call
+  `workspace.dispose()` in vanilla; unmount in React. Import standalone `LayoutStore`
+  from `quilt-core` only for browser-free model work.
+- Replace `workspace.store.getSnapshot()` with `workspace.getLayout()`, `export()` with
+  `exportLayout()`, `load()` with `loadLayout()`, and `subscribe(fn)` with `on('change', fn)`.
+- Replace model `add` with `insertPane`, `move` with `movePane`, `split` with `splitGroup`,
+  `join` with `joinGroup`, `joinRegions` with `joinGroups`, and `activate(group, id)` with
+  `activatePane(id)`. Prefer `addPane(type, options)` and returned pane handles for new code.
+- Replace `restoreClosedTab` / `canRestoreClosedTab` with `restoreClosedPane` /
+  `canRestoreClosedPane`. Pass the workspace itself to `useLayoutSnapshot`.
+- `workspace.reset()` restores the entire initial workspace, including appearance and auto-collapse. Use `loadLayout(initialLayout)` to replace only the arrangement.
+- Replace `requestClose(id)` with `closePane(id)` and group requests with `closeGroup(id)`.
+  Programmatic closes now honor confirmation and permissions. Use `{ force: true }`
+  only for explicit application authority.
+- Use plain `paneTypes` for ordinary registration. Advanced registry APIs remain available,
+  but cannot be combined with `paneTypes` on the same mount.
+- Reacquire pane handles after successful load/reset or closed-pane restoration. IDs persist;
+  handles to removed or replaced panes do not become valid again.
+
+## 0.3.0: one owned workspace lifecycle
+
+- Remove store construction from vanilla/React mount setup. Pass layout JSON as
+  `initialLayout`, or a saved preset as `initialWorkspace`; omit both for an empty workspace.
+- Remove `store` from mount options and React props. It is rejected at runtime and
+  by TypeScript. There is no ownership compatibility switch.
+- Access commands and subscriptions directly through the workspace. Vanilla calls only
+  `workspace.dispose()`; React unmount releases its renderer and store automatically.
+- Remove manual store disposal and user-side microtasks. Use `onReady(handle)` to
+  connect React controls after initialization.
+- Initial configuration is consumed once. Use commands or `loadWorkspace()` for
+  later changes, or change the React key to create a new session.
+- Early asynchronous React ref calls reject instead of resolving false;
+  synchronous calls throw the same `Workspace is not ready` error.
+- Pane renderers can use `signal` and register `onCleanup` callbacks immediately
+  after resource allocation. Simple renderers can return nothing. Direct callers
+  of `PaneRenderer` must handle a void result and supply the new context fields.
+- Standalone `LayoutStore` remains supported for model-only consumers. Application
+  data ownership and JSON schema versions are unchanged.
+
+The sections below describe previous releases.
+
 ## 0.1.x → 0.2.0 upgrade checklist
 
 1. Upgrade all installed Quilt packages to **0.2.0** together and rebuild.
@@ -17,11 +63,11 @@
 
 - Await `mounted.popout(id)` for its `Promise<boolean>` result. Call it directly
   inside the user gesture; do not await preparation before opening.
-- Declarative `<Layout>` panes now inherit React providers. Remove duplicate
+- Declarative `<Workspace>` panes now inherit React providers. Remove duplicate
   provider wrappers where appropriate. Standalone `reactRenderer` retains its
   separate-root contract. Cross-document local state still remounts.
 - Ordinary callback and component-map identity changes no longer rebuild the
-  workspace. Replacing the store still replaces the session.
+  workspace. Changing the React key replaces the session.
 - Use `exportWorkspace()`/`loadWorkspace()` for layout and appearance together.
   Core `store.export()` remains the raw live model. Workspace exports dock copies;
   imported popouts no longer advertise a pending “Reopen window” action.
@@ -72,18 +118,18 @@ const tabs = new TabRegistry([
     }),
   },
 ]);
-// mountLayout(host, { store, renderers, tabs });
-// <Layout store={store} components={components} tabs={tabs} />
+// new Workspace({ container: host, initialLayout, renderers, tabs });
+// <Workspace initialLayout={initialLayout} components={components} tabs={tabs} />
 ```
 
-Return `undefined` to cancel. Source can be undefined in an empty workspace. Add-tab and populated-region content creation need registered choices. Empty regions can still split into empty regions without a registry. Programmatic `store.add` and `store.split` remain available.
+Return `undefined` to cancel. Source can be undefined in an empty workspace. Add-tab and populated-region content creation need registered choices. Empty regions can still split into empty regions without a registry. Programmatic `workspace.insertPane` and `workspace.splitGroup` remain available.
 
 ## Imports and initialization
 
 Core's undocumented `isJson` and `paneBounds` exports are now private. Use `validate`/`parseLayout` for layout validation and `bounds` for region constraints. Documented core helpers, `joinRange`, and the shared `DIVIDER` constant remain public.
 
-Both adapters now export `LayoutStore`, `LayoutError`, `createLayout`, `parseLayout`, `validate`, and core types. Import the model as `LayoutSnapshot` from adapters or `Layout` from core. React's `Layout` component name is unchanged. React also re-exports the tab registry, theme presets, and public DOM types.
+Both adapters export `LayoutError`, `createLayout`, `parseLayout`, `validate`, and core types. Import the model as `LayoutSnapshot` from adapters or `Layout` from core. React uses the `Workspace` component. React also re-exports the tab registry, theme presets, and public DOM types.
 
-Use `new LayoutStore(createLayout())` for an empty workspace, or `createLayout({ pane, groupId })` for a single pane. It clones and validates data, preserves IDs, and defaults the group ID to `main`.
+Use `new Workspace({ container })` for an empty mounted workspace, or `createLayout({ pane, groupId })` for a single pane. It clones and validates data, preserves IDs, and defaults the group ID to `main`.
 
 React apps can import `quilt-react/styles.css` instead of `quilt-vanilla/styles.css`; both contain the same rules. No JSON migration is needed; layout version remains 1.

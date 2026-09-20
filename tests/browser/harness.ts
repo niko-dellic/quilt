@@ -1,9 +1,8 @@
-import { LayoutStore } from 'quilt-core';
 import type { Layout } from 'quilt-core';
-import { mountLayout, TabRegistry, PaneRegistry } from 'quilt-vanilla';
+import { Workspace, TabRegistry, PaneRegistry } from 'quilt-vanilla';
 import 'quilt-vanilla/styles.css';
 import type { PaneRenderer } from 'quilt-vanilla';
-import type { MountedLayout } from 'quilt-vanilla';
+import type { WorkspaceHandle } from 'quilt-vanilla';
 const data = { text: 'initial' };
 const stats = { mounts: 0, disposals: 0, live: 0, errors: [] as string[] };
 const fixture: Layout = {
@@ -25,14 +24,14 @@ const fixture: Layout = {
     b: { id: 'b', type: 'test', title: 'B', size: { minWidth: 100 } },
   },
 };
-const store = new LayoutStore(fixture);
 const tabs = new TabRegistry();
-let mounted: MountedLayout;
+let mounted: WorkspaceHandle;
 let fail = false,
   blocked = false;
 function mount() {
-  mounted = mountLayout<unknown>(document.querySelector('#host')!, {
-    store,
+  mounted = new Workspace<unknown>({
+    container: document.querySelector('#host')!,
+    initialLayout: fixture,
     ...(new URLSearchParams(location.search).has('no-registry') ? {} : { tabs }),
     shortcuts: new URLSearchParams(location.search).has('shortcuts'),
     getPaneState: () => data,
@@ -62,9 +61,15 @@ function mount() {
 mount();
 document.querySelector('#open')!.addEventListener('click', () => mounted.popout('a'));
 document.querySelector('#return')!.addEventListener('click', () => mounted.returnPane('a'));
-let extra: { store: LayoutStore; mounted: MountedLayout } | undefined;
+let extra:
+  | {
+      store: WorkspaceHandle;
+      mounted: WorkspaceHandle;
+    }
+  | undefined;
 const unified = new PaneRegistry<PaneRenderer>();
 export const harness = {
+  Workspace,
   unified,
   get extra() {
     return extra!;
@@ -74,16 +79,23 @@ export const harness = {
     host.id = 'secondary';
     host.style.cssText = 'width:900px;height:200px';
     document.body.append(host);
-    const other = new LayoutStore(fixture);
-    extra = {
-      store: other,
-      mounted: mountLayout<unknown>(host, { store: other, renderers: {}, shortcuts: true }),
-    };
+    const other = new Workspace<unknown>({
+      container: host,
+      initialLayout: fixture,
+      renderers: {},
+      shortcuts: true,
+    });
+    extra = { store: other, mounted: other };
     return;
   },
   useRegistry() {
+    const initialLayout = mounted.exportLayout();
     mounted.dispose();
-    mounted = mountLayout<unknown>(document.querySelector('#host')!, { store, registry: unified });
+    mounted = new Workspace<unknown>({
+      container: document.querySelector('#host')!,
+      initialLayout,
+      registry: unified,
+    });
   },
   registerTest() {
     return unified.register({
@@ -102,7 +114,9 @@ export const harness = {
   tabs,
   setTabBar: (options: import('quilt-vanilla').TabBarOptions) => mounted.setTabBar(options),
   setTheme: (theme: import('quilt-vanilla').LayoutTheme) => mounted.setTheme(theme),
-  store,
+  get store() {
+    return mounted;
+  },
   stats,
   fixture,
   block: () => {

@@ -12,12 +12,22 @@ A group holds panes as tabs and identifies the active pane. A split divides two
 child regions horizontally or vertically. Splits and groups form a tree, so layouts
 can nest. Pane size constraints limit how regions can resize.
 
-## Store and mounted workspace
+## Workspace and layout
 
-`LayoutStore` owns the validated layout model. `mountLayout` or React's `<Layout>`
-connects it to the DOM and adds interaction, chrome, and companion windows.
-Keep the store stable while the workspace is mounted. Replacing it replaces the
-workspace session. Dispose a store you own after its views are unmounted.
+A **workspace** is the running Quilt instance: it owns the layout model, views,
+interactions, dialogs, and companion windows. Vanilla creates `new Workspace({ container })`;
+React mounts `<Workspace>`. There is no store to construct or manage.
+
+A **layout** is the serializable arrangement of panes, groups, and splits.
+`workspace.getLayout()` reads a stable immutable snapshot. `exportWorkspace()` also
+includes appearance and workspace settings for persistence.
+
+A **pane type** supplies creation metadata and its renderer or React component.
+`workspace.addPane('notes')` creates an instance and returns a **pane handle**.
+Use its methods to change the pane; use `id` for identity and `title` for its label.
+
+The browser-free `LayoutStore` in `quilt-core` is an advanced model-only API.
+It cannot be injected into a mounted workspace.
 
 ## Views and application data
 

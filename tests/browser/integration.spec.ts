@@ -41,7 +41,7 @@ test('React destination errors preserve the source view', async ({ page }) => {
   const popup = await opened;
   await expect.poll(() => popup.isClosed()).toBe(true);
   await expect(page.getByRole('textbox')).toHaveValue('source survives');
-  expect(await page.evaluate(() => window.integration.store.getSnapshot().popouts.length)).toBe(0);
+  expect(await page.evaluate(() => window.integration.store.getLayout().popouts.length)).toBe(0);
 });
 test('workspace exports dock copies and invalid imports leave live settings untouched', async ({
   page,
@@ -64,7 +64,7 @@ test('workspace exports dock copies and invalid imports leave live settings unto
     return {
       preset,
       current: mounted.exportWorkspace(),
-      detached: store.getSnapshot().popouts.length,
+      detached: store.getLayout().popouts.length,
     };
   });
   expect(result.preset).toEqual(result.current);
@@ -85,31 +85,31 @@ test('optional group confirmation cancels, commits once, and rejects stale reque
   await page.goto('/tests/browser/harness.html');
   await page.evaluate(() => {
     const { store } = window.harness;
-    store.move('b', 'left');
-    store.updatePane({ ...store.getSnapshot().panes.a!, confirmClose: true });
-    void window.harness.mounted.requestClose('left', 'group');
+    store.movePane('b', 'left');
+    store.updatePane({ ...store.getLayout().panes.a!, confirmClose: true });
+    void window.harness.mounted.closeGroup('left');
   });
   await expect(page.getByRole('dialog', { name: 'Close selected panes?' })).toBeVisible();
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect(
-    await page.evaluate(() => Object.keys(window.harness.store.getSnapshot().panes)),
+    await page.evaluate(() => Object.keys(window.harness.store.getLayout().panes)),
   ).toHaveLength(2);
   await page.evaluate(() => {
-    void window.harness.mounted.requestClose('left', 'group');
+    void window.harness.mounted.closeGroup('left');
   });
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   expect(
-    await page.evaluate(() => Object.keys(window.harness.store.getSnapshot().panes)),
+    await page.evaluate(() => Object.keys(window.harness.store.getLayout().panes)),
   ).toHaveLength(0);
   await page.evaluate(() => {
     const { store, mounted } = window.harness;
-    store.restoreClosedTab();
-    store.restoreClosedTab();
+    store.restoreClosedPane();
+    store.restoreClosedPane();
     mounted.updateOptions({
       confirmClose: () => new Promise((resolve) => setTimeout(() => resolve(true), 50)),
     });
-    void mounted.requestClose('left', 'group');
-    store.updatePane({ ...store.getSnapshot().panes.a!, title: 'Changed' });
+    void mounted.closeGroup('left');
+    store.updatePane({ ...store.getLayout().panes.a!, title: 'Changed' });
   });
   await expect(page.getByRole('tab', { name: 'Changed', exact: true })).toBeVisible();
 });
@@ -142,19 +142,19 @@ test('shortcut ownership follows focus across two workspaces and accepts custom 
   await page.goto('/tests/browser/harness.html?shortcuts');
   await page.evaluate(() => {
     window.harness.secondary();
-    window.harness.store.close('b');
-    window.harness.extra.store.close('b');
+    window.harness.store.closePane('b', { force: true });
+    window.harness.extra.store.closePane('b', { force: true });
     window.harness.mounted.updateOptions({
       shortcuts: { restoreClosedTab: { key: 'z', ctrl: true } },
     });
   });
   await page.locator('#secondary').getByRole('tab', { name: 'A', exact: true }).focus();
   await page.keyboard.press('r');
-  expect(await page.evaluate(() => !!window.harness.store.getSnapshot().panes.b)).toBe(false);
-  expect(await page.evaluate(() => !!window.harness.extra.store.getSnapshot().panes.b)).toBe(true);
+  expect(await page.evaluate(() => !!window.harness.store.getLayout().panes.b)).toBe(false);
+  expect(await page.evaluate(() => !!window.harness.extra.store.getLayout().panes.b)).toBe(true);
   await page.locator('#host').getByRole('tab', { name: 'A', exact: true }).focus();
   await page.keyboard.press('Control+z');
-  expect(await page.evaluate(() => !!window.harness.store.getSnapshot().panes.b)).toBe(true);
+  expect(await page.evaluate(() => !!window.harness.store.getLayout().panes.b)).toBe(true);
 });
 test('unified registration replaces unknown content and supplies optional confirmation', async ({
   page,
@@ -171,7 +171,7 @@ test('unified registration replaces unknown content and supplies optional confir
       messages: { 'Close selected panes?': 'Fermer les panneaux ?', Cancel: 'Annuler' },
       popouts: false,
     });
-    void window.harness.mounted.requestClose('a');
+    void window.harness.mounted.closePane('a');
   });
   await expect(page.getByRole('dialog', { name: 'Fermer les panneaux ?' })).toBeVisible();
   await page.getByRole('button', { name: 'Annuler' }).click();
@@ -203,7 +203,7 @@ test('disposal cancels pending confirmation and prevents late application approv
   await page.goto('/tests/browser/harness.html');
   const remaining = await page.evaluate(async () => {
     const { mounted, store } = window.harness;
-    store.updatePane({ ...store.getSnapshot().panes.a!, confirmClose: true });
+    store.updatePane({ ...store.getLayout().panes.a!, confirmClose: true });
     let approve!: (value: boolean) => void;
     mounted.updateOptions({
       confirmClose: () =>
@@ -211,12 +211,15 @@ test('disposal cancels pending confirmation and prevents late application approv
           approve = resolve;
         }),
     });
-    const closed = mounted.requestClose('a');
+    const snapshot = store.getLayout();
+    let changes = 0;
+    mounted.on('change', () => changes++);
+    const closed = mounted.closePane('a');
     mounted.dispose();
     approve(true);
-    return { closed: await closed, exists: !!store.getSnapshot().panes.a };
+    return { closed: await closed, exists: !!snapshot.panes.a, changes };
   });
-  expect(remaining).toEqual({ closed: false, exists: true });
+  expect(remaining).toEqual({ closed: false, exists: true, changes: 0 });
 });
 test('pending popouts cancel when disabled and retain source content', async ({ page }) => {
   await page.goto('/tests/browser/harness.html');
@@ -239,7 +242,7 @@ test('pending popouts cancel when disabled and retain source content', async ({ 
   await expect(page.getByText('Source available', { exact: true })).toHaveCount(2);
   await page.evaluate(() => window.harness.mounted.updateOptions({ popouts: false }));
   await expect.poll(() => popup.isClosed()).toBe(true);
-  expect(await page.evaluate(() => window.harness.store.getSnapshot().popouts)).toEqual([]);
+  expect(await page.evaluate(() => window.harness.store.getLayout().popouts)).toEqual([]);
 });
 test('confirmation callback rejection cancels and unflagged panes do not prompt', async ({
   page,
@@ -254,14 +257,14 @@ test('confirmation callback rejection cancels and unflagged panes do not prompt'
         return Promise.reject(new Error('Dialog failed'));
       },
     });
-    store.updatePane({ ...store.getSnapshot().panes.a!, confirmClose: true });
-    const rejected = await mounted.requestClose('a');
-    const unflagged = await mounted.requestClose('b');
+    store.updatePane({ ...store.getLayout().panes.a!, confirmClose: true });
+    const rejected = await mounted.closePane('a');
+    const unflagged = await mounted.closePane('b');
     return {
       rejected,
       unflagged,
       calls,
-      exists: !!store.getSnapshot().panes.a,
+      exists: !!store.getLayout().panes.a,
       errors: stats.errors,
     };
   });
@@ -285,7 +288,6 @@ test('callback-only updates keep an open menu and preserve its active interactio
   await menu.getByRole('button', { name: 'Close active tab', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'A', exact: true })).toHaveCount(0);
 });
-
 test('clearing unified registration removes derived views and restores option defaults', async ({
   page,
 }) => {

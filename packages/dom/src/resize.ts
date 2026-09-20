@@ -6,6 +6,7 @@ export function isolatedResize(
   layout: Layout,
   splitId: string,
   extent: (node: Node, axis: Axis) => number,
+  measureBounds: typeof bounds = bounds,
 ) {
   const split = findNode(layout.root, splitId);
   if (split?.kind !== 'split') throw new Error('Split not found');
@@ -22,7 +23,7 @@ export function isolatedResize(
   capture(split);
   function limits(node: Node, start: boolean): [number, number] {
     if (node.kind === 'group') {
-      const b = bounds(node, layout),
+      const b = measureBounds(node, layout),
         size = sizes.get(node.id)!;
       return axis === 'horizontal'
         ? [b.minWidth - size, b.maxWidth - size]
