@@ -49,9 +49,6 @@
 .VPNavBarSearchButton {
   color: var(--quilt-site-muted);
 }
-.VPNavBarSearchButton .keys {
-  display: none;
-}
 .vp-doc a {
   text-underline-offset: 3px;
 }
@@ -63,11 +60,20 @@
   align-items: center;
 }
 .VPNavBarSearchButton {
-  height: 32px;
+  height: 40px;
   padding: 7px 12px;
   border: 1px solid var(--quilt-site-line);
   border-radius: 4px;
   font-size: 12px;
+}
+@media (min-width: 48rem) {
+  .VPNavBarSearchButton {
+    width: 240px;
+    background: var(--quilt-site-subtle);
+  }
+  .VPNavBarSearchButton .keys {
+    margin-left: auto;
+  }
 }
 .VPNavBarMenuLink {
   font-size: 12px;
