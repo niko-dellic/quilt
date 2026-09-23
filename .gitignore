@@ -8,3 +8,5 @@ test-results/
 
 docs/api-reference/
 docs/.vitepress/cache/
+
+docs/.vitepress/site/
