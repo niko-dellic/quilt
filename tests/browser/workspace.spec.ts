@@ -102,7 +102,8 @@ for (const framework of ['vanilla', 'react']) {
       const target = page.locator('[data-node-id="inspector-group"]');
       await expect(target.getByRole('tab', { name: 'Notes', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Notes actions', exact: true }).click();
-      await page.getByRole('button', { name: 'Close active tab', exact: true }).click();
+      await page.getByRole('button', { name: 'Close', exact: true }).hover();
+      await page.getByRole('menuitem', { name: 'Close active tab', exact: true }).click();
       await expect(page.getByRole('tab', { name: 'Notes', exact: true })).toHaveCount(0);
       await page.getByRole('button', { name: 'Scene actions', exact: true }).click();
       await page.getByRole('button', { name: '+ Add tab', exact: true }).click();

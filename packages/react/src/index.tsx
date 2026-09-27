@@ -236,6 +236,7 @@ const WorkspaceImpl = forwardRef<WorkspaceHandle, WorkspaceProps>(function Works
         'openWindow',
         'renderIcon',
         'shortcuts',
+        'formatShortcut',
         'messages',
         'popouts',
         'confirmClose',
@@ -365,6 +366,7 @@ const WorkspaceImpl = forwardRef<WorkspaceHandle, WorkspaceProps>(function Works
     rest.openWindow,
     rest.renderIcon,
     rest.shortcuts,
+    rest.formatShortcut,
     rest.messages,
     rest.popouts,
     rest.confirmClose,
@@ -464,4 +466,12 @@ export type {
   WorkspaceChange,
   AddPaneOptions,
   CloseOptions,
+} from 'quilt-vanilla';
+
+export { formatShortcut } from 'quilt-vanilla';
+export type {
+  WorkspaceAction,
+  ActionContext,
+  RegisteredShortcut,
+  ShortcutRegistration,
 } from 'quilt-vanilla';

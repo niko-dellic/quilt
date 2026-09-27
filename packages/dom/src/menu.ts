@@ -4,20 +4,21 @@ import type { ActionIcon } from './action-icons.js';
 import { fillTabPicker } from './picker.js';
 import { findNode, findParent, groups, paneIds } from 'quilt-core';
 import type { Group, Pane } from 'quilt-core';
-import type { ResolvedLayoutOptions } from './types.js';
-import type { Windows } from './windows.js';
+import type { ResolvedLayoutOptions, WorkspaceAction } from './types.js';
+import type { createActions } from './actions.js';
+import { registeredShortcuts, formatShortcut, ariaShortcut } from './shortcut-registration.js';
 import { el, Scope } from './lifetime.js';
 export function createPaneMenu(
   root: HTMLElement,
   options: ResolvedLayoutOptions,
-  windows: Pick<Windows, 'open'>,
   refresh: () => void,
   report: (e: unknown) => void,
-  requestClose: (id: string, kind?: 'pane' | 'group') => Promise<boolean>,
+  actions: ReturnType<typeof createActions>,
 ) {
   const doc = root.ownerDocument,
     win = doc.defaultView!;
   let current: Scope | undefined;
+  let refreshShortcuts = () => {};
   const persistentPickers = new Map<string, Scope>();
   const act = (fn: () => void) => {
     try {
@@ -26,11 +27,10 @@ export function createPaneMenu(
       report(error);
     }
   };
-  function button(text: string, title: string, action: () => void) {
+  function button(text: string, label: string, action: () => void) {
     const b = el(doc, 'button', 'layouts-button', text);
     b.type = 'button';
-    b.title = title;
-    b.setAttribute('aria-label', title);
+    b.setAttribute('aria-label', label);
     b.onclick = () => act(action);
     return b;
   }
@@ -59,17 +59,38 @@ export function createPaneMenu(
         : message(options, 'Empty pane actions'),
     );
     local.add(() => dialog.remove());
-    const add = (icon: ActionIcon, label: string, enabled: boolean, fn: () => void) => {
+    const context = {
+      groupId: group.id,
+      ...(pane && group.panes.includes(pane.id) ? { paneId: pane.id } : {}),
+    };
+    const hints: { element: HTMLButtonElement; action: WorkspaceAction }[] = [];
+    const bindAction = (element: HTMLButtonElement, action: WorkspaceAction) => {
+      hints.push({ element, action });
+      element.disabled = !actions.canExecuteAction(action, context);
+      element.onclick = () => {
+        local.dispose();
+        void actions.executeAction(action, context);
+      };
+    };
+    const add = (
+      icon: ActionIcon,
+      label: string,
+      enabled: boolean,
+      fn: (() => void) | WorkspaceAction,
+      target: HTMLElement = dialog,
+    ) => {
       const b = button(label, label, () => {
         local.dispose();
-        act(fn);
+        if (typeof fn === 'function') act(fn);
       });
       const glyph = el(doc, 'span', 'layouts-tab-icon');
       glyph.setAttribute('aria-hidden', 'true');
       act(() => glyph.append(actionIcon(doc, icon, options)));
       b.replaceChildren(glyph, el(doc, 'span', '', label.replace(/^\+ /, '')));
       b.disabled = !enabled;
-      dialog.append(b);
+      if (typeof fn === 'string') bindAction(b, fn);
+      if (target !== dialog) b.setAttribute('role', 'menuitem');
+      target.append(b);
       return b;
     };
     const allowed = (cap: 'split' | 'join' | 'move') =>
@@ -188,7 +209,7 @@ export function createPaneMenu(
       );
       return;
     }
-    add('add-tab', message(options, '+ Add tab'), available && allowed('move'), () => create());
+    add('add-tab', message(options, '+ Add tab'), available && allowed('move'), 'addTab');
     const canCreate = !group.panes.length || available;
     const flyouts: { trigger: HTMLElement; flyout: HTMLElement }[] = [];
     let positionMenus = () => {};
@@ -207,7 +228,14 @@ export function createPaneMenu(
       flyout.setAttribute('role', 'menu');
       flyout.setAttribute('aria-label', label);
       flyouts.push({ trigger, flyout });
+      let closeTimer: number | undefined;
+      const cancelClose = () => {
+        win.clearTimeout(closeTimer);
+        closeTimer = undefined;
+      };
+      local.add(cancelClose);
       const setOpen = (open: boolean) => {
+        cancelClose();
         if (open) {
           for (const other of flyouts) {
             other.flyout.hidden = true;
@@ -221,7 +249,11 @@ export function createPaneMenu(
       local.listen(container, 'pointerenter', () => {
         if (!trigger.disabled) setOpen(true);
       });
-      local.listen(container, 'pointerleave', () => setOpen(false));
+      // Allow the pointer to cross the dialog padding or move diagonally into the flyout.
+      local.listen(container, 'pointerleave', () => {
+        cancelClose();
+        closeTimer = win.setTimeout(() => setOpen(false), 300);
+      });
       local.listen(trigger, 'keydown', (event) => {
         if ((event as KeyboardEvent).key === 'ArrowRight') {
           event.preventDefault();
@@ -241,16 +273,14 @@ export function createPaneMenu(
       return flyout;
     }
     const flyout = submenu(message(options, 'Split'), 'split-right', canCreate && allowed('split'));
-    for (const [label, axis, before] of [
-      [message(options, 'Split left'), 'horizontal', true],
-      [message(options, 'Split right'), 'horizontal', false],
-      [message(options, 'Split up'), 'vertical', true],
-      [message(options, 'Split down'), 'vertical', false],
+    for (const [label, axis, action] of [
+      [message(options, 'Split left'), 'horizontal', 'splitLeft'],
+      [message(options, 'Split right'), 'horizontal', 'splitRight'],
+      [message(options, 'Split up'), 'vertical', 'splitUp'],
+      [message(options, 'Split down'), 'vertical', 'splitDown'],
     ] as const) {
-      const option = button(label, label, () => {
-        local.dispose();
-        create(axis, before);
-      });
+      const option = button(label, label, () => {});
+      bindAction(option, action);
       const icon = el(doc, 'span', 'layouts-tab-icon');
       icon.setAttribute('aria-hidden', 'true');
       icon.append(actionIcon(doc, axis === 'horizontal' ? 'split-right' : 'split-below', options));
@@ -263,7 +293,7 @@ export function createPaneMenu(
       'join',
       message(options, 'Join sibling region'),
       Boolean(joinParent) && paneIds(joinParent!).every((id) => options.store.can(id, 'join')),
-      () => options.store.join(group.id, { source: 'user' }),
+      'joinSiblingRegion',
     );
     let preview: Scope | undefined;
     const clearPreview = () => {
@@ -334,20 +364,14 @@ export function createPaneMenu(
         ? message(options, 'Restore region')
         : message(options, 'Maximize region'),
       true,
-      () =>
-        options.store.maximize(
-          options.store.getSnapshot().maximized === group.id ? null : group.id,
-        ),
+      'maximize',
     );
     if (group.panes.length && pane && options.popouts !== false) {
       add(
         'popout',
         message(options, 'Open in window'),
         options.store.can(pane.id, 'popout'),
-        () => {
-          void windows.open(pane.id);
-          refresh();
-        },
+        'popout',
       );
     }
     const orientation = submenu(message(options, 'Tab orientation'), 'tab-orientation');
@@ -357,10 +381,15 @@ export function createPaneMenu(
       ['left', message(options, 'Vertical')],
     ] as const) {
       const selected = group.tabPlacement === value;
-      const option = button(label, label, () => {
-        options.store.setTabPlacement(group.id, value);
-        local.dispose();
-      });
+      const option = button(label, label, () => {});
+      bindAction(
+        option,
+        value === 'top'
+          ? 'tabOrientationHorizontal'
+          : value === 'left'
+            ? 'tabOrientationVertical'
+            : 'tabOrientationDefault',
+      );
       option.setAttribute('role', 'menuitemradio');
       option.setAttribute('aria-checked', String(selected));
       const mark = el(doc, 'span', 'layouts-tab-icon', selected ? '✓' : '');
@@ -375,10 +404,15 @@ export function createPaneMenu(
       ['compact', message(options, 'Compact')],
     ] as const) {
       const selected = group.tabDisplay === value;
-      const option = button(label, label, () => {
-        options.store.setTabDisplay(group.id, value);
-        local.dispose();
-      });
+      const option = button(label, label, () => {});
+      bindAction(
+        option,
+        value === 'automatic'
+          ? 'tabDisplayAutomatic'
+          : value === 'compact'
+            ? 'tabDisplayCompact'
+            : 'tabDisplayDefault',
+      );
       option.setAttribute('role', 'menuitemradio');
       option.setAttribute('aria-checked', String(selected));
       const mark = el(doc, 'span', 'layouts-tab-icon', selected ? '✓' : '');
@@ -387,31 +421,34 @@ export function createPaneMenu(
       display.append(option);
     }
     if (group.panes.length && pane) {
+      const close = submenu(message(options, 'Close'), 'close');
       add(
         'close',
         message(options, 'Close active tab'),
         options.store.can(pane.id, 'close'),
-        () => void requestClose(pane.id),
+        'closeActiveTab',
+        close,
       );
       add(
         'close',
         message(options, 'Close pane'),
         group.panes.every((id) => options.store.can(id, 'close')),
-        () => void requestClose(group.id, 'group'),
+        'closePane',
+        close,
       );
     } else {
       add(
         'close',
         message(options, 'Close empty pane'),
         options.store.getSnapshot().root.id !== group.id,
-        () => options.store.removeEmptyGroup(group.id),
+        'closeEmptyPane',
       );
     }
     add(
       'restore',
       message(options, 'Restore closed tab'),
       options.store.canRestoreClosedTab(),
-      () => options.store.restoreClosedTab(),
+      'restoreClosedTab',
     );
     add('cancel', message(options, 'Cancel'), true, () => {});
     root.append(dialog);
@@ -462,8 +499,42 @@ export function createPaneMenu(
           local.dispose();
       }
     });
+    const updateHints = () => {
+      const registrations = registeredShortcuts(options);
+      for (const { element, action } of hints) {
+        element.querySelector('.layouts-shortcut')?.remove();
+        element.removeAttribute('aria-keyshortcuts');
+        element.disabled = !actions.canExecuteAction(action, context);
+        const label = element.getAttribute('aria-label') ?? '';
+        const registration = registrations.find((entry) => entry.action === action);
+        element.removeAttribute('title');
+        if (!registration) continue;
+        const labels = registration.bindings.map((binding) => {
+          try {
+            return options.formatShortcut?.(binding) ?? formatShortcut(binding);
+          } catch (error) {
+            report(error);
+            return formatShortcut(binding);
+          }
+        });
+        const badge = el(doc, 'kbd', 'layouts-shortcut', labels[0]);
+        badge.setAttribute('aria-hidden', 'true');
+        element.append(badge);
+        element.title = `${label} (${labels.join(' / ')})`;
+        if (!element.disabled)
+          element.setAttribute(
+            'aria-keyshortcuts',
+            registration.bindings.map(ariaShortcut).join(' '),
+          );
+      }
+      positionMenus();
+    };
+    refreshShortcuts = updateHints;
+    local.add(() => {
+      if (refreshShortcuts === updateHints) refreshShortcuts = () => {};
+    });
     dialog.showModal();
-    positionMenus();
+    updateHints();
     const observer = new win.ResizeObserver(positionMenus);
     observer.observe(dialog);
     observer.observe(anchor);
@@ -478,6 +549,7 @@ export function createPaneMenu(
     dialog.focus({ preventScroll: true });
   }
   return {
+    refreshShortcuts: () => refreshShortcuts(),
     open,
     addTab(anchor: HTMLElement, group: Group) {
       const layout = options.store.getSnapshot();

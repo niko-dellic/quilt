@@ -23,9 +23,11 @@ function Notes() {
 }
 const components = { notes: Notes };
 function App() {
+  const [shortcutMode, setShortcutMode] = useState(0);
   const [tabBar, setTabBar] = useState<TabBarOptions>({});
   return (
     <>
+      <button onClick={() => setShortcutMode((mode) => (mode + 1) % 3)}>Change shortcuts</button>
       <button onClick={() => setTabBar({ mode: 'tapered', shape: 'scoop' })}>Taper</button>
       <button onClick={() => setTabBar({})}>Full</button>
       <output
@@ -40,6 +42,14 @@ function App() {
         initialLayout={initialLayout}
         components={components}
         tabBar={tabBar}
+        {...(shortcutMode === 0
+          ? { shortcuts: true }
+          : shortcutMode === 1
+            ? {
+                shortcuts: { maximize: { key: 'm' } },
+                formatShortcut: () => 'Custom M',
+              }
+            : {})}
         style={{ width: 800, height: 400 }}
       />
     </>

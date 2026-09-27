@@ -23,6 +23,9 @@ import type {
   PaneRenderer,
   TabBarOptions,
   WorkspaceSettings,
+  WorkspaceAction,
+  ActionContext,
+  RegisteredShortcut,
 } from './types.js';
 
 export type PaneType<T> = Omit<PaneRegistration<T>, 'type' | 'view'> & { render: T };
@@ -76,7 +79,7 @@ export type WorkspaceOptionUpdates<State = unknown> = {
 );
 export interface WorkspaceChange {
   action: string;
-  changes: readonly ('layout' | 'theme' | 'tabBar' | 'autoCollapse')[];
+  changes: readonly ('layout' | 'theme' | 'tabBar' | 'autoCollapse' | 'shortcuts')[];
 }
 export interface WorkspaceEvents {
   change: WorkspaceChange;
@@ -106,6 +109,9 @@ export interface PaneHandle {
 /** The mounted API. The model and its lifetime remain private to Quilt. */
 export interface WorkspaceHandle<State = unknown> {
   readonly isDisposed: boolean;
+  canExecuteAction(action: WorkspaceAction, context?: ActionContext): boolean;
+  executeAction(action: WorkspaceAction, context?: ActionContext): Promise<boolean>;
+  getShortcuts(): readonly RegisteredShortcut[];
   /** Subscribe to configuration changes or errors. The returned function unsubscribes. */
   on<K extends keyof WorkspaceEvents>(
     event: K,
@@ -318,6 +324,15 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     }
     this.#emit({ action: 'loadWorkspace', changes: ['layout', 'theme', 'tabBar', 'autoCollapse'] });
   }
+  canExecuteAction(action: WorkspaceAction, context?: ActionContext): boolean {
+    return !this.#disposed && this.#mounted.canExecuteAction(action, context);
+  }
+  executeAction(action: WorkspaceAction, context?: ActionContext): Promise<boolean> {
+    return this.#disposed ? Promise.resolve(false) : this.#mounted.executeAction(action, context);
+  }
+  getShortcuts(): readonly RegisteredShortcut[] {
+    return this.#mounted.getShortcuts();
+  }
   updateOptions(next: WorkspaceOptionUpdates<State>) {
     this.#alive();
     if ('container' in next) throw new Error('Workspace container cannot be updated');
@@ -325,6 +340,8 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     const adapted = this.#adapt(candidate);
     const changes: WorkspaceChange['changes'][number][] = [];
     const before = this.exportWorkspace();
+    const beforeShortcuts = JSON.stringify(this.getShortcuts());
+    const beforeFormatter = this.#options.formatShortcut;
     // Initial appearance is mount-only: only explicitly updated appearance keys apply.
     if (!('theme' in next)) delete adapted.theme;
     if (!('tabBar' in next)) delete adapted.tabBar;
@@ -333,6 +350,11 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     const after = this.exportWorkspace();
     if (JSON.stringify(before.theme) !== JSON.stringify(after.theme)) changes.push('theme');
     if (JSON.stringify(before.tabBar) !== JSON.stringify(after.tabBar)) changes.push('tabBar');
+    if (
+      beforeShortcuts !== JSON.stringify(this.getShortcuts()) ||
+      beforeFormatter !== candidate.formatShortcut
+    )
+      changes.push('shortcuts');
     if (changes.length) this.#emit({ action: 'updateOptions', changes });
   }
   setTheme(theme: LayoutTheme) {

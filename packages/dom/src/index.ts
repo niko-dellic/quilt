@@ -20,6 +20,10 @@ export type {
   InitialConfiguration,
   WorkspaceSettings,
   KeyBinding,
+  WorkspaceAction,
+  ActionContext,
+  RegisteredShortcut,
+  ShortcutRegistration,
   CloseRequest,
 } from './types.js';
 
@@ -53,3 +57,5 @@ export type { WorkspacePreset } from './workspace.js';
 export { themeProperties } from './theme.js';
 export { defaultMessages } from './messages.js';
 export type { Messages } from './messages.js';
+
+export { formatShortcut } from './shortcut-registration.js';

@@ -1,9 +1,10 @@
+import { formatShortcut } from 'quilt-vanilla';
 import { mountFullscreenToggle } from './fullscreen.js';
 import { mountTheming } from './shell.js';
 import { canvas } from './scene.js';
 export { canvas } from './scene.js';
 import type { PaneRenderer, PaneContext } from 'quilt-vanilla';
-import { state, workspaces, workspaceSession } from './model.js';
+import { state, workspaces, workspaceSession, onWorkspace } from './model.js';
 import { surfaces, swatchBackground } from './surfaces.js';
 export function field(doc: Document, tag: string, text: string, className = '') {
   const e = doc.createElement(tag);
@@ -163,32 +164,62 @@ export const hotkeys: PaneRenderer = ({ element, document: doc }) => {
   }
   head.append(headings);
   const body = doc.createElement('tbody');
-  for (const [keys, title, description] of [
-    ['Drag on canvas', 'Orbit scene', 'Scroll to zoom. Double-click to reset.'],
-    ['` or Alt / Option + Space', 'Maximize / restore', 'Hovered or focused region.'],
-    ['T', 'Add tab', 'Open the picker in the hovered region.'],
-    ['R', 'Restore closed tab', 'Reopen the most recently closed tab.'],
-    ['← / → or ↑ / ↓', 'Switch tabs', 'Use up/down for left-side tabs.'],
-    ['Home / End', 'First / last tab', 'When a tab is focused.'],
-    ['Arrow keys', 'Resize divider', 'Hold Shift for larger steps.'],
-    ['Escape', 'Cancel', 'Stop a drag or close a dialog.'],
-    ['Middle click', 'Close tab', 'When closing is allowed.'],
-  ]) {
+  const appendRow = (keys: string, title: string, description: string) => {
     const row = doc.createElement('tr');
     const shortcut = doc.createElement('td');
-    shortcut.append(field(doc, 'kbd', keys!));
+    shortcut.append(field(doc, 'kbd', keys));
     const action = doc.createElement('td');
     action.append(
-      field(doc, 'span', title!, 'hotkey-action'),
-      field(doc, 'span', description!, 'hotkey-description'),
+      field(doc, 'span', title, 'hotkey-action'),
+      field(doc, 'span', description, 'hotkey-description'),
     );
     row.append(shortcut, action);
     body.append(row);
-  }
+  };
+  let unsubscribe = () => {};
+  const unbind = onWorkspace((workspace) => {
+    unsubscribe();
+    const update = () => {
+      body.replaceChildren();
+      appendRow('Drag on canvas', 'Orbit scene', 'Scroll to zoom. Double-click to reset.');
+      for (const registration of workspace.getShortcuts()) {
+        const title =
+          registration.action === 'maximize'
+            ? 'Maximize / restore'
+            : registration.action
+                .replace(/([A-Z])/g, (letter) => ` ${letter.toLowerCase()}`)
+                .replace(/^./, (letter) => letter.toUpperCase());
+        appendRow(
+          registration.bindings.map(formatShortcut).join(' or '),
+          title,
+          registration.action === 'restoreClosedTab'
+            ? 'Reopen the most recently closed tab.'
+            : 'Hovered or focused region.',
+        );
+      }
+      for (const [keys, title, description] of [
+        ['← / → or ↑ / ↓', 'Switch tabs', 'Use up/down for left-side tabs.'],
+        ['Home / End', 'First / last tab', 'When a tab is focused.'],
+        ['Arrow keys', 'Resize divider', 'Hold Shift for larger steps.'],
+        ['Escape', 'Cancel', 'Stop a drag or close a dialog.'],
+        ['Middle click', 'Close tab', 'When closing is allowed.'],
+      ])
+        appendRow(keys!, title!, description!);
+    };
+    unsubscribe = workspace.on('change', (event) => {
+      if (event.changes.includes('shortcuts')) update();
+    });
+    update();
+  });
   table.append(head, body);
   frame.append(table);
   element.append(frame);
-  return { dispose() {} };
+  return {
+    dispose() {
+      unsubscribe();
+      unbind();
+    },
+  };
 };
 export const footer: PaneRenderer = ({ element, document: doc }) => {
   element.classList.add('demo-footer');
