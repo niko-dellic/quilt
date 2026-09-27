@@ -64,6 +64,43 @@ try {
     viewport: document.documentElement.clientWidth,
   }));
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport);
+
+  // The documentation adapter and the demos must paint the same neutral colors.
+  for (const mode of ['light', 'dark']) {
+    const themedContext = await browser.newContext({ colorScheme: mode });
+    const themedPage = await themedContext.newPage();
+    let websiteColors;
+    for (const route of ['', 'docs/', 'docs/api-reference/', 'vanilla', 'react', 'electron']) {
+      await themedPage.goto(new URL(route, baseURL).href);
+      const docs = route === '' || route.startsWith('docs/');
+      if (route === 'vanilla' || route === 'react')
+        await expect(themedPage.locator('#workspace .layouts')).toBeVisible();
+      const colors = await themedPage.evaluate((isDocs) => {
+        const names = isDocs
+          ? ['--vp-c-bg', '--vp-c-bg-soft', '--vp-c-text-1', '--vp-c-text-2', '--vp-c-border']
+          : [
+              '--layouts-panel',
+              '--layouts-header',
+              '--layouts-text',
+              '--layouts-muted',
+              '--layouts-line',
+            ];
+        const probe = document.createElement('span');
+        document.body.append(probe);
+        try {
+          return names.map((name) => {
+            probe.style.color = `var(${name})`;
+            return getComputedStyle(probe).color;
+          });
+        } finally {
+          probe.remove();
+        }
+      }, docs);
+      if (!websiteColors) websiteColors = colors;
+      expect(colors, `${mode} palette at /${route}`).toEqual(websiteColors);
+    }
+    await themedContext.close();
+  }
   expect(errors).toEqual([]);
   console.log('Production demo navigation, reloads, install copying, and mobile layout passed.');
 } finally {

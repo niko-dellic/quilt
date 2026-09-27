@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress';
 import { readFileSync } from 'node:fs';
+import { neutralPaletteCss } from './theme/palette';
 const { version } = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
 );
@@ -17,7 +18,10 @@ export default defineConfig({
   outDir: '.vitepress/site',
   lastUpdated: true,
   srcExclude: ['deployment.md', 'desktop-release.md', 'packaging.md', 'releases.md'],
-  head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
+  head: [
+    ['link', { rel: 'icon', href: '/favicon.ico' }],
+    ['style', { id: 'quilt-neutral-palette' }, neutralPaletteCss],
+  ],
   themeConfig: {
     outline: [2, 3],
     siteTitle: 'Quilt',
