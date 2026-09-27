@@ -27,7 +27,8 @@ export default defineConfig({
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/docs/' },
       { text: 'API', link: '/docs/api-reference/' },
-      { text: 'Demos', link: 'https://quilt-layouts.vercel.app/vanilla.html' },
+      // Demo applications need a full navigation outside the VitePress router.
+      { text: 'Demos', link: '/vanilla', target: '_self' },
     ],
     sidebar: [
       {

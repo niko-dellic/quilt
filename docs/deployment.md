@@ -9,7 +9,8 @@ To reproduce the deployment build locally:
 
 ```sh
 npm ci
-npm run build && npm run build:demos
+npm run build && npm run build:site
+npm run test:site
 ```
 
 The output includes `index.html`, `vanilla.html`, `react.html`, and `electron.html`,
@@ -20,10 +21,16 @@ production site. This deployment does not publish npm packages.
 
 ## Documentation site
 
-`npm run build:site` builds the demos and the VitePress site into `dist/docs`.
+`npm run build:site` merges the demos and the VitePress site into `dist`, with guides
+under `dist/docs` and the home page at `dist/index.html`.
 The Vercel build runs it after the package build. Run `npm run docs:dev` for local
 editing, or `npm run docs:build && npm run docs:test` for generated references,
 link/anchor checks, and type-checked quickstarts. `npm run check` includes these checks.
+
+Demo links in VitePress must use `target="_self"` so the browser loads the standalone
+application instead of asking the documentation router to render it. The production
+site test checks home-page and navigation links, demo reloads, and install-command
+copying against the merged build.
 
 Guides live in `docs/*.md`; contributor release/deployment instructions remain on
 GitHub and are excluded from the published navigation. TypeDoc generates

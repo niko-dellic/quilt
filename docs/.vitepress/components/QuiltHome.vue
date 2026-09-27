@@ -1,3 +1,25 @@
+<script setup lang="ts">
+import { ref } from 'vue';
+
+const installs = [
+  { label: 'Vanilla TS', command: 'npm install quilt-vanilla' },
+  { label: 'React', command: 'npm install quilt-react' },
+];
+const copied = ref('');
+const copyError = ref('');
+
+async function copyInstall(command: string) {
+  copied.value = '';
+  copyError.value = '';
+  try {
+    await navigator.clipboard.writeText(command);
+    copied.value = command;
+  } catch {
+    copyError.value = 'Could not copy. Select the command and copy it manually.';
+  }
+}
+</script>
+
 <template>
   <section class="landing" aria-label="Quilt introduction">
     <div class="landing-copy">
@@ -8,9 +30,28 @@
         framework-independent layout model, a DOM renderer, and React bindings.
       </p>
       <div class="landing-links">
-        <a href="/vanilla.html">Vanilla TS demo <span>↗</span></a
-        ><a href="/react.html">React demo <span>↗</span></a
-        ><a href="/electron.html">Desktop demo <span>↗</span></a>
+        <a href="/vanilla" target="_self">Vanilla TS demo <span>↗</span></a
+        ><a href="/react" target="_self">React demo <span>↗</span></a
+        ><a href="/electron" target="_self">Desktop demo <span>↗</span></a>
+      </div>
+      <div class="landing-install" aria-label="Install Quilt">
+        <h2>Install Quilt</h2>
+        <div v-for="install in installs" :key="install.command" class="install-option">
+          <span class="install-label">{{ install.label }}</span>
+          <div class="install-command">
+            <pre><code>{{ install.command }}</code></pre>
+            <button
+              type="button"
+              :aria-label="`Copy ${install.label} install command`"
+              @click="copyInstall(install.command)"
+            >
+              {{ copied === install.command ? 'Copied!' : 'Copy' }}
+            </button>
+          </div>
+        </div>
+        <p class="copy-status" role="status">
+          {{ copyError || (copied ? `Copied: ${copied}` : '') }}
+        </p>
       </div>
     </div>
     <div class="diagram" aria-label="Nested panes with a fixed bar">
@@ -66,6 +107,61 @@
 }
 .landing-links span {
   padding-left: 25px;
+}
+.landing-install {
+  margin-top: 28px;
+}
+.landing-install h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.install-option + .install-option {
+  margin-top: 12px;
+}
+.install-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+}
+.install-command {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+}
+.install-command pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-x: auto;
+  font-size: 13px;
+}
+.install-command button {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 4px;
+  background: var(--vp-c-bg);
+  font-size: 12px;
+  cursor: pointer;
+}
+.install-command button:hover {
+  border-color: var(--vp-c-text-1);
+}
+.install-command button:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 3px;
+}
+.copy-status {
+  min-height: 20px;
+  margin-top: 6px;
+  color: var(--vp-c-text-2);
+  font-size: 12px;
 }
 .diagram {
   width: 100%;
