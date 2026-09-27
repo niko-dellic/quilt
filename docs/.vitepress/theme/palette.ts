@@ -6,6 +6,10 @@ export const neutralPaletteCss = Object.entries(themeFamilies.neutral)
   .map(([mode, theme]) => {
     const tokens = {
       'c-bg': theme.panel,
+      'sidebar-bg-color': theme.panel,
+      'nav-bg-color': theme.panel,
+      'nav-screen-bg-color': theme.panel,
+      'local-nav-bg-color': theme.panel,
       'c-bg-alt': theme.bg,
       'c-bg-elv': theme.header,
       'c-bg-soft': theme.header,
