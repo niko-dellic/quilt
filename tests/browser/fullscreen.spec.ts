@@ -11,6 +11,7 @@ for (const framework of ['vanilla', 'react']) {
     await expect
       .poll(() => page.evaluate(() => document.fullscreenElement?.className))
       .toBe('demo-main');
+    await expect(page.locator('html')).toHaveCSS('scrollbar-gutter', 'auto');
     const exit = page.getByRole('button', { name: 'Exit workspace fullscreen' });
     await expect(exit).toHaveAttribute('aria-pressed', 'true');
     await expect

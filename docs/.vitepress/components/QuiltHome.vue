@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import '../../../demos/site-landing.css';
 
 const installs = [
   { label: 'Vanilla TS', command: 'npm install quilt-vanilla' },
@@ -21,7 +22,7 @@ async function copyInstall(command: string) {
 </script>
 
 <template>
-  <section class="landing" aria-label="Quilt introduction">
+  <section class="landing site-landing" aria-label="Quilt introduction">
     <div class="landing-copy">
       <p class="eyebrow">TYPESCRIPT LAYOUT LIBRARY</p>
       <h1>Workspace layouts</h1>
@@ -70,9 +71,6 @@ async function copyInstall(command: string) {
 
 <style scoped>
 .landing {
-  max-width: 1100px;
-  margin: 70px auto;
-  padding: 0 30px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 410px);
   column-gap: 48px;
@@ -81,17 +79,6 @@ async function copyInstall(command: string) {
 }
 .landing-copy {
   min-width: 0;
-}
-.landing h1 {
-  font-size: clamp(40px, 5vw, 64px);
-  line-height: 1.02;
-  letter-spacing: -4px;
-  margin: 20px 0 25px;
-}
-.landing-lead {
-  color: var(--vp-c-text-2);
-  font-size: 16px;
-  line-height: 1.9;
 }
 .landing-links {
   display: flex;
@@ -223,13 +210,6 @@ async function copyInstall(command: string) {
   color: var(--vp-c-text-2);
 }
 
-.eyebrow {
-  color: var(--vp-c-text-2);
-  font:
-    11px ui-monospace,
-    monospace;
-  letter-spacing: 1.5px;
-}
 .landing-links a:hover {
   border-color: var(--vp-c-text-1);
 }
@@ -241,15 +221,10 @@ async function copyInstall(command: string) {
   .landing {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 28px;
-    margin: 40px auto;
   }
   .diagram {
     transform: none;
     box-shadow: none;
-  }
-  .landing h1 {
-    font-size: clamp(40px, 8vw, 55px);
-    letter-spacing: -2px;
   }
   .landing-footer {
     flex-wrap: wrap;

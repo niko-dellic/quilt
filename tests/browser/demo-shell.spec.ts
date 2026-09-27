@@ -171,9 +171,7 @@ for (const framework of ['vanilla', 'react']) {
   }) => {
     await page.goto(`/${framework}.html`);
     await expect(page.getByRole('tab', { name: 'Theming', exact: true })).toBeVisible();
-    await expect(page.locator('.demo-top button, .demo-top select, .demo-top input')).toHaveCount(
-      0,
-    );
+    await expect(page.locator('.VPNav #json-open, .VPNav #reset, .VPNav select')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Grid', exact: true })).toHaveCount(0);
     await expect(page.getByRole('checkbox', { name: 'Active tab underline' })).toHaveCount(0);
     const activeTab = page.locator(

@@ -1,6 +1,7 @@
 import { chromium, expect } from '@playwright/test';
 import { createServer } from 'vite';
 import { checkSiteDocs } from './check-site-docs.mjs';
+import { checkSiteNavbar } from './check-site-navbar.mjs';
 const server = await createServer({ server: { host: 'localhost', port: 0, open: false } });
 let browser;
 try {
@@ -18,6 +19,7 @@ try {
     await page.reload();
     await expect(page.locator('#workspace .layouts')).toBeVisible();
   }
+  await checkSiteNavbar(page, baseURL);
   expect(errors).toEqual([]);
   console.log('Development API navigation, search results, reloads, and demo navigation passed.');
 } finally {

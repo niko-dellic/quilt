@@ -7,8 +7,17 @@ export default defineConfig({
   plugins: [
     {
       name: 'quilt-desktop-html',
-      transformIndexHtml: (html) =>
+      transformIndexHtml: (html, context) =>
         html
+          .replace(
+            '<!--quilt-site-navbar-->',
+            readFileSync(new URL('./header.html', import.meta.url), 'utf8')
+              .replace(' aria-current="page"', '')
+              .replace(
+                `href="/${context.filename.endsWith('react.html') ? 'react' : 'vanilla'}.html"`,
+                (link) => `${link} aria-current="page"`,
+              ),
+          )
           .replaceAll('__QUILT_VERSION__', version)
           .replaceAll('href="/docs/"', 'href="https://quilt-layouts.vercel.app/docs/"')
           .replaceAll('href="/"', 'href="./vanilla.html"')

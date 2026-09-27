@@ -12,7 +12,7 @@ for (const demo of ['vanilla', 'react']) {
     });
     try {
       await page.goto(`/${demo}.html`, { waitUntil: 'commit' });
-      await expect(page.locator('.demo-top')).toBeVisible();
+      await expect(page.locator('.VPNav')).toBeVisible();
       await expect(page.getByRole('button', { name: 'Layout JSON', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Reset', exact: true })).toHaveCount(0);
     } finally {
@@ -25,6 +25,6 @@ for (const demo of ['vanilla', 'react']) {
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await settings.getByRole('button', { name: 'Reset', exact: true }).click();
     await expect(settings.getByRole('button', { name: 'Layout JSON', exact: true })).toBeVisible();
-    await expect(page.locator('.demo-top #json-open, .demo-top #reset')).toHaveCount(0);
+    await expect(page.locator('.VPNav #json-open, .VPNav #reset')).toHaveCount(0);
   });
 }

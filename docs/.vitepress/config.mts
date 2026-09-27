@@ -1,6 +1,5 @@
 import { defineConfig } from 'vitepress';
 import { readFileSync } from 'node:fs';
-import { neutralPaletteCss } from './theme/palette';
 const { version } = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
 );
@@ -10,7 +9,11 @@ export default defineConfig({
   description: 'Split panes, tabs, and popout windows for your application.',
   base: '/',
   rewrites: (id) =>
-    id === 'index.md' ? id : id === 'overview.md' ? 'docs/index.md' : `docs/${id}`,
+    ['index.md', 'vanilla.md', 'react.md', 'electron.md'].includes(id)
+      ? id
+      : id === 'overview.md'
+        ? 'docs/index.md'
+        : `docs/${id}`,
   cleanUrls: true,
   // These pages are built by the separate demo application.
   ignoreDeadLinks: [/^\/(vanilla|react|electron)(\.html)?$/],
@@ -18,10 +21,7 @@ export default defineConfig({
   outDir: '.vitepress/site',
   lastUpdated: true,
   srcExclude: ['deployment.md', 'desktop-release.md', 'packaging.md', 'releases.md'],
-  head: [
-    ['link', { rel: 'icon', href: '/favicon.ico' }],
-    ['style', { id: 'quilt-neutral-palette' }, neutralPaletteCss],
-  ],
+  head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
   themeConfig: {
     outline: [2, 3],
     siteTitle: 'Quilt',
@@ -32,7 +32,14 @@ export default defineConfig({
       { text: 'Guide', link: '/docs/' },
       { text: 'API', link: '/docs/api-reference/' },
       // Demo applications need a full navigation outside the VitePress router.
-      { text: 'Demos', link: '/vanilla', target: '_self' },
+      {
+        text: 'Demos',
+        items: [
+          { text: 'Vanilla TS', link: '/vanilla', target: '_self' },
+          { text: 'React', link: '/react', target: '_self' },
+          { text: 'Electron', link: '/electron', target: '_self' },
+        ],
+      },
     ],
     sidebar: [
       {
