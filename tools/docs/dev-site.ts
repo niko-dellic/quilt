@@ -28,8 +28,16 @@ export function documentationSite(): Plugin {
         cwd: resolve(root, 'tools/docs'),
         maxBuffer: 16 * 1024 * 1024,
       });
-      const { build } = await import('vitepress');
-      await build(resolve(root, 'docs'));
+      // VitePress sets NODE_ENV for its production build. Keep that state out of
+      // the demo server, which needs React's development JSX runtime.
+      await run(
+        process.execPath,
+        [resolve(root, 'node_modules/vitepress/bin/vitepress.js'), 'build', resolve(root, 'docs')],
+        {
+          cwd: root,
+          maxBuffer: 16 * 1024 * 1024,
+        },
+      );
       const site = resolve(root, 'docs/.vitepress/site');
       server.middlewares.use((request, response, next) => {
         if (request.method !== 'GET' && request.method !== 'HEAD') return next();

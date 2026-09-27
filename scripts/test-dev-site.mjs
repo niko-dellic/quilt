@@ -11,11 +11,13 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
   const baseURL = server.resolvedUrls.local[0];
   await checkSiteDocs(page, baseURL);
-  await page.goto(baseURL);
-  await page.getByRole('link', { name: 'Vanilla TS demo' }).click();
-  await expect(page.locator('#workspace .layouts')).toBeVisible();
-  await page.reload();
-  await expect(page.locator('#workspace .layouts')).toBeVisible();
+  for (const label of ['Vanilla TS demo', 'React demo']) {
+    await page.goto(baseURL);
+    await page.getByRole('link', { name: label }).click();
+    await expect(page.locator('#workspace .layouts')).toBeVisible();
+    await page.reload();
+    await expect(page.locator('#workspace .layouts')).toBeVisible();
+  }
   expect(errors).toEqual([]);
   console.log('Development API navigation, search results, reloads, and demo navigation passed.');
 } finally {
