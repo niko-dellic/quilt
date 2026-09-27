@@ -56,12 +56,11 @@ export interface WorkspaceSettings<State = unknown> {
   /** Opt-in conveniences; omitted and false disable all. */
   shortcuts?:
     | boolean
-    | {
-        maximize?: boolean | KeyBinding | readonly KeyBinding[];
+    | (Partial<Record<WorkspaceAction, ShortcutRegistration>> & {
         middleClickClose?: boolean;
-        addTab?: boolean | KeyBinding | readonly KeyBinding[];
-        restoreClosedTab?: boolean | KeyBinding | readonly KeyBinding[];
-      };
+      });
+  /** Customize presentation only; matching and accessibility encoding use the binding. */
+  formatShortcut?: (binding: Readonly<KeyBinding>) => string;
   getPaneState?: (paneId: string) => State;
   onError?: (error: unknown) => void;
   /** Copy additional app styles/assets into a same-origin companion document. */
@@ -99,6 +98,42 @@ export type LayoutOptionUpdates<State = unknown> = {
   [Key in keyof Omit<ResolvedLayoutOptions<State>, 'store'>]?:
     ResolvedLayoutOptions<State>[Key] | undefined;
 };
+export type WorkspaceAction =
+  | 'maximize'
+  | 'addTab'
+  | 'restoreClosedTab'
+  | 'closeActiveTab'
+  | 'closePane'
+  | 'closeEmptyPane'
+  | 'popout'
+  | 'joinSiblingRegion'
+  | 'splitLeft'
+  | 'splitRight'
+  | 'splitUp'
+  | 'splitDown'
+  | 'tabOrientationDefault'
+  | 'tabOrientationHorizontal'
+  | 'tabOrientationVertical'
+  | 'tabDisplayDefault'
+  | 'tabDisplayAutomatic'
+  | 'tabDisplayCompact';
+export interface ActionContext {
+  groupId?: string;
+  paneId?: string;
+}
+export type ShortcutRegistration =
+  | boolean
+  | KeyBinding
+  | readonly KeyBinding[]
+  | {
+      bindings: true | KeyBinding | readonly KeyBinding[];
+      handling?: 'quilt' | 'external';
+    };
+export interface RegisteredShortcut {
+  readonly action: WorkspaceAction;
+  readonly bindings: readonly Readonly<KeyBinding>[];
+  readonly handling: 'quilt' | 'external';
+}
 export interface KeyBinding {
   key: string;
   ctrl?: boolean;
@@ -114,6 +149,9 @@ export interface CloseRequest {
 }
 export interface MountedLayout<State = unknown> {
   readonly store: WorkspaceStore;
+  canExecuteAction(action: WorkspaceAction, context?: ActionContext): boolean;
+  executeAction(action: WorkspaceAction, context?: ActionContext): Promise<boolean>;
+  getShortcuts(): readonly RegisteredShortcut[];
   updateOptions(options: LayoutOptionUpdates<State>): void;
   exportWorkspace(): WorkspacePreset;
   loadWorkspace(input: unknown): void;

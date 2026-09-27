@@ -162,10 +162,13 @@
 .layouts-menu {
   position: fixed;
   margin: 0;
-  padding: 5px;
   width: 240px;
   max-height: min(520px, 70vh);
   overflow: auto;
+}
+.layouts-menu,
+.layouts-submenu-content {
+  padding: var(--layouts-spacing, 5px);
   background: var(--layouts-header, #242a34);
   color: var(--layouts-text, #e5e9f0);
   border: 1px solid var(--layouts-line, #39414e);
@@ -374,9 +377,6 @@
 .layouts-submenu-content {
   display: flex;
   flex-direction: column;
-  padding: 4px;
-  border: 1px solid var(--layouts-line);
-  background: var(--layouts-panel);
 }
 .layouts-corner {
   position: absolute;
@@ -437,8 +437,6 @@
   box-sizing: border-box;
   overflow: auto;
   width: 200px;
-  box-shadow: 0 8px 24px #0005;
-  border-radius: var(--layouts-radius, 5px);
 }
 
 .layouts-corner-overlay {
@@ -481,9 +479,6 @@
 .layouts-menu button,
 .layouts-picker button {
   min-height: var(--layouts-control-height, 28px);
-}
-.layouts-menu {
-  padding: var(--layouts-spacing, 5px);
 }
 
 /* Tapered chrome overlays the pane; only its painted footprint intercepts input. */
@@ -879,4 +874,25 @@
   > .layouts-tab-close {
   flex-basis: max(22px, var(--layouts-icon-size, 16px));
   height: max(22px, var(--layouts-icon-size, 16px));
+}
+
+.layouts-shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  min-width: 1.8em;
+  min-height: 1.8em;
+  padding: 0.15em 0.45em;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--layouts-text, #e5e9f0) 22%, transparent);
+  border-radius: 0.5em;
+  background: color-mix(in srgb, var(--layouts-text, #e5e9f0) 4%, transparent);
+  font: inherit;
+  font-size: 0.9em;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--layouts-text, #e5e9f0);
+  white-space: nowrap;
+  pointer-events: none;
 }

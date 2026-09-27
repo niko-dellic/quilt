@@ -112,7 +112,7 @@ for (const framework of ['vanilla', 'react']) {
         .locator('[data-node-id="timeline-group"]')
         .getByRole('tab', { name: 'Timeline', exact: true }),
     ).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByText('` or Alt / Option + Space', { exact: true })).toBeVisible();
+    await expect(page.getByText('` or Alt + Space', { exact: true })).toBeVisible();
     await hotkeys.hover();
     await page.keyboard.press('Alt+Space');
     await expect(page.getByRole('tab', { name: 'Scene', exact: true })).not.toBeVisible();

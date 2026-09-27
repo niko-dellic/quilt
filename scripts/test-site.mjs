@@ -1,5 +1,6 @@
 import { chromium, expect } from '@playwright/test';
 import { preview } from 'vite';
+import { checkSiteDocs } from './check-site-docs.mjs';
 
 // Exercise the merged production output, including navigation out of VitePress.
 const server = await preview({ preview: { host: 'localhost', port: 0 } });
@@ -14,7 +15,8 @@ try {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('response', (response) => {
-    if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`);
+    if (response.status() >= 400 && !response.url().endsWith('/docs/api-reference/missing-page'))
+      errors.push(`${response.status()} ${response.url()}`);
   });
 
   for (const [route, label] of [
@@ -101,6 +103,8 @@ try {
     }
     await themedContext.close();
   }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await checkSiteDocs(page, baseURL);
   expect(errors).toEqual([]);
   console.log('Production demo navigation, reloads, install copying, and mobile layout passed.');
 } finally {

@@ -157,8 +157,17 @@ export const initial: Layout = {
   },
 };
 export let workspace: WorkspaceHandle;
+const workspaceBindings = new Set<(value: WorkspaceHandle) => void>();
+export function onWorkspace(listener: (value: WorkspaceHandle) => void) {
+  workspaceBindings.add(listener);
+  if (workspace) listener(workspace);
+  return () => {
+    workspaceBindings.delete(listener);
+  };
+}
 export function bindWorkspace(value: WorkspaceHandle) {
   workspace = value;
+  for (const listener of workspaceBindings) listener(value);
 }
 // Presets share pane IDs and application data; each keeps its session layout edits.
 function workspaceLayout(content: LayoutNode): Layout {

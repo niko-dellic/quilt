@@ -23,14 +23,18 @@ production site. This deployment does not publish npm packages.
 
 `npm run build:site` merges the demos and the VitePress site into `dist`, with guides
 under `dist/docs` and the home page at `dist/index.html`.
-The Vercel build runs it after the package build. Run `npm run docs:dev` for local
-editing, or `npm run docs:build && npm run docs:test` for generated references,
+The Vercel build runs it after the package build. `npm run dev` generates the same
+home page, API reference, and search index at startup and serves them alongside the
+live demos on port 5186. Restart it after documentation or API changes to rebuild
+that snapshot. Run `npm run docs:dev` for live documentation editing, or
+`npm run docs:build && npm run docs:test` for generated references,
 link/anchor checks, and type-checked quickstarts. `npm run check` includes these checks.
 
 Demo links in VitePress must use `target="_self"` so the browser loads the standalone
-application instead of asking the documentation router to render it. The production
-site test checks home-page and navigation links, demo reloads, and install-command
-copying against the merged build.
+application instead of asking the documentation router to render it. Development
+and production site tests check API navigation, symbol pages, search results, and
+direct reloads. Production tests also cover demo navigation, install-command
+copying, and mobile layout against the merged build.
 
 Guides live in `docs/*.md`; contributor release/deployment instructions remain on
 GitHub and are excluded from the published navigation. TypeDoc generates

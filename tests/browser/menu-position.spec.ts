@@ -67,3 +67,53 @@ for (const edge of ['left', 'right'] as const) {
     expect(await page.evaluate(() => window.harness.stats.errors)).toEqual([]);
   });
 }
+
+for (const edge of ['left', 'right'] as const) {
+  for (const label of ['Tab orientation', 'Tab display'] as const) {
+    test(`${label} stays open while crossing the gap into its ${edge === 'left' ? 'right' : 'left'} flyout`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1000, height: 800 });
+      await page.goto('/tests/browser/harness.html');
+      await page.addStyleTag({
+        content: `#host { position: fixed; top: 0; ${edge}: 0; width: 300px !important; height: 120px !important; }`,
+      });
+      await page.getByRole('button', { name: 'B actions', exact: true }).click();
+      const trigger = page.getByRole('button', { name: label, exact: true });
+      const flyout = page.getByRole('menu', { name: label, exact: true });
+      await trigger.hover();
+      const row = (await trigger.boundingBox())!;
+      const bounds = (await flyout.boundingBox())!;
+      const opensRight = edge === 'left';
+      expect(opensRight ? bounds.x >= row.x + row.width : bounds.x + bounds.width <= row.x).toBe(
+        true,
+      );
+      const gapX = opensRight
+        ? (row.x + row.width + bounds.x) / 2
+        : (bounds.x + bounds.width + row.x) / 2;
+      await page.mouse.move(gapX, row.y + row.height / 2, { steps: 10 });
+      // Model a real pointer crossing the padding, rather than teleporting to the option.
+      await page.waitForTimeout(100);
+      await expect(flyout).toBeVisible();
+      const option = flyout.getByRole('menuitemradio', {
+        name: label === 'Tab orientation' ? 'Vertical' : 'Compact',
+        exact: true,
+      });
+      await option.hover();
+      await page.waitForTimeout(400);
+      await expect(flyout).toBeVisible();
+      await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+      await page.mouse.move(500, 750);
+      await expect(flyout).toBeHidden();
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await trigger.hover();
+      await option.click();
+      await expect(page.locator('dialog.layouts-menu')).toHaveCount(0);
+      await expect(page.locator('[data-node-id="right"]')).toHaveAttribute(
+        label === 'Tab orientation' ? 'data-tab-placement' : 'data-tab-display',
+        label === 'Tab orientation' ? 'left' : 'compact',
+      );
+    });
+  }
+}

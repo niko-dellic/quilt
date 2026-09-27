@@ -114,17 +114,15 @@ export function fillTabs(tabs: HTMLElement, group: Group, panes: Pane[], deps: T
       x.dataset.focusId = `close-${pane.id}`;
       x.onclick = close;
       item.append(x);
-      if (shortcutEnabled(options, 'middleClickClose')) {
-        item.onmousedown = (e) => {
-          if (e.button === 1) e.preventDefault();
-        };
-        item.onauxclick = (e) => {
-          if (e.button === 1) {
-            e.preventDefault();
-            close();
-          }
-        };
-      }
+      item.onmousedown = (e) => {
+        if (e.button === 1 && shortcutEnabled(options, 'middleClickClose')) e.preventDefault();
+      };
+      item.onauxclick = (e) => {
+        if (e.button === 1 && shortcutEnabled(options, 'middleClickClose')) {
+          e.preventDefault();
+          close();
+        }
+      };
     }
     tabs.append(item);
   });

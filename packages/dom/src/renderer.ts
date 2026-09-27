@@ -10,6 +10,8 @@ import { bindCorners } from './corners.js';
 import { applyTheme } from './theme.js';
 import { fillTabs } from './tabs.js';
 import { bindShortcuts } from './shortcuts.js';
+import { createActions } from './actions.js';
+import { registeredShortcuts } from './shortcut-registration.js';
 import {
   LayoutStore,
   createLayout,
@@ -142,13 +144,42 @@ function mountLayoutInternal(
     for (const region of regions.values()) region.scope.dispose();
     regions.clear();
   });
-  const menu = createPaneMenu(root, options, windows, render, error, requestClose);
+  const actions = createActions(options, {
+    context: () => shortcutContext(),
+    disposed: () => disposed,
+    close: requestClose,
+    popout: (id) => windows.open(id),
+    report: error,
+    create(action, group, pane) {
+      const region = regions.get(group.id);
+      if (!region) throw new Error('Region is not mounted');
+      const anchor = region.header ?? region.element;
+      if (action === 'addTab') menu.addTab(anchor, group);
+      else {
+        const direction =
+          action === 'splitLeft'
+            ? 'left'
+            : action === 'splitRight'
+              ? 'right'
+              : action === 'splitUp'
+                ? 'top'
+                : 'bottom';
+        menu.open(anchor, pane, group, direction);
+      }
+    },
+  });
+  const menu = createPaneMenu(root, options, render, error, actions);
   scope.add(() => menu.dispose());
   scope.add(() => dragScope?.dispose());
-  bindShortcuts(root, options, scope, act, (group) => {
-    const region = regions.get(group.id);
-    if (region) menu.addTab(region.header ?? region.element, group);
-  });
+  const shortcutContext = bindShortcuts(
+    root,
+    options,
+    scope,
+    actions.canExecuteAction,
+    actions.executeAction,
+    menu.getShortcutTarget,
+  );
+  registeredShortcuts(options);
   const renderOptions = { ...options, onError: error };
   function button(text: string, title: string, action: () => void) {
     const b = el(doc, 'button', 'layouts-button', text);
@@ -807,6 +838,8 @@ function mountLayoutInternal(
   render();
   return {
     store: options.store,
+    ...actions,
+    getShortcuts: () => registeredShortcuts(options),
     requestClose,
     refreshTheme,
     updateOptions(next) {
@@ -818,6 +851,7 @@ function mountLayoutInternal(
       const candidate = { ...options, ...next };
       if (candidate.registry && (next.renderers || next.tabs))
         throw new Error('registry cannot be combined with renderers or tabs');
+      registeredShortcuts(candidate);
       validateTheme(candidate.theme ?? {});
       validateTabBar(candidate.tabBar ?? {});
       const sameRegistrations =
@@ -843,8 +877,7 @@ function mountLayoutInternal(
         (!candidate.registry && candidate.tabs !== options.tabs) ||
         candidate.renderIcon !== options.renderIcon ||
         candidate.popouts !== options.popouts ||
-        JSON.stringify(candidate.messages) !== JSON.stringify(options.messages) ||
-        JSON.stringify(candidate.shortcuts) !== JSON.stringify(options.shortcuts);
+        JSON.stringify(candidate.messages) !== JSON.stringify(options.messages);
       // Clear maps derived from the old registry when returning to low-level registration.
       if ('registry' in next && !next.registry && options.registry) {
         Object.assign(options, { renderers: undefined, tabs: undefined });
@@ -854,6 +887,7 @@ function mountLayoutInternal(
       if ('tabBar' in next) tabBar = structuredClone(options.tabBar ?? {});
       bindRegistry();
       refreshOptions(repaintChrome);
+      menu.refreshShortcuts();
       refreshTheme();
     },
     exportWorkspace() {

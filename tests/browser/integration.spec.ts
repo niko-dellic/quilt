@@ -285,7 +285,8 @@ test('callback-only updates keep an open menu and preserve its active interactio
     }),
   );
   await expect(menu).toBeVisible();
-  await menu.getByRole('button', { name: 'Close active tab', exact: true }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).hover();
+  await menu.getByRole('menuitem', { name: 'Close active tab', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'A', exact: true })).toHaveCount(0);
 });
 test('clearing unified registration removes derived views and restores option defaults', async ({

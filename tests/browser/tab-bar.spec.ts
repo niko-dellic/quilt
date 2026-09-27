@@ -325,7 +325,8 @@ test('left icon rail reserves space, labels icons, navigates vertically and rest
   await b.press('ArrowUp');
   await expect(a).toBeFocused();
   await group.getByRole('button', { name: 'A actions', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Close active tab', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).hover();
+  await expect(page.getByRole('menuitem', { name: 'Close active tab', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.evaluate(() => window.harness.setTabBar({ mode: 'tapered' }));
   await expect(group).toHaveAttribute('data-tab-placement', 'top');

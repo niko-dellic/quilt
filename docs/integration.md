@@ -243,8 +243,10 @@ Bindings use `KeyboardEvent.key` with exact `ctrl`, `alt`, `shift`, and `meta`
 booleans. Omitted modifiers are false. `true` selects the existing preset;
 conveniences remain off by default. Focus selects the active workspace, with
 hover as fallback. Within that workspace, the hovered region takes precedence
-over the focused region. Editable content, composition, repeats, dialogs, and handled
-events are ignored. Browser/OS-reserved shortcuts may not reach the page.
+over the focused region. An open actions menu targets the region that opened it;
+an available shortcut closes that menu and executes the action, including from submenus.
+Editable content, composition, repeats, other dialogs (including pickers and close
+confirmation), and handled events are ignored. Browser/OS-reserved shortcuts may not reach the page.
 
 `popouts: false` hides the window action and prevents API opening. Individual
 pane capabilities still apply. The [Electron hosts](compatibility.md#electron-reference-host) use the existing
@@ -345,3 +347,77 @@ function Editor({ notes }: { notes: Record<string, string> }) {
 
 Provider updates reach panes and companions. `getPaneState` remains a mount-time
 stable reference for application stores; it is not a reactive state selector.
+
+### Registered actions and shortcut hints
+
+Each registered shortcut appears beside its menu action. The first binding is the
+visible hint; the tooltip and `aria-keyshortcuts` expose all alternatives. Disabled
+actions keep their hint but omit active accessibility metadata. Maximize and Restore
+share the `maximize` registration. Submenu headings and Cancel retain their existing
+navigation behavior.
+
+```ts
+workspace.updateOptions({
+  shortcuts: {
+    maximize: {
+      bindings: [{ key: '`' }, { key: ' ', alt: true }],
+      handling: 'quilt',
+    },
+    closeActiveTab: {
+      bindings: { key: 'w', meta: true },
+      handling: 'external',
+    },
+  },
+});
+
+// Call this from your application's existing hotkey handler.
+await workspace.executeAction('closeActiveTab', { groupId: 'main' });
+```
+
+`handling` defaults to `quilt`. External registrations only advertise bindings;
+the application installs and filters its own key handler. Menu clicks still execute
+Quilt's action. No callback intercepts or replaces built-in action behavior.
+
+`bindings` accepts one `KeyBinding`, an array, or `true` for an existing preset.
+The original boolean, binding, and array forms remain supported. Only `maximize`,
+`addTab`, and `restoreClosedTab` have keyboard presets. `shortcuts: true` enables
+those presets and middle-click close; newly supported actions have no default keys.
+An empty array or `false` disables a registration. Setting `shortcuts: undefined`
+restores the default of no conveniences. An options update replaces the shortcut map.
+
+The following is also the stable conflict priority, independent of object insertion
+order. Quilt handles only the first matching internally handled action; an unavailable
+first action does not fall through to another action:
+
+1. `maximize`, `addTab`, `restoreClosedTab`
+2. `closeActiveTab`, `closePane`, `closeEmptyPane`, `popout`, `joinSiblingRegion`
+3. `splitLeft`, `splitRight`, `splitUp`, `splitDown`
+4. `tabOrientationDefault`, `tabOrientationHorizontal`, `tabOrientationVertical`
+5. `tabDisplayDefault`, `tabDisplayAutomatic`, `tabDisplayCompact`
+
+Here, `closeActiveTab` closes one tab; `closePane` closes the region and all its
+docked tabs. The standalone `workspace.closePane(paneId)` method retains its existing
+single-tab meaning. Orientation and display `Default` actions clear the region override.
+
+`canExecuteAction(action, context?)` checks availability without asking for confirmation.
+`executeAction(action, context?)` rechecks permissions and returns `Promise<boolean>`:
+true after completion or opening a picker, false for unavailable targets, cancelled
+confirmation, blocked popouts, or operational errors. Errors also reach `onError`.
+Explicit `groupId` and/or `paneId` take precedence; a pane ID can identify its docked
+region. A missing pane ID selects that region's active tab. Stale or inconsistent IDs
+never fall back to another target. Without explicit IDs, Quilt uses its current
+hovered/focused region and workspace ownership rules. Restore closed tab needs no
+region. Disposed workspaces return false. Call popout dispatch directly during a user
+gesture: window creation starts synchronously before the returned promise settles.
+
+`getShortcuts()` returns a deeply frozen snapshot of `RegisteredShortcut` entries
+(`action`, `bindings`, `handling`) in priority order. Bindings contain explicit boolean
+modifiers. Use it for application help panels, and subscribe to `workspace.on('change',
+...)` with `event.changes.includes('shortcuts')` to refresh after registration or
+formatter updates. Shortcut settings are not included in layout or workspace JSON.
+
+`formatShortcut(binding)` is an optional workspace callback for visible labels and
+tooltips. It never changes keyboard matching or ARIA encoding. The exported
+`formatShortcut` helper supplies the default readable formatting (`Ctrl + W`,
+`Alt + Space`, or the literal backtick). React supports the same live props and
+workspace methods. Registration and formatter updates preserve an open menu's focus.

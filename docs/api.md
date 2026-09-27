@@ -167,7 +167,8 @@ Options accept `{source: 'user' | 'api'}`; default is `api`. Flags only restrict
 - `tabs`: `TabRegistry` of available content. Factories return pane metadata, or undefined to cancel. Omitted instance IDs are generated.
 - `registry`: combines creation metadata and renderers; mutually exclusive with `tabs` and `renderers`.
 - `messages`: typed text overrides for chrome and dialogs.
-- `shortcuts`: opt-in presets or explicit key/modifier bindings.
+- `shortcuts`: opt-in presets, explicit key/modifier bindings, or external registrations with menu hints.
+- `formatShortcut(binding)`: optional display formatter; matching and ARIA encoding are unchanged.
 - `popouts`: workspace-level availability, default true.
 - `confirmClose(request)`: optional application dialog replacing the built-in close confirmation.
 - `renderIcon(key, document)`: optional icon resolver.
@@ -177,6 +178,16 @@ Options accept `{source: 'user' | 'api'}`; default is `api`. Flags only restrict
 - `openWindow(pane, placement)`: optional synchronous, same-origin window factory; null means blocked. The library owns this returned window and replaces its body, so do not return an existing unrelated application window.
 
 The workspace additionally provides:
+
+- `canExecuteAction(action, context?)`: check a built-in UI action without prompting.
+- `executeAction(action, context?): Promise<boolean>`: run the same action as a menu
+  click, including capability checks and confirmation. Context accepts `groupId` and `paneId`.
+- `getShortcuts(): readonly RegisteredShortcut[]`: immutable normalized registrations.
+
+`WorkspaceAction`, `ActionContext`, `ShortcutRegistration`, and `RegisteredShortcut`
+are exported by both packages. The exported `formatShortcut(binding)` helper supplies
+the default display formatting. See [registered actions](integration.md#registered-actions-and-shortcut-hints)
+for action IDs, targeting, external handlers, and change notifications.
 
 | Method                                     | Purpose                                                                                  |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------- |

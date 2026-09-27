@@ -86,10 +86,12 @@ and clears on successful load/reset or disposal. Failed closes add no history.
 Closing still disposes the view; restoration mounts it again. Application data
 remains application-owned and must be retained outside view lifetimes.
 
-Pane actions include **Close active tab** and **Restore closed tab**. Both demos
+Pane actions group **Close active tab** and **Close pane** in the **Close** submenu.
+**Restore closed tab** remains in the main actions menu. Both demos
 bind **R** to restore; the renderer enables this with `shortcuts: true` or
 `shortcuts: { restoreClosedTab: true }`. Typing, modifier combinations, held keys,
-and open dialogs do not trigger the shortcut.
+and picker or confirmation dialogs do not trigger the shortcut. Actions menus support
+shortcuts and close when an available shortcut executes.
 
 **Close pane** closes all docked tabs in the region and removes the region,
 independently of automatic-collapse settings. `workspace.closeGroup(groupId, options)`

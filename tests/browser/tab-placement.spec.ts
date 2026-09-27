@@ -14,7 +14,14 @@ for (const framework of ['vanilla', 'react']) {
     await expect(page.getByRole('button', { name: '+ Add tab', exact: true })).toBeFocused();
     const labels = await page
       .locator('dialog.layouts-menu > button, dialog.layouts-menu > .layouts-submenu > button')
-      .allTextContents();
+      .evaluateAll((buttons) =>
+        buttons.map((button) =>
+          Array.from(button.childNodes)
+            .filter((node) => !(node instanceof Element && node.matches('.layouts-shortcut')))
+            .map((node) => node.textContent)
+            .join(''),
+        ),
+      );
     expect(labels.map((label) => label.trim())).toEqual([
       'Add tab',
       'Split ▸',
@@ -23,8 +30,7 @@ for (const framework of ['vanilla', 'react']) {
       'Open in window',
       'Tab orientation ▸',
       'Tab display ▸',
-      'Close active tab',
-      'Close pane',
+      'Close ▸',
       'Restore closed tab',
       'Cancel',
     ]);

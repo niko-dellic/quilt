@@ -23,8 +23,9 @@ Generated sections use absolute image and documentation URLs for npm.
 
 Run `npm run build` before `npm run docs:build`. Edit user guides in `docs/` and
 public API comments alongside their exports. Start the guide server with
-`npm run docs:dev`; regenerate API pages with `npm run docs:api` when signatures
-change. `npm run docs:test` checks the built site's internal links and anchors and
+`npm run docs:dev` and regenerate API pages with `npm run docs:api` when signatures
+change. The default `npm run dev` serves a generated documentation snapshot and
+working search alongside the demos. Restart it to regenerate the snapshot. `npm run docs:test` checks the built site's internal links and anchors and
 type-checks the complete Vanilla and React quickstarts. Keep release/deployment
 instructions in the contributor docs. Run `npm run docs:sync` after shared README edits.
 
