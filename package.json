@@ -16,7 +16,7 @@
     "dev": "vite --host localhost --port 5186",
     "build:demos": "vite build",
     "pack:all": "node scripts/pack.mjs",
-    "check": "npm run docs:check && npm run format:check && npm run test:release && npm run build && npm run typecheck && npm test && npm run test:browser && npm run build:demos && npm run test:packed && npm run test:examples && npm run docs:build && npm run docs:test",
+    "check": "npm run docs:check && npm run format:check && npm run test:release && npm run build && npm run typecheck && npm test && npm run test:browser && npm run build:demos && npm run test:packed && npm run test:examples && npm run docs:build && npm run docs:test && npm run test:site",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "release:version": "node scripts/release-version.mjs",
@@ -32,6 +32,7 @@
     "docs:dev": "npm run dev -w quilt-docs",
     "docs:build": "npm run build -w quilt-docs",
     "docs:test": "node scripts/check-docs.mjs",
+    "test:site": "node scripts/test-site.mjs",
     "build:site": "npm run build:demos && npm run docs:build"
   },
   "devDependencies": {

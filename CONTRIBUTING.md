@@ -27,3 +27,13 @@ public API comments alongside their exports. Start the guide server with
 change. `npm run docs:test` checks the built site's internal links and anchors and
 type-checks the complete Vanilla and React quickstarts. Keep release/deployment
 instructions in the contributor docs. Run `npm run docs:sync` after shared README edits.
+
+## Documentation styling
+
+The homepage and `/docs/` use VitePress 1.6.4 and the CSS-only
+`@nikodellic/publisher-docs` archive in `tools/docs/vendor/`. The sibling
+`publisher-docs` repository owns the stylesheet and starter; update the archive and
+lockfile alongside grabm and Genetic Assembly when adopting a shared change.
+VitePress owns light/dark appearance. Demo application themes remain independent.
+`npm run build:site` builds demos first, then merges the docs into `dist/` without
+removing demo assets.
