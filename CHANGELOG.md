@@ -2,6 +2,8 @@
 
 ## 0.4.0
 
+- Serve the documentation, generated API reference, and search index from the local demo server. Verify API navigation and search in both development and production.
+
 - Register shortcuts for built-in workspace actions, with support for external hotkey systems and shared `executeAction`, `canExecuteAction`, and `getShortcuts` APIs.
 - Show accessible, theme-aware keycaps in action menus, with alternate bindings in tooltips and live updates in Vanilla and React. Existing shortcut presets remain compatible.
 - Allow shortcuts while an actions menu or submenu is open, targeting its original region and dismissing the menu. Search fields and confirmation dialogs retain keyboard protections.
