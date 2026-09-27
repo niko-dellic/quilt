@@ -1,6 +1,7 @@
 import { chromium, expect } from '@playwright/test';
 import { preview } from 'vite';
 import { checkSiteDocs } from './check-site-docs.mjs';
+import { checkSiteNavbar } from './check-site-navbar.mjs';
 
 // Exercise the merged production output, including navigation out of VitePress.
 const server = await preview({ preview: { host: 'localhost', port: 0 } });
@@ -37,7 +38,8 @@ try {
   }
 
   await page.goto(new URL('docs/', baseURL).href);
-  await page.getByRole('link', { name: 'Demos', exact: true }).click();
+  await page.getByRole('button', { name: 'Demos', exact: true }).click();
+  await page.getByRole('link', { name: 'Vanilla TS', exact: true }).click();
   await expect(page.locator('#workspace .layouts')).toBeVisible();
   await page.goto(baseURL);
   await page.getByRole('link', { name: 'Desktop demo' }).click();
@@ -105,6 +107,7 @@ try {
   }
   await page.setViewportSize({ width: 1280, height: 800 });
   await checkSiteDocs(page, baseURL);
+  await checkSiteNavbar(page, baseURL);
   expect(errors).toEqual([]);
   console.log('Production demo navigation, reloads, install copying, and mobile layout passed.');
 } finally {

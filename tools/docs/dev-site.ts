@@ -1,8 +1,10 @@
 import { execFile } from 'node:child_process';
-import { createReadStream, statSync } from 'node:fs';
+import { createReadStream, statSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { extname, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import type { Plugin } from 'vite';
+import { withSiteNavbar } from './navbar.mjs';
 
 const run = promisify(execFile);
 const mime: Record<string, string> = {
@@ -19,9 +21,17 @@ const mime: Record<string, string> = {
 
 /** Serve the same generated documentation and search index as the deployed site. */
 export function documentationSite(): Plugin {
+  let site: string;
   return {
     name: 'quilt-development-documentation',
     apply: 'serve',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, context) {
+        const page = context.path.match(/^\/(vanilla|react|electron)(?:\.html)?$/)?.[1];
+        return page ? withSiteNavbar(html, page, site) : html;
+      },
+    },
     async configureServer(server) {
       const root = server.config.root;
       await run(process.execPath, ['generate.mjs'], {
@@ -30,15 +40,24 @@ export function documentationSite(): Plugin {
       });
       // VitePress sets NODE_ENV for its production build. Keep that state out of
       // the demo server, which needs React's development JSX runtime.
-      await run(
-        process.execPath,
-        [resolve(root, 'node_modules/vitepress/bin/vitepress.js'), 'build', resolve(root, 'docs')],
-        {
-          cwd: root,
-          maxBuffer: 16 * 1024 * 1024,
-        },
-      );
-      const site = resolve(root, 'docs/.vitepress/site');
+      site = mkdtempSync(resolve(tmpdir(), 'quilt-dev-docs-'));
+      try {
+        await run(
+          process.execPath,
+          [
+            resolve(root, 'node_modules/vitepress/bin/vitepress.js'),
+            'build',
+            resolve(root, 'docs'),
+            '--outDir',
+            site,
+          ],
+          { cwd: root, maxBuffer: 16 * 1024 * 1024 },
+        );
+      } catch (error) {
+        rmSync(site, { recursive: true, force: true });
+        throw error;
+      }
+      server.httpServer?.once('close', () => rmSync(site, { recursive: true, force: true }));
       server.middlewares.use((request, response, next) => {
         if (request.method !== 'GET' && request.method !== 'HEAD') return next();
         let pathname: string;

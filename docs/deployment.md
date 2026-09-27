@@ -22,11 +22,16 @@ production site. This deployment does not publish npm packages.
 ## Documentation site
 
 `npm run build:site` merges the demos and the VitePress site into `dist`, with guides
-under `dist/docs` and the home page at `dist/index.html`.
+under `dist/docs` and the home page at `dist/index.html`. The browser demos reuse
+the rendered VitePress navbar and its search, appearance, and mobile navigation.
+The site assembler combines those navbar pages with the compiled demo HTML.
+Keep the `quilt-site-navbar` placeholder in each demo template. The packaged
+offline desktop app supplies its own header from `desktop/header.html`.
 The Vercel build runs it after the package build. `npm run dev` generates the same
 home page, API reference, and search index at startup and serves them alongside the
 live demos on port 5186. Restart it after documentation or API changes to rebuild
-that snapshot. Run `npm run docs:dev` for live documentation editing, or
+that snapshot. Each running development server uses a separate temporary output
+directory, which is removed when the server closes. Run `npm run docs:dev` for live documentation editing, or
 `npm run docs:build && npm run docs:test` for generated references,
 link/anchor checks, and type-checked quickstarts. `npm run check` includes these checks.
 

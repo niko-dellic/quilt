@@ -1,22 +1,5 @@
-.electron-page .demo-top {
-  height: auto;
-  min-height: 76px;
-  flex-wrap: wrap;
-  padding: 16px 30px;
-  row-gap: 12px;
-}
-.electron-content {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 86px 30px 32px;
-}
-.electron-content h1 {
-  max-width: 760px;
-  font-size: clamp(40px, 5.5vw, 64px);
-  line-height: 1.06;
-  letter-spacing: -2.5px;
-  margin: 18px 0 24px;
-}
+@import './site-landing.css';
+
 .electron-platforms {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -97,13 +80,6 @@
   margin-top: 40px;
 }
 @media (max-width: 760px) {
-  .electron-content {
-    padding: 44px 20px 24px;
-  }
-  .electron-page .demo-top {
-    padding: 16px 20px;
-    gap: 16px;
-  }
   .electron-setup {
     grid-template-columns: 1fr;
     gap: 20px;
