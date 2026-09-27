@@ -243,8 +243,10 @@ Bindings use `KeyboardEvent.key` with exact `ctrl`, `alt`, `shift`, and `meta`
 booleans. Omitted modifiers are false. `true` selects the existing preset;
 conveniences remain off by default. Focus selects the active workspace, with
 hover as fallback. Within that workspace, the hovered region takes precedence
-over the focused region. Editable content, composition, repeats, dialogs, and handled
-events are ignored. Browser/OS-reserved shortcuts may not reach the page.
+over the focused region. An open actions menu targets the region that opened it;
+an available shortcut closes that menu and executes the action, including from submenus.
+Editable content, composition, repeats, other dialogs (including pickers and close
+confirmation), and handled events are ignored. Browser/OS-reserved shortcuts may not reach the page.
 
 `popouts: false` hides the window action and prevents API opening. Individual
 pane capabilities still apply. The [Electron hosts](compatibility.md#electron-reference-host) use the existing

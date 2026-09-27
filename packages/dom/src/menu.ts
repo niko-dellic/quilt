@@ -4,7 +4,7 @@ import type { ActionIcon } from './action-icons.js';
 import { fillTabPicker } from './picker.js';
 import { findNode, findParent, groups, paneIds } from 'quilt-core';
 import type { Group, Pane } from 'quilt-core';
-import type { ResolvedLayoutOptions, WorkspaceAction } from './types.js';
+import type { ResolvedLayoutOptions, WorkspaceAction, ActionContext } from './types.js';
 import type { createActions } from './actions.js';
 import { registeredShortcuts, formatShortcut, ariaShortcut } from './shortcut-registration.js';
 import { el, Scope } from './lifetime.js';
@@ -18,6 +18,8 @@ export function createPaneMenu(
   const doc = root.ownerDocument,
     win = doc.defaultView!;
   let current: Scope | undefined;
+  let shortcutTarget:
+    { dialog: HTMLDialogElement; context: ActionContext; close(): void } | undefined;
   let refreshShortcuts = () => {};
   const persistentPickers = new Map<string, Scope>();
   const act = (fn: () => void) => {
@@ -533,6 +535,11 @@ export function createPaneMenu(
     local.add(() => {
       if (refreshShortcuts === updateHints) refreshShortcuts = () => {};
     });
+    const target = { dialog, context, close: () => local.dispose() };
+    shortcutTarget = target;
+    local.add(() => {
+      if (shortcutTarget === target) shortcutTarget = undefined;
+    });
     dialog.showModal();
     updateHints();
     const observer = new win.ResizeObserver(positionMenus);
@@ -549,6 +556,7 @@ export function createPaneMenu(
     dialog.focus({ preventScroll: true });
   }
   return {
+    getShortcutTarget: () => shortcutTarget,
     refreshShortcuts: () => refreshShortcuts(),
     open,
     addTab(anchor: HTMLElement, group: Group) {

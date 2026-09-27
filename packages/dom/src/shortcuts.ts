@@ -14,6 +14,8 @@ export function bindShortcuts(
   scope: Scope,
   canExecute: (action: WorkspaceAction, context?: ActionContext) => boolean,
   execute: (action: WorkspaceAction, context?: ActionContext) => Promise<boolean>,
+  menuTarget: () =>
+    { dialog: HTMLDialogElement; context: ActionContext; close(): void } | undefined,
 ) {
   const doc = root.ownerDocument;
   let hoveredGroup: string | undefined;
@@ -32,6 +34,8 @@ export function bindShortcuts(
     (doc.activeElement?.closest<HTMLElement>('.layouts') ?? hovered.get(doc)) === root;
   const context = (): ActionContext => {
     if (!ownsFocus()) return {};
+    const menu = menuTarget();
+    if (menu) return menu.context;
     const focusedGroup = doc.activeElement?.closest<HTMLElement>('.layouts-group')?.dataset.nodeId;
     const groupId = (hovered.get(doc) === root ? hoveredGroup : undefined) ?? focusedGroup;
     return groupId ? { groupId } : {};
@@ -40,11 +44,12 @@ export function bindShortcuts(
     const e = event as KeyboardEvent;
     const target = e.target as HTMLElement | null;
     if (!ownsFocus() || e.defaultPrevented || e.repeat || e.isComposing) return;
+    const menu = menuTarget();
     if (
       target?.closest(
-        'input, textarea, select, [contenteditable]:not([contenteditable="false"]), dialog',
+        'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
       ) ||
-      doc.querySelector('dialog[open]')
+      Array.from(doc.querySelectorAll('dialog[open]')).some((dialog) => dialog !== menu?.dialog)
     )
       return;
     const entry = registeredShortcuts(options).find(
@@ -59,9 +64,11 @@ export function bindShortcuts(
             e.metaKey === !!binding.meta,
         ),
     );
-    if (!entry || !canExecute(entry.action, context())) return;
+    const actionContext = context();
+    if (!entry || !canExecute(entry.action, actionContext)) return;
     e.preventDefault();
-    void execute(entry.action, context());
+    menu?.close();
+    void execute(entry.action, actionContext);
   });
   return context;
 }

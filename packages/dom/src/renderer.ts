@@ -177,6 +177,7 @@ function mountLayoutInternal(
     scope,
     actions.canExecuteAction,
     actions.executeAction,
+    menu.getShortcutTarget,
   );
   registeredShortcuts(options);
   const renderOptions = { ...options, onError: error };

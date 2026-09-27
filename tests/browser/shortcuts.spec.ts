@@ -50,7 +50,11 @@ test('live external registrations preserve menu focus, customize hints, and disp
     return events;
   });
   expect(events).toEqual([['shortcuts']]);
-  expect(await page.locator('dialog.layouts-menu').boundingBox()).toEqual(beforeBounds);
+  expect(await page.locator('dialog.layouts-menu').boundingBox()).toMatchObject({
+    x: beforeBounds!.x,
+    y: beforeBounds!.y,
+    width: beforeBounds!.width,
+  });
   await expect(maximize).toBeFocused();
   await expect(maximize.locator('kbd')).toHaveText('Key m');
   await expect(maximize).toHaveAttribute('aria-keyshortcuts', 'm Control+Plus');
@@ -295,7 +299,7 @@ test('shortcut hints cover flyout actions and disabled commands in a narrow view
   await expect(page.locator('[data-node-id="left"]')).toHaveAttribute('data-tab-placement', 'left');
 });
 
-test('typing, composition, repeats, handled keys and dialogs do not trigger shortcuts', async ({
+test('typing, composition, repeats, handled keys and confirmation dialogs do not trigger shortcuts', async ({
   page,
 }) => {
   await page.goto('/tests/browser/harness.html?shortcuts');
@@ -318,7 +322,12 @@ test('typing, composition, repeats, handled keys and dialogs do not trigger shor
     return window.harness.mounted.getLayout().maximized;
   });
   expect(state).toBeNull();
-  await page.getByRole('button', { name: 'A actions', exact: true }).click();
+  await page.evaluate(() => {
+    const w = window.harness.mounted;
+    w.updatePane({ ...w.getLayout().panes.a!, confirmClose: true });
+    void w.executeAction('closeActiveTab', { paneId: 'a' });
+  });
+  await expect(page.getByRole('dialog', { name: 'Close selected panes?' })).toBeVisible();
   await page.keyboard.press('`');
   expect(await page.evaluate(() => window.harness.mounted.getLayout().maximized)).toBeNull();
 });
@@ -335,4 +344,63 @@ test('middle-click registration updates apply without rebuilding the menu anchor
   await page.evaluate(() => window.harness.mounted.updateOptions({ shortcuts: false }));
   await page.getByRole('tab', { name: 'B', exact: true }).click({ button: 'middle' });
   await expect(page.getByRole('tab', { name: 'B', exact: true })).toBeVisible();
+});
+
+for (const demo of ['vanilla', 'react']) {
+  test(`${demo}: action menu shortcuts target their region and dismiss menus and flyouts`, async ({
+    page,
+  }) => {
+    await page.goto(`/${demo}.html`);
+    const scene = page.locator('[data-node-id="scene-group"]');
+    const actions = scene.getByRole('button', { name: 'Scene actions', exact: true });
+    await actions.click();
+    await page.getByRole('button', { name: 'Tab orientation', exact: true }).hover();
+    await page.keyboard.press('`');
+    await expect(page.locator('dialog.layouts-menu')).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'Objects', exact: true })).not.toBeVisible();
+    await actions.click();
+    await page.keyboard.press('`');
+    await expect(page.getByRole('tab', { name: 'Objects', exact: true })).toBeVisible();
+    await actions.click();
+    await page.keyboard.press('t');
+    const picker = page.locator('dialog.layouts-picker');
+    await expect(picker).toBeVisible();
+    await expect(picker.getByRole('combobox', { name: 'Search tabs' })).toBeFocused();
+    await page.keyboard.press('`');
+    await expect(picker.getByRole('combobox', { name: 'Search tabs' })).toHaveValue('`');
+    await expect(page.getByRole('tab', { name: 'Objects', exact: true })).toBeVisible();
+  });
+}
+
+test('menu shortcuts preserve workspace ownership and leave unavailable or external actions alone', async ({
+  page,
+}) => {
+  await page.goto('/tests/browser/harness.html?shortcuts');
+  await page.evaluate(() => {
+    window.harness.secondary();
+    window.harness.mounted.updateOptions({
+      shortcuts: {
+        maximize: true,
+        closeActiveTab: { key: 'w' },
+        tabOrientationVertical: { bindings: { key: 'v' }, handling: 'external' },
+      },
+    });
+    const w = window.harness.mounted;
+    w.updatePane({ ...w.getLayout().panes.a!, capabilities: { close: false } });
+  });
+  await page.locator('#host').getByRole('button', { name: 'A actions', exact: true }).click();
+  await page.keyboard.press('w');
+  await page.keyboard.press('v');
+  await expect(page.locator('dialog.layouts-menu')).toBeVisible();
+  await page.keyboard.press('`');
+  await expect(page.locator('dialog.layouts-menu')).toHaveCount(0);
+  expect(await page.evaluate(() => window.harness.mounted.getLayout().maximized)).toBe('left');
+  expect(await page.evaluate(() => window.harness.extra.mounted.getLayout().maximized)).toBeNull();
+  await page.locator('#host').getByRole('button', { name: 'A actions', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.harness.mounted.maximize(null));
+  await page.locator('#host').getByRole('tab', { name: 'B', exact: true }).hover();
+  await page.locator('#host').getByRole('tab', { name: 'B', exact: true }).focus();
+  await page.keyboard.press('`');
+  expect(await page.evaluate(() => window.harness.mounted.getLayout().maximized)).toBe('right');
 });

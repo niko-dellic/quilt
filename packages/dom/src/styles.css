@@ -877,12 +877,22 @@
 }
 
 .layouts-shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-left: auto;
-  padding-left: 16px;
+  min-width: 1.8em;
+  min-height: 1.8em;
+  padding: 0.15em 0.45em;
   flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--layouts-text, #e5e9f0) 22%, transparent);
+  border-radius: 0.5em;
+  background: color-mix(in srgb, var(--layouts-text, #e5e9f0) 4%, transparent);
   font: inherit;
-  font-size: 0.85em;
-  color: var(--layouts-muted, #a2acba);
+  font-size: 0.9em;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--layouts-text, #e5e9f0);
   white-space: nowrap;
   pointer-events: none;
 }
