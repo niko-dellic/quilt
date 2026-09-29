@@ -96,6 +96,8 @@ test('custom commands support keyboard execution, availability, remapping, exter
     w.registerShortcut('app.saveDocument', { key: 's', ctrl: true });
     w.updateOptions({ theme: { panel: '#123456' } });
   });
+  // A hovered region wins over focus. Clear the platform-dependent initial pointer position.
+  await page.locator('#open').hover();
   await page.getByRole('tab', { name: 'B', exact: true }).focus();
   await page.keyboard.press('Control+s');
   await expect(page.locator('#command-status')).toBeEmpty();
