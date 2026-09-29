@@ -5,7 +5,7 @@ module.exports = {
   files: ['main.cjs', 'package.json', 'site/**/*', 'LICENSE'],
   asar: true,
   npmRebuild: false,
-  electronVersion: '44.3.0',
+  electronVersion: '44.4.5',
   artifactName: 'Quilt-Demo-${version}-${os}-${arch}.${ext}',
   mac: {
     target: ['dmg'],

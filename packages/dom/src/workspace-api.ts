@@ -23,7 +23,11 @@ import type {
   PaneRenderer,
   TabBarOptions,
   WorkspaceSettings,
-  WorkspaceAction,
+  CommandId,
+  CommandRegistration,
+  RegisteredCommand,
+  ShortcutRegistration,
+  ShortcutConflict,
   ActionContext,
   RegisteredShortcut,
 } from './types.js';
@@ -79,7 +83,7 @@ export type WorkspaceOptionUpdates<State = unknown> = {
 );
 export interface WorkspaceChange {
   action: string;
-  changes: readonly ('layout' | 'theme' | 'tabBar' | 'autoCollapse' | 'shortcuts')[];
+  changes: readonly ('layout' | 'theme' | 'tabBar' | 'autoCollapse' | 'shortcuts' | 'commands')[];
 }
 export interface WorkspaceEvents {
   change: WorkspaceChange;
@@ -109,9 +113,17 @@ export interface PaneHandle {
 /** The mounted API. The model and its lifetime remain private to Quilt. */
 export interface WorkspaceHandle<State = unknown> {
   readonly isDisposed: boolean;
-  canExecuteAction(action: WorkspaceAction, context?: ActionContext): boolean;
-  executeAction(action: WorkspaceAction, context?: ActionContext): Promise<boolean>;
+  canExecuteAction(action: CommandId, context?: ActionContext): boolean;
+  executeAction(action: CommandId, context?: ActionContext): Promise<boolean>;
   getShortcuts(): readonly RegisteredShortcut[];
+  /** All same-workspace collisions, including externally handled bindings. */
+  getShortcutConflicts(): readonly ShortcutConflict[];
+  /** Immutable metadata for registered application commands. */
+  getCommands(): readonly RegisteredCommand[];
+  /** Replace one binding. Cleanup removes only this registration, without restoring an older binding. */
+  registerShortcut(action: CommandId, registration: ShortcutRegistration): () => void;
+  /** Register a unique application command; cleanup removes it and its bindings. */
+  registerCommand(command: CommandRegistration): () => void;
   /** Subscribe to configuration changes or errors. The returned function unsubscribes. */
   on<K extends keyof WorkspaceEvents>(
     event: K,
@@ -324,14 +336,46 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     }
     this.#emit({ action: 'loadWorkspace', changes: ['layout', 'theme', 'tabBar', 'autoCollapse'] });
   }
-  canExecuteAction(action: WorkspaceAction, context?: ActionContext): boolean {
+  canExecuteAction(action: CommandId, context?: ActionContext): boolean {
     return !this.#disposed && this.#mounted.canExecuteAction(action, context);
   }
-  executeAction(action: WorkspaceAction, context?: ActionContext): Promise<boolean> {
+  executeAction(action: CommandId, context?: ActionContext): Promise<boolean> {
     return this.#disposed ? Promise.resolve(false) : this.#mounted.executeAction(action, context);
   }
   getShortcuts(): readonly RegisteredShortcut[] {
     return this.#mounted.getShortcuts();
+  }
+  getShortcutConflicts(): readonly ShortcutConflict[] {
+    return this.#mounted.getShortcutConflicts();
+  }
+  getCommands(): readonly RegisteredCommand[] {
+    return this.#mounted.getCommands();
+  }
+  #changeRegistration(action: string, change: () => void) {
+    const beforeCommands = JSON.stringify(this.getCommands()),
+      beforeShortcuts = JSON.stringify(this.getShortcuts());
+    change();
+    if (this.#disposed) return;
+    const changes: WorkspaceChange['changes'][number][] = [];
+    if (beforeCommands !== JSON.stringify(this.getCommands())) changes.push('commands');
+    if (beforeShortcuts !== JSON.stringify(this.getShortcuts())) changes.push('shortcuts');
+    if (changes.length) this.#emit({ action, changes });
+  }
+  registerShortcut(action: CommandId, registration: ShortcutRegistration): () => void {
+    this.#alive();
+    let cleanup!: () => void;
+    this.#changeRegistration('registerShortcut', () => {
+      cleanup = this.#mounted.registerShortcut(action, registration);
+    });
+    return () => this.#changeRegistration('unregisterShortcut', cleanup);
+  }
+  registerCommand(command: CommandRegistration): () => void {
+    this.#alive();
+    let cleanup!: () => void;
+    this.#changeRegistration('registerCommand', () => {
+      cleanup = this.#mounted.registerCommand(command);
+    });
+    return () => this.#changeRegistration('unregisterCommand', cleanup);
   }
   updateOptions(next: WorkspaceOptionUpdates<State>) {
     this.#alive();
@@ -342,6 +386,16 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     const before = this.exportWorkspace();
     const beforeShortcuts = JSON.stringify(this.getShortcuts());
     const beforeFormatter = this.#options.formatShortcut;
+    const beforeCommands = this.#options.commands;
+    const beforeCommandMetadata = JSON.stringify(this.getCommands());
+    const beforePolicy = this.#options.shortcutConflictPolicy;
+    for (const key of [
+      'shortcuts',
+      'commands',
+      'shortcutConflictPolicy',
+      'onShortcutConflict',
+    ] as const)
+      if (!(key in next)) delete adapted[key];
     // Initial appearance is mount-only: only explicitly updated appearance keys apply.
     if (!('theme' in next)) delete adapted.theme;
     if (!('tabBar' in next)) delete adapted.tabBar;
@@ -352,9 +406,15 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     if (JSON.stringify(before.tabBar) !== JSON.stringify(after.tabBar)) changes.push('tabBar');
     if (
       beforeShortcuts !== JSON.stringify(this.getShortcuts()) ||
-      beforeFormatter !== candidate.formatShortcut
+      beforeFormatter !== candidate.formatShortcut ||
+      beforePolicy !== candidate.shortcutConflictPolicy
     )
       changes.push('shortcuts');
+    if (
+      beforeCommandMetadata !== JSON.stringify(this.getCommands()) ||
+      ('commands' in next && beforeCommands !== candidate.commands)
+    )
+      changes.push('commands');
     if (changes.length) this.#emit({ action: 'updateOptions', changes });
   }
   setTheme(theme: LayoutTheme) {

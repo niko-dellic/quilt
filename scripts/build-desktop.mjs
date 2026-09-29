@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { build } from 'vite';
+import builder from '../desktop/builder.cjs';
 const { version, devDependencies } = JSON.parse(readFileSync('package.json', 'utf8'));
 await build({ configFile: 'desktop/vite.config.mjs' });
 const app = 'artifacts/desktop/app';
@@ -25,7 +26,7 @@ writeFileSync(
   ) + '\n',
 );
 // Keep the packager runtime aligned with the tested Electron version.
-if (devDependencies.electron !== '44.3.0')
+if (devDependencies.electron !== builder.electronVersion)
   throw new Error('Update desktop/builder.cjs to match Electron');
 if (process.argv.includes('--package')) {
   execFileSync(

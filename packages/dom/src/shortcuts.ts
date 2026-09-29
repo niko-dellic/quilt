@@ -1,6 +1,10 @@
-import type { ActionContext, ResolvedLayoutOptions, WorkspaceAction } from './types.js';
+import type {
+  ActionContext,
+  ResolvedLayoutOptions,
+  CommandId,
+  RegisteredShortcut,
+} from './types.js';
 import type { Scope } from './lifetime.js';
-import { registeredShortcuts } from './shortcut-registration.js';
 export function shortcutEnabled(options: ResolvedLayoutOptions, key: 'middleClickClose') {
   return (
     options.shortcuts === true ||
@@ -10,10 +14,10 @@ export function shortcutEnabled(options: ResolvedLayoutOptions, key: 'middleClic
 const hovered = new WeakMap<Document, HTMLElement>();
 export function bindShortcuts(
   root: HTMLElement,
-  options: ResolvedLayoutOptions,
+  getShortcuts: () => readonly RegisteredShortcut[],
   scope: Scope,
-  canExecute: (action: WorkspaceAction, context?: ActionContext) => boolean,
-  execute: (action: WorkspaceAction, context?: ActionContext) => Promise<boolean>,
+  canExecute: (action: CommandId, context?: ActionContext) => boolean,
+  execute: (action: CommandId, context?: ActionContext) => Promise<boolean>,
   menuTarget: () =>
     { dialog: HTMLDialogElement; context: ActionContext; close(): void } | undefined,
 ) {
@@ -52,7 +56,7 @@ export function bindShortcuts(
       Array.from(doc.querySelectorAll('dialog[open]')).some((dialog) => dialog !== menu?.dialog)
     )
       return;
-    const entry = registeredShortcuts(options).find(
+    const entry = getShortcuts().find(
       (entry) =>
         entry.handling === 'quilt' &&
         entry.bindings.some(

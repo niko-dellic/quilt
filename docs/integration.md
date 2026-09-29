@@ -421,3 +421,140 @@ tooltips. It never changes keyboard matching or ARIA encoding. The exported
 `formatShortcut` helper supplies the default readable formatting (`Ctrl + W`,
 `Alt + Space`, or the literal backtick). React supports the same live props and
 workspace methods. Registration and formatter updates preserve an open menu's focus.
+
+### Conflict detection and incremental registration
+
+Each workspace owns a command registry shared by menu hints, keyboard handling, and
+`executeAction`. Use the workspace methods to access it; there is no separate registry
+instance to create or synchronize. Conflict checks cover that workspace's registered
+bindings, including `handling: 'external'` entries. They cannot inspect other hotkey
+systems unless the application supplies their bindings, or detect OS/browser shortcuts.
+
+```ts
+workspace.updateOptions({
+  shortcutConflictPolicy: 'error',
+});
+
+const unregister = workspace.registerShortcut('maximize', { key: 'm', ctrl: true });
+const conflicts = workspace.getShortcutConflicts();
+// Each conflict has { binding, actions }, where actions lists the conflicting IDs.
+
+unregister();
+```
+
+`shortcutConflictPolicy` supports:
+
+- **`priority`** (default): accept conflicts and retain the existing first-match behavior.
+- **`warn`**: accept conflicts and call `onShortcutConflict(conflicts)`. Without a
+  callback, log a `ShortcutConflictError` with `console.warn`. Unchanged diagnostics
+  are not repeated on unrelated updates. Warning-callback failures reach `onError`.
+- **`error`**: throw `ShortcutConflictError` before accepting a conflicting registration
+  or options update. The error exposes deeply frozen `conflicts` and code
+  `SHORTCUT_CONFLICT`. Existing commands, bindings, and other options remain unchanged.
+  Switching to strict mode also fails if current bindings already conflict.
+
+```ts
+import { ShortcutConflictError } from 'quilt-vanilla'; // also exported by quilt-react
+
+try {
+  workspace.registerShortcut('addTab', { key: 'm', ctrl: true });
+} catch (error) {
+  if (error instanceof ShortcutConflictError) {
+    console.log(error.conflicts);
+  } else {
+    throw error;
+  }
+}
+```
+
+Keys compare case-insensitively with exact `ctrl`, `alt`, `shift`, and `meta` flags,
+matching execution. Repeating an alternative for the same command is not a conflict;
+assigning it to different commands is. Diagnostics are conservative: an `enabled`
+callback does not exempt a binding from conflict checking.
+
+`registerShortcut(id, registration)` replaces just that command's bindings, leaving
+other registrations intact. Its idempotent cleanup removes only the registration it
+created. A newer registration survives an older cleanup. **Cleanup does not restore
+the displaced binding or preset.** This prevents old component cleanup from reviving
+unwanted or conflicting bindings. Removing a binding always remains safe in strict mode.
+To restore a preset explicitly, register `true` for that built-in action.
+
+An explicit `updateOptions({ shortcuts: ... })` still replaces the entire binding map
+and invalidates previous binding cleanup handles. Updates to unrelated options preserve
+incremental registrations. Subscriptions report binding changes through `shortcuts`
+and command metadata changes through `commands` in `event.changes`. Neither is persisted
+in workspace/layout JSON.
+
+### Application commands
+
+Commands and key assignments are separate, so remapping a key keeps its callback and
+lifetime intact. Application IDs must be namespaced, such as `app.saveDocument`.
+They cannot override Quilt's built-in IDs. Duplicate command IDs throw.
+
+```ts
+const removeCommand = workspace.registerCommand({
+  id: 'app.saveDocument',
+  label: 'Save document',
+  enabled: ({ paneId }) => paneId !== undefined,
+  execute: async ({ paneId, signal }) => {
+    // Call your application's save implementation here.
+    // signal lets it release command-owned work if this command is removed.
+    console.log('Save', paneId, signal.aborted);
+  },
+});
+
+const removeBinding = workspace.registerShortcut('app.saveDocument', {
+  key: 's',
+  ctrl: true,
+});
+
+await workspace.executeAction('app.saveDocument', { paneId: 'notes' });
+const available = workspace.canExecuteAction('app.saveDocument', { paneId: 'notes' });
+const commands = workspace.getCommands(); // frozen { id, label } metadata for custom commands
+
+// Typically returned from a component effect or registered with pane onCleanup:
+removeBinding();
+removeCommand();
+```
+
+`execute` may return void, true, false, or a promise of those values. False means the
+command did not complete; thrown errors/rejections reach `onError` and dispatch returns
+false. `enabled` is synchronous and defaults to true. Its errors likewise report and
+disable execution. Quilt rechecks availability when executing. Callbacks receive resolved
+region/tab IDs when available; a global custom command may run without either ID.
+Explicit stale or inconsistent IDs still prevent execution.
+
+Custom commands use the same workspace ownership, typing exclusions, and menu targeting
+as built-in shortcuts. Built-in actions win binding ties first, in the order above;
+custom commands follow in declaration/registration order. External custom bindings
+advertise metadata only and can call `executeAction` from the application's handler.
+
+Removing a command also removes its bindings and aborts its `CommandContext.signal`.
+Replacing its callback or disposing the workspace aborts that lifetime too. A pending
+execution returns false once its callback settles if its lifetime was aborted. The
+callback owns cancellation of its work; Quilt does not undo application data changes.
+Removing/replacing only a binding does not abort the command. Cleanup is safe after
+workspace disposal and cannot remove a later command registered under the same ID.
+
+`getCommands()` and `getShortcuts()` let applications build help panels or command
+palettes. Custom commands do not automatically add items to Quilt's pane menu. The demo
+help table uses custom labels when application commands are registered.
+
+React and constructor options also accept declarative commands and bindings together:
+
+```tsx
+<Workspace
+  commands={commands}
+  shortcuts={{ 'app.saveDocument': { key: 's', ctrl: true } }}
+  shortcutConflictPolicy="error"
+/>
+```
+
+Use stable callbacks/arrays as with other React props. An explicit `commands` options
+update replaces the command collection; omitted/unchanged props preserve imperative
+registrations. An explicit command collection replacement invalidates older command
+cleanup handles. Removing a command also drops its binding. Updating a command with the
+same ID preserves its binding. Relabeling preserves its lifetime; changing `execute`
+or `enabled` starts a new lifetime. When
+adding commands and their bindings declaratively, supply both in one options update
+so validation can accept them atomically. Bindings for unknown custom IDs throw.

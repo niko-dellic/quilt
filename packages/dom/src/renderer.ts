@@ -11,7 +11,7 @@ import { applyTheme } from './theme.js';
 import { fillTabs } from './tabs.js';
 import { bindShortcuts } from './shortcuts.js';
 import { createActions } from './actions.js';
-import { registeredShortcuts } from './shortcut-registration.js';
+import { CommandRegistry } from './command-registry.js';
 import {
   LayoutStore,
   createLayout,
@@ -144,7 +144,10 @@ function mountLayoutInternal(
     for (const region of regions.values()) region.scope.dispose();
     regions.clear();
   });
+  const commands = new CommandRegistry(options, error);
+  scope.add(() => commands.dispose());
   const actions = createActions(options, {
+    registry: commands,
     context: () => shortcutContext(),
     disposed: () => disposed,
     close: requestClose,
@@ -169,17 +172,17 @@ function mountLayoutInternal(
     },
   });
   const menu = createPaneMenu(root, options, render, error, actions);
+  scope.add(commands.subscribe(menu.refreshShortcuts));
   scope.add(() => menu.dispose());
   scope.add(() => dragScope?.dispose());
   const shortcutContext = bindShortcuts(
     root,
-    options,
+    actions.getShortcuts,
     scope,
     actions.canExecuteAction,
     actions.executeAction,
     menu.getShortcutTarget,
   );
-  registeredShortcuts(options);
   const renderOptions = { ...options, onError: error };
   function button(text: string, title: string, action: () => void) {
     const b = el(doc, 'button', 'layouts-button', text);
@@ -839,7 +842,10 @@ function mountLayoutInternal(
   return {
     store: options.store,
     ...actions,
-    getShortcuts: () => registeredShortcuts(options),
+    getShortcutConflicts: () => commands.getShortcutConflicts(),
+    getCommands: () => commands.getCommands(),
+    registerShortcut: (action, registration) => commands.registerShortcut(action, registration),
+    registerCommand: (command) => commands.registerCommand(command),
     requestClose,
     refreshTheme,
     updateOptions(next) {
@@ -851,7 +857,7 @@ function mountLayoutInternal(
       const candidate = { ...options, ...next };
       if (candidate.registry && (next.renderers || next.tabs))
         throw new Error('registry cannot be combined with renderers or tabs');
-      registeredShortcuts(candidate);
+      const commitCommands = commands.prepare(next);
       validateTheme(candidate.theme ?? {});
       validateTabBar(candidate.tabBar ?? {});
       const sameRegistrations =
@@ -883,6 +889,7 @@ function mountLayoutInternal(
         Object.assign(options, { renderers: undefined, tabs: undefined });
       }
       Object.assign(options, next);
+      commitCommands();
       if ('theme' in next) applyTheme(root, options.theme ?? {});
       if ('tabBar' in next) tabBar = structuredClone(options.tabBar ?? {});
       bindRegistry();
