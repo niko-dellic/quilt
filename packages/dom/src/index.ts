@@ -21,6 +21,13 @@ export type {
   WorkspaceSettings,
   KeyBinding,
   WorkspaceAction,
+  CommandId,
+  CustomCommandId,
+  CommandContext,
+  CommandRegistration,
+  RegisteredCommand,
+  ShortcutConflict,
+  ShortcutConflictPolicy,
   ActionContext,
   RegisteredShortcut,
   ShortcutRegistration,
@@ -59,3 +66,5 @@ export { defaultMessages } from './messages.js';
 export type { Messages } from './messages.js';
 
 export { formatShortcut } from './shortcut-registration.js';
+
+export { ShortcutConflictError } from './command-registry.js';

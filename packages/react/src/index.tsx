@@ -236,6 +236,9 @@ const WorkspaceImpl = forwardRef<WorkspaceHandle, WorkspaceProps>(function Works
         'openWindow',
         'renderIcon',
         'shortcuts',
+        'commands',
+        'shortcutConflictPolicy',
+        'onShortcutConflict',
         'formatShortcut',
         'messages',
         'popouts',
@@ -366,6 +369,9 @@ const WorkspaceImpl = forwardRef<WorkspaceHandle, WorkspaceProps>(function Works
     rest.openWindow,
     rest.renderIcon,
     rest.shortcuts,
+    rest.commands,
+    rest.shortcutConflictPolicy,
+    rest.onShortcutConflict,
     rest.formatShortcut,
     rest.messages,
     rest.popouts,
@@ -474,4 +480,15 @@ export type {
   ActionContext,
   RegisteredShortcut,
   ShortcutRegistration,
+} from 'quilt-vanilla';
+
+export { ShortcutConflictError } from 'quilt-vanilla';
+export type {
+  CommandId,
+  CustomCommandId,
+  CommandContext,
+  CommandRegistration,
+  RegisteredCommand,
+  ShortcutConflict,
+  ShortcutConflictPolicy,
 } from 'quilt-vanilla';

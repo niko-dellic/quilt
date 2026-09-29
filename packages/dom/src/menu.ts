@@ -6,7 +6,7 @@ import { findNode, findParent, groups, paneIds } from 'quilt-core';
 import type { Group, Pane } from 'quilt-core';
 import type { ResolvedLayoutOptions, WorkspaceAction, ActionContext } from './types.js';
 import type { createActions } from './actions.js';
-import { registeredShortcuts, formatShortcut, ariaShortcut } from './shortcut-registration.js';
+import { formatShortcut, ariaShortcut } from './shortcut-registration.js';
 import { el, Scope } from './lifetime.js';
 export function createPaneMenu(
   root: HTMLElement,
@@ -502,7 +502,7 @@ export function createPaneMenu(
       }
     });
     const updateHints = () => {
-      const registrations = registeredShortcuts(options);
+      const registrations = actions.getShortcuts();
       for (const { element, action } of hints) {
         element.querySelector('.layouts-shortcut')?.remove();
         element.removeAttribute('aria-keyshortcuts');

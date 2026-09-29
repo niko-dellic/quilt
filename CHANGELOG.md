@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Add workspace-owned custom command registration with labels, availability checks, shared action dispatch, and abortable command lifetimes.
+- Add incremental shortcut registration and cleanup without replacing unrelated bindings.
+- Detect conflicting shortcuts with configurable priority, warning, or atomic error policies and immutable conflict diagnostics.
+- Expose command metadata and change notifications for application help panels, with live Vanilla and React support.
+- Document custom commands, external hotkey integrations, conflict policies, and registration cleanup.
+
 ## 0.4.0
 
 - Serve the documentation, generated API reference, and search index from the local demo server. Verify API navigation and search in both development and production.

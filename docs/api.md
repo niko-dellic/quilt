@@ -168,6 +168,9 @@ Options accept `{source: 'user' | 'api'}`; default is `api`. Flags only restrict
 - `registry`: combines creation metadata and renderers; mutually exclusive with `tabs` and `renderers`.
 - `messages`: typed text overrides for chrome and dialogs.
 - `shortcuts`: opt-in presets, explicit key/modifier bindings, or external registrations with menu hints.
+- `commands`: optional application command registrations (`id`, `label`, `execute`, `enabled`).
+- `shortcutConflictPolicy`: `priority` (default), `warn`, or `error`.
+- `onShortcutConflict(conflicts)`: optional diagnostics callback in warn mode.
 - `formatShortcut(binding)`: optional display formatter; matching and ARIA encoding are unchanged.
 - `popouts`: workspace-level availability, default true.
 - `confirmClose(request)`: optional application dialog replacing the built-in close confirmation.
@@ -179,12 +182,18 @@ Options accept `{source: 'user' | 'api'}`; default is `api`. Flags only restrict
 
 The workspace additionally provides:
 
-- `canExecuteAction(action, context?)`: check a built-in UI action without prompting.
+- `canExecuteAction(action, context?)`: check a built-in action or custom command without prompting.
 - `executeAction(action, context?): Promise<boolean>`: run the same action as a menu
   click, including capability checks and confirmation. Context accepts `groupId` and `paneId`.
 - `getShortcuts(): readonly RegisteredShortcut[]`: immutable normalized registrations.
+- `getShortcutConflicts()`: immutable collisions with normalized bindings and command IDs.
+- `registerShortcut(id, registration)`: replace one binding; returns an ownership-safe cleanup.
+- `registerCommand(command)`: add a custom command; returns a cleanup for it and its bindings.
+- `getCommands()`: immutable custom command metadata for application help and palettes.
 
-`WorkspaceAction`, `ActionContext`, `ShortcutRegistration`, and `RegisteredShortcut`
+`WorkspaceAction`, `CommandId`, `CustomCommandId`, `ActionContext`, `CommandContext`,
+`CommandRegistration`, `RegisteredCommand`, `ShortcutRegistration`, `RegisteredShortcut`,
+`ShortcutConflict`, `ShortcutConflictPolicy`, and `ShortcutConflictError`
 are exported by both packages. The exported `formatShortcut(binding)` helper supplies
 the default display formatting. See [registered actions](integration.md#registered-actions-and-shortcut-hints)
 for action IDs, targeting, external handlers, and change notifications.

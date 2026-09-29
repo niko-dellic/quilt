@@ -183,12 +183,16 @@ export const hotkeys: PaneRenderer = ({ element, document: doc }) => {
       body.replaceChildren();
       appendRow('Drag on canvas', 'Orbit scene', 'Scroll to zoom. Double-click to reset.');
       for (const registration of workspace.getShortcuts()) {
+        const customLabel = workspace
+          .getCommands()
+          .find((command) => command.id === registration.action)?.label;
         const title =
-          registration.action === 'maximize'
+          customLabel ??
+          (registration.action === 'maximize'
             ? 'Maximize / restore'
             : registration.action
                 .replace(/([A-Z])/g, (letter) => ` ${letter.toLowerCase()}`)
-                .replace(/^./, (letter) => letter.toUpperCase());
+                .replace(/^./, (letter) => letter.toUpperCase()));
         appendRow(
           registration.bindings.map(formatShortcut).join(' or '),
           title,
@@ -207,7 +211,7 @@ export const hotkeys: PaneRenderer = ({ element, document: doc }) => {
         appendRow(keys!, title!, description!);
     };
     unsubscribe = workspace.on('change', (event) => {
-      if (event.changes.includes('shortcuts')) update();
+      if (event.changes.includes('shortcuts') || event.changes.includes('commands')) update();
     });
     update();
   });

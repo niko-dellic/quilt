@@ -56,9 +56,14 @@ export interface WorkspaceSettings<State = unknown> {
   /** Opt-in conveniences; omitted and false disable all. */
   shortcuts?:
     | boolean
-    | (Partial<Record<WorkspaceAction, ShortcutRegistration>> & {
+    | (Partial<Record<CommandId, ShortcutRegistration>> & {
         middleClickClose?: boolean;
       });
+  commands?: readonly CommandRegistration[];
+  /** Defaults to priority; error rejects conflicting changes atomically. */
+  shortcutConflictPolicy?: ShortcutConflictPolicy;
+  /** Receives diagnostics in warn mode; otherwise warnings use console.warn. */
+  onShortcutConflict?: (conflicts: readonly ShortcutConflict[]) => void;
   /** Customize presentation only; matching and accessibility encoding use the binding. */
   formatShortcut?: (binding: Readonly<KeyBinding>) => string;
   getPaneState?: (paneId: string) => State;
@@ -117,6 +122,28 @@ export type WorkspaceAction =
   | 'tabDisplayDefault'
   | 'tabDisplayAutomatic'
   | 'tabDisplayCompact';
+/** Namespaced IDs keep application commands separate from Quilt actions. */
+export type CustomCommandId = `${string}.${string}`;
+export type CommandId = WorkspaceAction | CustomCommandId;
+export type ShortcutConflictPolicy = 'priority' | 'warn' | 'error';
+export interface ShortcutConflict {
+  readonly binding: Readonly<KeyBinding>;
+  readonly actions: readonly CommandId[];
+}
+export interface CommandContext extends ActionContext {
+  /** Aborted when the command is removed/replaced or the workspace is disposed. */
+  readonly signal: AbortSignal;
+}
+export interface CommandRegistration {
+  id: CustomCommandId;
+  label: string;
+  execute(context: CommandContext): void | boolean | Promise<void | boolean>;
+  enabled?(context: CommandContext): boolean;
+}
+export interface RegisteredCommand {
+  readonly id: CustomCommandId;
+  readonly label: string;
+}
 export interface ActionContext {
   groupId?: string;
   paneId?: string;
@@ -130,7 +157,7 @@ export type ShortcutRegistration =
       handling?: 'quilt' | 'external';
     };
 export interface RegisteredShortcut {
-  readonly action: WorkspaceAction;
+  readonly action: CommandId;
   readonly bindings: readonly Readonly<KeyBinding>[];
   readonly handling: 'quilt' | 'external';
 }
@@ -149,9 +176,13 @@ export interface CloseRequest {
 }
 export interface MountedLayout<State = unknown> {
   readonly store: WorkspaceStore;
-  canExecuteAction(action: WorkspaceAction, context?: ActionContext): boolean;
-  executeAction(action: WorkspaceAction, context?: ActionContext): Promise<boolean>;
+  canExecuteAction(action: CommandId, context?: ActionContext): boolean;
+  executeAction(action: CommandId, context?: ActionContext): Promise<boolean>;
   getShortcuts(): readonly RegisteredShortcut[];
+  getShortcutConflicts(): readonly ShortcutConflict[];
+  getCommands(): readonly RegisteredCommand[];
+  registerShortcut(action: CommandId, registration: ShortcutRegistration): () => void;
+  registerCommand(command: CommandRegistration): () => void;
   updateOptions(options: LayoutOptionUpdates<State>): void;
   exportWorkspace(): WorkspacePreset;
   loadWorkspace(input: unknown): void;

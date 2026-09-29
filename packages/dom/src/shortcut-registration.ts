@@ -1,5 +1,6 @@
 import type {
   KeyBinding,
+  CommandId,
   RegisteredShortcut,
   WorkspaceAction,
   WorkspaceSettings,
@@ -31,14 +32,27 @@ const defaults: Partial<Record<WorkspaceAction, readonly KeyBinding[]>> = {
   addTab: [{ key: 't' }],
   restoreClosedTab: [{ key: 'r' }],
 };
-export function registeredShortcuts(options: {
-  shortcuts?: WorkspaceSettings['shortcuts'];
-}): readonly RegisteredShortcut[] {
+export function isWorkspaceAction(action: string): action is WorkspaceAction {
+  return (actionOrder as readonly string[]).includes(action);
+}
+export function registeredShortcuts(
+  options: {
+    shortcuts?: WorkspaceSettings['shortcuts'];
+  },
+  customActions: readonly CommandId[] = [],
+): readonly RegisteredShortcut[] {
   const result: RegisteredShortcut[] = [];
-  for (const action of actionOrder) {
+  const order = [...actionOrder, ...customActions];
+  if (options.shortcuts && typeof options.shortcuts === 'object') {
+    for (const action of Object.keys(options.shortcuts))
+      if (action !== 'middleClickClose' && !order.includes(action as CommandId))
+        throw new Error(`Unknown shortcut command: ${action}`);
+  }
+  for (const action of order) {
+    const preset = isWorkspaceAction(action) ? defaults[action] : undefined;
     const value =
       options.shortcuts === true
-        ? !!defaults[action]
+        ? !!preset
         : typeof options.shortcuts === 'object'
           ? options.shortcuts[action]
           : false;
@@ -47,7 +61,7 @@ export function registeredShortcuts(options: {
     const configured = extended ? extended.bindings : value;
     const bindings: readonly KeyBinding[] =
       configured === true
-        ? (defaults[action] ?? [])
+        ? (preset ?? [])
         : Array.isArray(configured)
           ? configured
           : [configured as KeyBinding];
