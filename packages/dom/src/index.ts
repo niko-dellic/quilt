@@ -43,6 +43,7 @@ export type {
   AutoCollapse,
   Json,
   Capability,
+  CapabilityPolicy,
   Axis,
   Pane,
   Group,
@@ -68,3 +69,5 @@ export type { Messages } from './messages.js';
 export { formatShortcut } from './shortcut-registration.js';
 
 export { ShortcutConflictError } from './command-registry.js';
+
+export { defaultShortcuts } from './default-shortcuts.js';

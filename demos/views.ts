@@ -1,3 +1,4 @@
+import { settings } from './settings.js';
 import { formatShortcut } from 'quilt-vanilla';
 import { mountFullscreenToggle } from './fullscreen.js';
 import { mountTheming } from './shell.js';
@@ -232,6 +233,7 @@ export const footer: PaneRenderer = ({ element, document: doc }) => {
 };
 export const theming: PaneRenderer = ({ element }) => mountTheming(element);
 export const renderers = {
+  settings,
   theming,
   notes,
   canvas,

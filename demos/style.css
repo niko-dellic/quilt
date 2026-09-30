@@ -775,7 +775,7 @@ html:has(.demo-main:fullscreen) {
 }
 
 .layouts-group[data-tab-placement='left'][data-tab-bar='tapered']
-  :is(.demo-theming, .demo-inspector, .demo-tools, .demo-hotkeys, .demo-timeline) {
+  :is(.demo-settings, .demo-theming, .demo-inspector, .demo-tools, .demo-hotkeys, .demo-timeline) {
   padding-left: calc(var(--layouts-tab-bar-width, 0px) + var(--layouts-panel-padding, 8px));
 }
 
@@ -885,4 +885,101 @@ html:has(.demo-main:fullscreen) {
 
 .source-link + .source-link {
   margin-left: 0;
+}
+
+.demo-settings {
+  height: 100%;
+  padding: var(--layouts-panel-padding, 8px);
+  overflow: auto;
+  font-size: 13px;
+}
+.demo-settings h2,
+.demo-theming > h2 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+.demo-theming-description,
+.demo-settings p,
+.demo-settings small {
+  color: var(--layouts-muted);
+  line-height: 1.5;
+}
+.demo-settings small {
+  display: block;
+  font-size: 12px;
+}
+.demo-settings fieldset {
+  border: 1px solid var(--layouts-line);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 18px 0;
+  min-width: 0;
+}
+.demo-settings legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+.demo-settings .demo-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.demo-settings select,
+.demo-settings button {
+  color: var(--layouts-text);
+  background: var(--layouts-panel);
+  border: 1px solid var(--layouts-line);
+  border-radius: 5px;
+  padding: 6px 8px;
+  max-width: 100%;
+}
+.demo-settings select {
+  min-width: 0;
+  width: 100%;
+}
+.demo-settings input {
+  accent-color: var(--layouts-accent);
+}
+.demo-settings button {
+  margin-bottom: 12px;
+}
+.demo-settings :disabled {
+  opacity: 0.5;
+}
+.demo-settings [hidden],
+.demo-theming [hidden] {
+  display: none;
+}
+
+.layouts-group[data-tab-placement='top'][data-tab-bar='tapered'] .demo-settings {
+  padding-top: calc(var(--layouts-tab-bar-height, 0px) + var(--layouts-panel-padding, 8px));
+}
+
+.demo-settings input[type='number'] {
+  color: var(--layouts-text);
+  background: var(--layouts-panel);
+  border: 1px solid var(--layouts-line);
+  border-radius: 5px;
+  padding: 6px 8px;
+  min-width: 0;
+  width: 100%;
+  font: inherit;
+}
+
+.demo-settings > p,
+.demo-theming-description {
+  font-size: var(--layouts-font-size, 13px);
+}
+
+.demo-color-picker-field input[type='color'] {
+  width: 100%;
+  height: 34px;
+  padding: 6px;
+  border: 1px solid var(--layouts-line);
+  border-radius: 5px;
+  background: var(--layouts-panel);
+  cursor: pointer;
 }

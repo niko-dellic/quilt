@@ -29,7 +29,7 @@ for (const framework of ['vanilla', 'react']) {
     page,
   }) => {
     await page.goto(`/${framework}.html`);
-    const setting = page.getByRole('combobox', { name: 'Auto collapse', exact: true });
+    const setting = page.getByRole('combobox', { name: 'Auto collapse empty panes', exact: true });
     await expect(setting).toHaveValue('disabled');
     const source = page.locator('[data-node-id="scene-group"]');
     const box = (await source.boundingBox())!;

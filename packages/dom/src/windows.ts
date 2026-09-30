@@ -43,7 +43,8 @@ export class Windows {
     return !this.stopped && this.options.popouts !== false;
   }
   refresh() {
-    if (!this.available()) for (const operation of this.opening.values()) operation.cancel();
+    for (const [id, operation] of this.opening)
+      if (!this.available() || !this.options.store.can(id, 'popout')) operation.cancel();
     for (const c of this.companions.values()) {
       const button = c.window.document.querySelector('.layouts-companion-bar button');
       if (button) button.textContent = message(this.options, 'Return to layout');

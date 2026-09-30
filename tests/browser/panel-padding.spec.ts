@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: panel padding aligns floating chrome and content`, async ({ page }) => {
     await page.goto(`/${framework}.html`);
+    await page.getByRole('tab', { name: 'Hotkeys', exact: true }).click();
     const region = page.locator('[data-node-id="tools-group"]');
     for (const padding of [8, 16, 0]) {
       await page.locator('.layouts').evaluate((root, value) => {

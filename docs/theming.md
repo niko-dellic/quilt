@@ -78,8 +78,10 @@ selector switches chrome presets; visualization palettes remain authored data.
 Open the **Theming** tab in the [vanilla](https://quilt-layouts.vercel.app/vanilla.html)
 or [React](https://quilt-layouts.vercel.app/react.html) demo. Choose a preset, edit
 the controls in its accordions, and click **Export theme** at the bottom to download
-`quilt-theme.json`. Colors, font family, spacing, scrollbars, and frozen borders
+`quilt-theme.json`. Color text fields, font family, spacing, and scrollbars
 accept CSS values, including custom-property references and relative lengths.
+**Colors → Frozen border** offers **Use theme border**, **Custom color** with a
+color picker, and **Hidden**. The API still accepts any CSS color for this token.
 Invalid CSS values leave the applied theme unchanged. Export captures the actual
 mounted theme, including settings loaded through Workspace JSON.
 

@@ -53,7 +53,17 @@ export function validate(input: unknown): Issue[] {
       else
         for (const [key, value] of Object.entries(pane.capabilities))
           if (
-            !['resize', 'move', 'split', 'join', 'close', 'popout'].includes(key) ||
+            ![
+              'resize',
+              'move',
+              'reorder',
+              'addTab',
+              'maximize',
+              'split',
+              'join',
+              'close',
+              'popout',
+            ].includes(key) ||
             typeof value !== 'boolean'
           )
             fail(`panes.${id}.capabilities.${key}`, 'Unknown capability or non-boolean flag');

@@ -62,3 +62,36 @@ for (const framework of ['vanilla', 'react']) {
     await expect(page.locator('a[href="/themes.html"]')).toHaveCount(0);
   });
 }
+
+for (const framework of ['vanilla', 'react']) {
+  test(`${framework}: frozen border has inherited, custom, and hidden colors`, async ({ page }) => {
+    await page.goto(`/${framework}.html`);
+    await page.getByText('Colors', { exact: true }).click();
+    const colors = page.getByRole('region', { name: 'Colors', exact: true });
+    const mode = colors.getByRole('combobox', { name: 'Frozen border', exact: true });
+    const picker = colors.getByLabel('Frozen border color', { exact: true });
+    await expect(mode).toHaveValue('inherit');
+    await expect(picker).toBeHidden();
+    await expect(
+      page
+        .getByRole('region', { name: 'Resizing', exact: true })
+        .getByLabel('Frozen border', { exact: true }),
+    ).toHaveCount(0);
+    await mode.selectOption('custom');
+    await expect(picker).toHaveAttribute('type', 'color');
+    await picker.fill('#c04589');
+    const boundary = page.locator('[data-node-id="top"]');
+    const color = () => boundary.evaluate((el) => getComputedStyle(el, '::after').backgroundColor);
+    await expect.poll(color).toBe('rgb(192, 69, 137)');
+    await mode.selectOption('hidden');
+    await expect(picker).toBeHidden();
+    await expect.poll(color).toBe('rgba(0, 0, 0, 0)');
+    await mode.selectOption('custom');
+    await expect(picker).toHaveValue('#c04589');
+    await mode.selectOption('inherit');
+    const border = colors.getByRole('textbox', { name: 'Border', exact: true });
+    await border.fill('#123456');
+    await border.press('Tab');
+    await expect.poll(color).toBe('rgb(18, 52, 86)');
+  });
+}

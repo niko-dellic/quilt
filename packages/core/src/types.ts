@@ -1,10 +1,20 @@
 export type AutoCollapse = 'enabled' | 'protected' | 'disabled';
+/** User interaction policy. More specific values override workspace defaults. */
+export interface CapabilityPolicy {
+  defaults?: Partial<Record<Capability, boolean>>;
+  /** Region overrides, keyed by Group.id. */
+  groups?: Record<string, Partial<Record<Capability, boolean>>>;
+  /** Tab overrides, keyed by Pane.id; take precedence over saved pane capabilities. */
+  panes?: Record<string, Partial<Record<Capability, boolean>>>;
+}
 export interface LayoutStoreOptions {
+  capabilities?: CapabilityPolicy;
   /** Session policy; omitted defaults to disabled. Not serialized in Layout JSON. */
   autoCollapse?: AutoCollapse;
 }
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
-export type Capability = 'resize' | 'move' | 'split' | 'join' | 'close' | 'popout';
+export type Capability =
+  'resize' | 'move' | 'reorder' | 'addTab' | 'maximize' | 'split' | 'join' | 'close' | 'popout';
 export type Axis = 'horizontal' | 'vertical';
 export interface Pane {
   /** Override the pane-type close confirmation default. */

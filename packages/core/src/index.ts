@@ -3,6 +3,7 @@ export type {
   LayoutStoreOptions,
   Json,
   Capability,
+  CapabilityPolicy,
   Axis,
   Pane,
   Group,

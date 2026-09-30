@@ -4,6 +4,7 @@ for (const framework of ['vanilla', 'react']) {
     page,
   }) => {
     await page.goto(`/${framework}.html`);
+    await page.getByRole('combobox', { name: 'Resize style', exact: true }).selectOption('gutter');
     const readJSON = async () => {
       await page.getByRole('button', { name: 'Layout JSON', exact: true }).click();
       const value = await page

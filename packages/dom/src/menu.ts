@@ -95,8 +95,7 @@ export function createPaneMenu(
       target.append(b);
       return b;
     };
-    const allowed = (cap: 'split' | 'join' | 'move') =>
-      group.panes.every((id) => options.store.can(id, cap));
+    const allowed = (cap: 'split' | 'join' | 'addTab') => options.store.canNode(group.id, cap);
     const available = Boolean(options.tabs?.list().length);
     const create = (axis?: 'horizontal' | 'vertical', before = false) => {
       if (!axis && !pane && !options.tabs) return;
@@ -107,6 +106,7 @@ export function createPaneMenu(
         refresh();
         if (!options.tabs) return;
       }
+      if (!options.store.canNode(destination.id, 'addTab')) return;
       const commit = (fresh: Pane) => options.store.add(fresh, destination.id, { source: 'user' });
       if (options.tabs) {
         if ((axis || !group.panes.length) && options.store.getAutoCollapse() === 'disabled') {
@@ -211,7 +211,7 @@ export function createPaneMenu(
       );
       return;
     }
-    add('add-tab', message(options, '+ Add tab'), available && allowed('move'), 'addTab');
+    add('add-tab', message(options, '+ Add tab'), available && allowed('addTab'), 'addTab');
     const canCreate = !group.panes.length || available;
     const flyouts: { trigger: HTMLElement; flyout: HTMLElement }[] = [];
     let positionMenus = () => {};

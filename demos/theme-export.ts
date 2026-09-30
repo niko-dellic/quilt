@@ -26,7 +26,6 @@ export function addThemeFields({
     ['scrollbarThumb', 'Thumb color', 'scrollbars', 'color', 'var(--layouts-line)'],
     ['scrollbarTrack', 'Track color', 'scrollbars', 'color', 'transparent'],
     ['scrollbarSize', 'Scrollbar size', 'scrollbars', 'width', '6px'],
-    ['frozenPaneBorder', 'Frozen border', 'resizing', 'color', 'var(--layouts-line)'],
   ];
   const inputs = new Map<Token, HTMLInputElement>();
   for (const [key, label, section, property, fallback] of fields) {
@@ -47,11 +46,72 @@ export function addThemeFields({
       else input.reportValidity();
     };
     const field = labelControl(input, label);
-    if (key === 'fontFamily' || key === 'frozenPaneBorder') field.classList.add('demo-field-wide');
+    if (key === 'fontFamily') field.classList.add('demo-field-wide');
     sections[section].append(field);
     inputs.set(key, input);
   }
+  const frozenMode = document.createElement('select');
+  frozenMode.setAttribute('aria-label', 'Frozen border');
+  for (const [value, title] of [
+    ['inherit', 'Use theme border'],
+    ['custom', 'Custom color'],
+    ['hidden', 'Hidden'],
+  ]) {
+    const option = document.createElement('option');
+    option.value = value!;
+    option.textContent = title!;
+    frozenMode.append(option);
+  }
+  const frozenColor = document.createElement('input');
+  frozenColor.type = 'color';
+  frozenColor.setAttribute('aria-label', 'Frozen border color');
+  const frozenColorField = labelControl(frozenColor, 'Frozen border color');
+  frozenColorField.classList.add('demo-color-picker-field');
+  sections.colors.append(labelControl(frozenMode, 'Frozen border'), frozenColorField);
+  let customFrozenColor = '#39414e';
+  frozenMode.onchange = () => {
+    onChange(
+      'frozenPaneBorder',
+      frozenMode.value === 'inherit'
+        ? ''
+        : frozenMode.value === 'hidden'
+          ? 'transparent'
+          : customFrozenColor,
+    );
+  };
+  frozenColor.oninput = () => {
+    customFrozenColor = frozenColor.value;
+    onChange('frozenPaneBorder', customFrozenColor);
+  };
   return (theme: LayoutTheme) => {
+    const value = theme.frozenPaneBorder;
+    frozenMode.value =
+      !value || value === 'var(--layouts-line)'
+        ? 'inherit'
+        : value === 'transparent'
+          ? 'hidden'
+          : 'custom';
+    frozenColorField.hidden = frozenMode.value !== 'custom';
+    if (frozenMode.value !== 'hidden') {
+      // Resolve theme references and CSS colors before supplying native RGB input.
+      const probe = document.createElement('span');
+      probe.style.color = value ?? theme.line ?? '#39414e';
+      sections.colors.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = color;
+      context.fillRect(0, 0, 1, 1);
+      const rgb = context.getImageData(0, 0, 1, 1).data;
+      const resolved =
+        '#' +
+        Array.from(rgb.slice(0, 3), (channel) => channel.toString(16).padStart(2, '0')).join('');
+      frozenColor.value = resolved;
+      customFrozenColor = resolved;
+    }
+
     for (const [key, input] of inputs) {
       input.value = theme[key] ?? '';
       input.setCustomValidity('');

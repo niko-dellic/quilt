@@ -44,7 +44,9 @@ export function closeRequests(
       const target = kind === 'group' ? findNode(options.store.getSnapshot().root, id) : undefined;
       if (
         (!panes.length && target?.kind !== 'group') ||
-        panes.some((pane) => !options.store.can(pane.id, 'close'))
+        (kind === 'group'
+          ? !options.store.canNode(id, 'close')
+          : panes.some((pane) => !options.store.can(pane.id, 'close')))
       )
         return false;
       if (requiringConfirmation.length) {
@@ -107,7 +109,9 @@ export function closeRequests(
       if (
         controller.signal.aborted ||
         signature(collect()) !== signature(panes) ||
-        panes.some((pane) => !options.store.can(pane.id, 'close'))
+        (kind === 'group'
+          ? !options.store.canNode(id, 'close')
+          : panes.some((pane) => !options.store.can(pane.id, 'close')))
       )
         return false;
       if (kind === 'group') options.store.closeGroup(id, { source: 'user' });

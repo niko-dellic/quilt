@@ -37,6 +37,7 @@ for (const demo of ['vanilla', 'react']) {
     page,
   }) => {
     await page.goto(`/${demo}.html`);
+    await page.getByRole('tab', { name: 'Hotkeys', exact: true }).click();
     const tools = page.locator('[data-node-id="tools-group"]');
     await tools.getByRole('button', { name: 'Hotkeys actions', exact: true }).click();
     const close = page.getByRole('button', { name: 'Close', exact: true });
@@ -60,5 +61,7 @@ for (const demo of ['vanilla', 'react']) {
     await page.keyboard.press('r');
     await expect(page.getByRole('tab', { name: 'Hotkeys', exact: true })).toHaveCount(1);
     await expect(page.getByRole('tab', { name: 'Objects', exact: true })).toHaveCount(1);
+    await page.keyboard.press('r');
+    await expect(page.getByRole('tab', { name: 'Settings', exact: true })).toHaveCount(1);
   });
 }

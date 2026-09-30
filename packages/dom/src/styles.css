@@ -674,7 +674,7 @@
   overflow-wrap: anywhere;
 }
 
-/* Gapless frozen boundaries are decorative and never intercept pane input. */
+/* Gapless shared boundaries are decorative and never intercept pane input. */
 [data-frozen-border='horizontal']::after,
 [data-frozen-border='vertical']::after {
   content: '';
@@ -696,7 +696,7 @@
   width: 100%;
 }
 
-/* The split owns shared frozen borders; descendants omit those same edges. */
+/* The split owns shared borders; descendants omit those same edges. */
 .layouts-group[data-shared-edges~='top'] {
   --layouts-edge-top: transparent;
 }
@@ -895,4 +895,47 @@
   color: var(--layouts-text, #e5e9f0);
   white-space: nowrap;
   pointer-events: none;
+}
+
+/* Border mode shares pane edges without reserving a gutter. The transparent
+   separator remains reachable with pointer, touch, and keyboard. */
+.layouts[data-resize-mode='border'] .layouts-divider {
+  z-index: 5;
+  background: transparent;
+}
+.layouts[data-resize-mode='border'] [data-resizable='true'][data-frozen-border]::after {
+  background: var(--layouts-line, #39414e);
+}
+.layouts[data-resize-mode='border'] .layouts-divider::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 3px;
+  background: var(--layouts-accent, #8bbaaa);
+  opacity: 0;
+  pointer-events: none;
+}
+.layouts[data-resize-mode='border'] .layouts-divider[data-axis='horizontal']::before {
+  width: 3px;
+  height: min(32px, 60%);
+}
+.layouts[data-resize-mode='border'] .layouts-divider[data-axis='vertical']::before {
+  width: min(32px, 60%);
+  height: 3px;
+}
+.layouts[data-resize-mode='border']
+  .layouts-divider:is(:hover, :focus-visible, [data-resizing])::before {
+  opacity: 1;
+}
+.layouts[data-resize-mode='border'] .layouts-divider:focus-visible {
+  outline: none;
+}
+.layouts[data-resize-mode='border'] .layouts-divider:focus-visible::before {
+  outline: 2px solid var(--layouts-focus, #b3decf);
+  outline-offset: 2px;
+}
+.layouts[data-resize-mode='border'] .layouts-corner {
+  z-index: 6;
 }

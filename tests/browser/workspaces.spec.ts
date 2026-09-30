@@ -45,7 +45,7 @@ for (const framework of ['vanilla', 'react']) {
     );
     await select('Default');
     await page.getByRole('button', { name: 'Reset', exact: true }).click();
-    await expect(page.getByRole('tab', { name: 'Hotkeys', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute(
       'aria-selected',
       'true',
     );

@@ -46,7 +46,9 @@ test('split orientation follows the gesture; cancelling the picker removes only 
   page,
 }) => {
   await page.goto('/vanilla.html');
-  await page.getByRole('combobox', { name: 'Auto collapse', exact: true }).selectOption('enabled');
+  await page
+    .getByRole('combobox', { name: 'Auto collapse empty panes', exact: true })
+    .selectOption('enabled');
   const source = page.locator('[data-node-id="scene-group"]');
   const before = (await source.boundingBox())!;
   await source.locator('[data-corner="tl"]').hover();

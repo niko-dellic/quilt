@@ -7,6 +7,7 @@ import type {
   JoinOptions,
   Axis,
   Capability,
+  CapabilityPolicy,
   Change,
   CommandOptions,
   Group,
@@ -36,7 +37,9 @@ export class LayoutStore {
   private notifying = false;
   private pending: Change[] = [];
   private autoCollapse: AutoCollapse = 'disabled';
+  private capabilities: CapabilityPolicy = {};
   constructor(input: unknown, options: LayoutStoreOptions = {}) {
+    this.setCapabilities(options.capabilities);
     this.setAutoCollapse(options.autoCollapse ?? 'disabled');
     this.state = freeze(parseLayout(input));
     this.initial = this.export();
@@ -134,7 +137,7 @@ export class LayoutStore {
   }
   private permit(draft: Layout, ids: string[], cap: Capability, options: CommandOptions) {
     for (const id of ids)
-      if (options.source === 'user' && this.pane(draft, id).capabilities?.[cap] === false)
+      if (options.source === 'user' && !this.canPane(draft, id, cap))
         problem(`${cap} is disabled for ${id}`);
   }
   private id(draft: Layout): string {
@@ -178,11 +181,80 @@ export class LayoutStore {
     }
     if (draft.maximized && !findNode(draft.root, draft.maximized)) draft.maximized = null;
   }
-  can(paneId: string, capability: Capability): boolean {
+  /** Replace session policy; layout export/load never serializes or resets it. */
+  setCapabilities(policy: CapabilityPolicy = {}): void {
+    this.alive();
+    const flags = (value: unknown) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value))
+        problem('Invalid capabilities');
+      for (const [key, flag] of Object.entries(value!))
+        if (
+          ![
+            'resize',
+            'move',
+            'reorder',
+            'addTab',
+            'maximize',
+            'split',
+            'join',
+            'close',
+            'popout',
+          ].includes(key) ||
+          typeof flag !== 'boolean'
+        )
+          problem('Invalid capability: ' + key);
+    };
+    if (!policy || typeof policy !== 'object' || Array.isArray(policy))
+      problem('Invalid capability policy');
+    for (const [key, value] of Object.entries(policy)) {
+      if (value === undefined) continue;
+      if (key === 'defaults') flags(value);
+      else if (key === 'groups' || key === 'panes') {
+        if (!value || typeof value !== 'object' || Array.isArray(value))
+          problem('Invalid capability overrides');
+        Object.values(value).forEach(flags);
+      } else problem('Unknown capability scope: ' + key);
+    }
+    this.capabilities = structuredClone(policy);
+  }
+  private canPane(layout: Layout, paneId: string, capability: Capability): boolean {
+    const pane = layout.panes[paneId];
+    if (!pane) return false;
+    const groupId =
+      groups(layout.root).find((g) => g.panes.includes(paneId))?.id ??
+      layout.popouts.find((p) => p.paneId === paneId)?.groupId;
     return (
-      Boolean(this.state.panes[paneId]) &&
-      this.state.panes[paneId]!.capabilities?.[capability] !== false
+      this.capabilities.panes?.[paneId]?.[capability] ??
+      pane.capabilities?.[capability] ??
+      (groupId ? this.capabilities.groups?.[groupId]?.[capability] : undefined) ??
+      this.capabilities.defaults?.[capability] ??
+      (capability === 'addTab' || capability === 'reorder'
+        ? this.canPane(layout, paneId, 'move')
+        : true)
     );
+  }
+  can(paneId: string, capability: Capability): boolean {
+    return this.canPane(this.state, paneId, capability);
+  }
+  private canNodeIn(layout: Layout, node: Node, capability: Capability): boolean {
+    if (node.kind === 'split')
+      return node.children.every((child) => this.canNodeIn(layout, child, capability));
+    return node.panes.length
+      ? node.panes.every((id) => this.canPane(layout, id, capability))
+      : (this.capabilities.groups?.[node.id]?.[capability] ??
+          this.capabilities.defaults?.[capability] ??
+          (capability === 'addTab' || capability === 'reorder'
+            ? this.canNodeIn(layout, node, 'move')
+            : true));
+  }
+  /** Test every affected tab, including policy on empty regions. */
+  canNode(nodeId: string, capability: Capability): boolean {
+    const node = findNode(this.state.root, nodeId);
+    return !!node && this.canNodeIn(this.state, node, capability);
+  }
+  private permitNode(layout: Layout, node: Node, capability: Capability, options: CommandOptions) {
+    if (options.source === 'user' && !this.canNodeIn(layout, node, capability))
+      problem(`${capability} is disabled for ${node.id}`);
   }
   load(input: unknown) {
     this.commit('load', (draft) => {
@@ -221,7 +293,7 @@ export class LayoutStore {
     this.commit('resize', (d) => {
       const n = findNode(d.root, splitId);
       if (n?.kind !== 'split') problem('Split not found');
-      this.permit(d, paneIds(n), 'resize', options);
+      this.permitNode(d, n, 'resize', options);
       n.ratio = ratio;
     });
   }
@@ -231,21 +303,21 @@ export class LayoutStore {
       for (const [id, ratio] of Object.entries(ratios)) {
         const node = findNode(d.root, id);
         if (node?.kind !== 'split') problem('Split not found');
-        this.permit(d, paneIds(node), 'resize', options);
+        this.permitNode(d, node, 'resize', options);
         node.ratio = ratio;
       }
     });
   }
-  maximize(groupId: string | null) {
+  maximize(groupId: string | null, options: CommandOptions = {}) {
     this.commit('maximize', (d) => {
-      if (groupId) this.group(d, groupId);
+      if (groupId) this.permitNode(d, this.group(d, groupId), 'maximize', options);
       d.maximized = groupId;
     });
   }
   add(pane: Pane, groupId: string, options: CommandOptions = {}) {
     this.commit('add', (d) => {
       const g = this.group(d, groupId);
-      this.permit(d, g.panes, 'move', options);
+      this.permitNode(d, g, 'addTab', options);
       if (Object.hasOwn(d.panes, pane.id)) problem('Pane id already exists');
       Object.defineProperty(d.panes, pane.id, {
         value: structuredClone(pane),
@@ -272,7 +344,7 @@ export class LayoutStore {
     let created = '';
     this.commit('split', (d) => {
       const g = this.group(d, groupId);
-      this.permit(d, g.panes, 'split', options);
+      this.permitNode(d, g, 'split', options);
       if (pane) {
         if (Object.hasOwn(d.panes, pane.id)) problem('Pane id already exists');
         Object.defineProperty(d.panes, pane.id, {
@@ -300,7 +372,7 @@ export class LayoutStore {
     return created;
   }
   /** Cancel only an unfilled region; never roll back edits made elsewhere. */
-  removeEmptyGroup(groupId: string) {
+  removeEmptyGroup(groupId: string, options: CommandOptions = {}) {
     const existing = findNode(this.state.root, groupId);
     if (
       existing?.kind !== 'group' ||
@@ -309,6 +381,7 @@ export class LayoutStore {
     )
       return;
     this.commit('removeEmptyGroup', (d) => {
+      this.permitNode(d, this.group(d, groupId), 'close', options);
       if (d.maximized === groupId) d.maximized = null;
       const parent = findParent(d.root, groupId)!;
       this.replace(d, parent, parent.children[parent.children[0].id === groupId ? 1 : 0]);
@@ -326,8 +399,10 @@ export class LayoutStore {
       const target = this.group(d, groupId);
       const source = groups(d.root).find((g) => g.panes.includes(paneId));
       if (!source) problem('Return a popped-out pane before moving it');
-      this.permit(d, [paneId, ...target.panes], 'move', options);
-      if (position !== 'tab') this.permit(d, target.panes, 'split', options);
+      const capability = source === target && position === 'tab' ? 'reorder' : 'move';
+      this.permit(d, [paneId], capability, options);
+      this.permitNode(d, target, capability, options);
+      if (position !== 'tab') this.permitNode(d, target, 'split', options);
       if (source === target && target.panes.length === 1) return;
       this.detach(d, paneId);
       if (position === 'tab') {
@@ -357,7 +432,7 @@ export class LayoutStore {
       const g = this.group(d, groupId),
         parent = findParent(d.root, groupId);
       if (!parent) return;
-      this.permit(d, paneIds(parent), 'join', options);
+      this.permitNode(d, parent, 'join', options);
       g.panes = paneIds(parent);
       g.active ??= g.panes[0] ?? null;
       this.replace(d, parent, g);
@@ -368,7 +443,7 @@ export class LayoutStore {
   closeGroup(groupId: string, options: CommandOptions = {}) {
     this.commit('closeGroup', (d) => {
       const group = this.group(d, groupId);
-      this.permit(d, group.panes, 'close', options);
+      this.permitNode(d, group, 'close', options);
       for (const id of group.panes) delete d.panes[id];
       group.panes = [];
       group.active = null;
@@ -386,7 +461,7 @@ export class LayoutStore {
       if (!range) problem('Join requires contiguous regions in one row or column');
       const { row, regions, boundaries, start, end, selected } = range;
       const panes = selected.flatMap((g) => g.panes);
-      this.permit(d, panes, 'join', options);
+      selected.forEach((group) => this.permitNode(d, group, 'join', options));
       let sizes = range.weights;
       let gaps = boundaries.map(() => 0);
       if (options.extents) {
