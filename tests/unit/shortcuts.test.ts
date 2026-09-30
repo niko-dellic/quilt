@@ -1,3 +1,4 @@
+import { defaultShortcuts } from 'quilt-vanilla';
 import { describe, expect, it } from 'vitest';
 import {
   registeredShortcuts,
@@ -8,6 +9,17 @@ import {
 import type { WorkspaceSettings } from '../../packages/dom/src/types.js';
 
 describe('shortcut registration', () => {
+  it('exports a frozen, spreadable preset equivalent to shortcuts true', () => {
+    expect(Object.isFrozen(defaultShortcuts)).toBe(true);
+    expect(registeredShortcuts({ shortcuts: defaultShortcuts })).toEqual(
+      registeredShortcuts({ shortcuts: true }),
+    );
+    expect(
+      registeredShortcuts({ shortcuts: { ...defaultShortcuts, addTab: false } }).map(
+        (entry) => entry.action,
+      ),
+    ).toEqual(['maximize', 'restoreClosedTab']);
+  });
   it('keeps the existing presets and conflict priority', () => {
     expect(registeredShortcuts({})).toEqual([]);
     expect(registeredShortcuts({ shortcuts: false })).toEqual([]);

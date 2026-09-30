@@ -83,7 +83,16 @@ export type WorkspaceOptionUpdates<State = unknown> = {
 );
 export interface WorkspaceChange {
   action: string;
-  changes: readonly ('layout' | 'theme' | 'tabBar' | 'autoCollapse' | 'shortcuts' | 'commands')[];
+  changes: readonly (
+    | 'layout'
+    | 'theme'
+    | 'tabBar'
+    | 'autoCollapse'
+    | 'shortcuts'
+    | 'commands'
+    | 'capabilities'
+    | 'resizeMode'
+  )[];
 }
 export interface WorkspaceEvents {
   change: WorkspaceChange;
@@ -171,10 +180,11 @@ export interface WorkspaceHandle<State = unknown> {
   joinGroups(receiverId: string, otherId: string, options?: JoinOptions): void;
   resize(splitId: string, ratio: number, options?: CommandOptions): void;
   resizeMany(ratios: Record<string, number>, options?: CommandOptions): void;
-  maximize(groupId: string | null): void;
+  maximize(groupId: string | null, options?: CommandOptions): void;
   setTabDisplay(groupId: string, display: Group['tabDisplay']): void;
   setTabPlacement(groupId: string, placement: Group['tabPlacement']): void;
   can(paneId: string, capability: Capability): boolean;
+  canNode(nodeId: string, capability: Capability): boolean;
   canRestoreClosedPane(): boolean;
   restoreClosedPane(): void;
   /** Confirm and check permissions unless force is explicitly supplied. */
@@ -380,6 +390,7 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
   updateOptions(next: WorkspaceOptionUpdates<State>) {
     this.#alive();
     if ('container' in next) throw new Error('Workspace container cannot be updated');
+    const previousResizeMode = this.#options.resizeMode;
     const candidate = { ...this.#options, ...next };
     const adapted = this.#adapt(candidate);
     const changes: WorkspaceChange['changes'][number][] = [];
@@ -399,6 +410,7 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     // Initial appearance is mount-only: only explicitly updated appearance keys apply.
     if (!('theme' in next)) delete adapted.theme;
     if (!('tabBar' in next)) delete adapted.tabBar;
+    if (!('capabilities' in next)) delete adapted.capabilities;
     this.#mounted.updateOptions({ ...adapted, onError: this.#report });
     this.#options = candidate;
     const after = this.exportWorkspace();
@@ -415,6 +427,8 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
       ('commands' in next && beforeCommands !== candidate.commands)
     )
       changes.push('commands');
+    if ('capabilities' in next) changes.push('capabilities');
+    if ('resizeMode' in next && next.resizeMode !== previousResizeMode) changes.push('resizeMode');
     if (changes.length) this.#emit({ action: 'updateOptions', changes });
   }
   setTheme(theme: LayoutTheme) {
@@ -576,9 +590,9 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     this.#alive();
     this.#model.resizeMany(ratios, options);
   }
-  maximize(groupId: string | null) {
+  maximize(groupId: string | null, options: CommandOptions = {}) {
     this.#alive();
-    this.#model.maximize(groupId);
+    this.#model.maximize(groupId, options);
   }
   setTabDisplay(groupId: string, display: Group['tabDisplay']) {
     this.#alive();
@@ -591,6 +605,10 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
   can(paneId: string, capability: Capability) {
     this.#alive();
     return this.#model.can(paneId, capability);
+  }
+  canNode(nodeId: string, capability: Capability) {
+    this.#alive();
+    return this.#model.canNode(nodeId, capability);
   }
   canRestoreClosedPane() {
     this.#alive();

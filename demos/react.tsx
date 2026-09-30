@@ -4,7 +4,7 @@ import { renderIcon } from './icons.js';
 import 'quilt-react/styles.css';
 import { createRoot } from 'react-dom/client';
 import { createRef, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { Workspace } from 'quilt-react';
+import { Workspace, defaultShortcuts } from 'quilt-react';
 import type { PaneProps } from 'quilt-react';
 import type { WorkspaceHandle } from 'quilt-react';
 import { initial, bindWorkspace, state, getPaneState, tabs } from './model.js';
@@ -67,6 +67,7 @@ function Imperative(props: PaneProps) {
   return <div ref={host} style={{ width: '100%', height: '100%' }} />;
 }
 const components = {
+  settings: Imperative,
   notes: Notes,
   theming: Imperative,
   canvas: Imperative,
@@ -92,8 +93,9 @@ root.render(
     getPaneState={getPaneState}
     tabs={tabs}
     theme={defaultTheme}
+    resizeMode="border"
     renderIcon={renderIcon}
-    shortcuts
+    shortcuts={defaultShortcuts}
     tabBar={demoTabBar}
   />,
 );

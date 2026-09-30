@@ -1,4 +1,4 @@
-import { findNode, findParent, groups, paneIds } from 'quilt-core';
+import { findNode, findParent, groups } from 'quilt-core';
 import type { Group, Pane } from 'quilt-core';
 import type {
   ActionContext,
@@ -66,11 +66,13 @@ export function createActions(
     }
     if (action === 'restoreClosedTab') return options.store.canRestoreClosedTab();
     if (!group) return false;
-    const allowed = (cap: 'split' | 'move' | 'close') =>
-      group.panes.every((id) => options.store.can(id, cap));
+    const allowed = (cap: 'split' | 'addTab' | 'maximize' | 'close') =>
+      options.store.canNode(group.id, cap);
     switch (action) {
+      case 'maximize':
+        return layout.maximized === group.id || allowed('maximize');
       case 'addTab':
-        return !!options.tabs?.list().length && allowed('move');
+        return !!options.tabs?.list().length && allowed('addTab');
       case 'splitLeft':
       case 'splitRight':
       case 'splitUp':
@@ -81,12 +83,12 @@ export function createActions(
       case 'closePane':
         return !!group.panes.length && allowed('close');
       case 'closeEmptyPane':
-        return !group.panes.length && group.id !== layout.root.id;
+        return !group.panes.length && group.id !== layout.root.id && allowed('close');
       case 'popout':
         return options.popouts !== false && !!pane && options.store.can(pane.id, 'popout');
       case 'joinSiblingRegion': {
         const parent = findParent(layout.root, group.id);
-        return !!parent && paneIds(parent).every((id) => options.store.can(id, 'join'));
+        return !!parent && options.store.canNode(parent.id, 'join');
       }
       default:
         return true;
@@ -109,7 +111,9 @@ export function createActions(
           options.store.restoreClosedTab();
           break;
         case 'maximize':
-          options.store.maximize(layout.maximized === group!.id ? null : group!.id);
+          options.store.maximize(layout.maximized === group!.id ? null : group!.id, {
+            source: 'user',
+          });
           break;
         case 'addTab':
         case 'splitLeft':
@@ -123,7 +127,7 @@ export function createActions(
         case 'closePane':
           return await dependencies.close(group!.id, 'group');
         case 'closeEmptyPane':
-          options.store.removeEmptyGroup(group!.id);
+          options.store.removeEmptyGroup(group!.id, { source: 'user' });
           break;
         case 'popout':
           return await dependencies.popout(pane!.id);

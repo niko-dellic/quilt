@@ -6,6 +6,13 @@ export const initial: Layout = {
   maximized: null,
   popouts: [],
   panes: {
+    settings: {
+      id: 'settings',
+      type: 'settings',
+      title: 'Settings',
+      icon: 'settings',
+      size: { minWidth: 230, minHeight: 200 },
+    },
     theming: {
       id: 'theming',
       type: 'theming',
@@ -115,8 +122,8 @@ export const initial: Layout = {
                   {
                     kind: 'group',
                     id: 'tools-group',
-                    panes: ['hotkeys', 'tools'],
-                    active: 'hotkeys',
+                    panes: ['settings', 'hotkeys', 'tools'],
+                    active: 'settings',
                   },
                   {
                     kind: 'split',
@@ -200,7 +207,7 @@ export const workspaces = [
         {
           kind: 'group',
           id: 'inspector-group',
-          panes: ['theming', 'notes', 'tools', 'hotkeys', 'activity', 'timeline'],
+          panes: ['settings', 'theming', 'notes', 'tools', 'hotkeys', 'activity', 'timeline'],
           active: 'theming',
         },
       ],
@@ -227,7 +234,7 @@ export const workspaces = [
               id: 'scene-group',
               tabPlacement: 'left',
               tabDisplay: 'compact',
-              panes: ['canvas', 'tools', 'hotkeys'],
+              panes: ['canvas', 'settings', 'tools', 'hotkeys'],
               active: 'canvas',
             },
             {
@@ -324,6 +331,7 @@ export const tabs = new TabRegistry([
     ['activity', 'Activity', 'Application activity'],
     ['timeline', 'Timeline', 'Animation and playback'],
     ['hotkeys', 'Hotkeys', 'Keyboard and mouse controls'],
+    ['settings', 'Settings', 'Live workspace behavior and interaction rules'],
   ].map(([type, title, description]) => ({
     id: type!,
     title: title!,

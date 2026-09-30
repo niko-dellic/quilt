@@ -421,3 +421,105 @@ describe('createLayout', () => {
     );
   });
 });
+
+describe('scoped capability policy', () => {
+  it('resolves tab, saved tab, region, and workspace settings in order', () => {
+    const layout = fixture();
+    layout.panes.a!.capabilities = { close: false };
+    const store = new LayoutStore(layout, {
+      capabilities: {
+        defaults: { close: false, move: false },
+        groups: { 'a-group': { close: true } },
+        panes: { a: { close: true } },
+      },
+    });
+    expect(store.can('a', 'close')).toBe(true);
+    expect(store.can('b', 'close')).toBe(true);
+    expect(store.can('c', 'close')).toBe(false);
+    expect(store.can('a', 'move')).toBe(false);
+    expect(store.can('missing', 'close')).toBe(false);
+    store.setCapabilities({ defaults: { close: false }, groups: { 'a-group': { close: true } } });
+    expect(store.can('a', 'close')).toBe(false);
+    expect(store.canNode('a-group', 'close')).toBe(false);
+    expect(() => store.closeGroup('a-group', { source: 'user' })).toThrow();
+    expect(store.export()).toEqual(layout);
+    store.closeGroup('a-group'); // Explicit host commands keep their authority.
+    expect(store.getSnapshot().panes.a).toBeUndefined();
+  });
+
+  it('checks empty regions and all affected resize/move targets', () => {
+    const layout = fixture();
+    const store = new LayoutStore(layout, {
+      capabilities: { defaults: { resize: false, move: false, close: false, split: false } },
+    });
+    expect(() => store.resize('root', 0.6, { source: 'user' })).toThrow();
+    expect(() => store.move('a', 'c-group', 'tab', undefined, { source: 'user' })).toThrow();
+    store.close('c');
+    expect(store.canNode('c-group', 'close')).toBe(false);
+    expect(() => store.removeEmptyGroup('c-group', { source: 'user' })).toThrow();
+    expect(() => store.split('c-group', 'vertical', null, { source: 'user' })).toThrow();
+    store.setCapabilities({ defaults: { close: false }, groups: { 'c-group': { close: true } } });
+    store.removeEmptyGroup('c-group', { source: 'user' });
+    expect(store.getSnapshot().root.id).toBe('a-group');
+  });
+
+  it('keeps policy out of saved layouts and validates replacements atomically', () => {
+    const policy = { defaults: { move: false } };
+    const store = new LayoutStore(fixture(), { capabilities: policy });
+    policy.defaults.move = true;
+    expect(store.can('a', 'move')).toBe(false);
+    expect(() => store.setCapabilities({ defaults: { move: 'no' } } as never)).toThrow();
+    store.load(store.export());
+    expect(store.can('a', 'move')).toBe(false);
+    expect(store.export()).toEqual(fixture());
+    store.setCapabilities();
+    expect(store.can('a', 'move')).toBe(true);
+  });
+});
+
+describe('independent tab and maximize capabilities', () => {
+  it('allows reordering and adding while blocking cross-region movement', () => {
+    const store = new LayoutStore(fixture(), {
+      capabilities: { defaults: { move: false, reorder: true, addTab: true } },
+    });
+    store.move('a', 'a-group', 'tab', 1, { source: 'user' });
+    expect(groups(store.getSnapshot().root)[0]!.panes).toEqual(['b', 'a']);
+    store.add(pane('d'), 'a-group', { source: 'user' });
+    expect(() => store.move('a', 'c-group', 'tab', undefined, { source: 'user' })).toThrow();
+    expect(() => store.move('a', 'a-group', 'left', undefined, { source: 'user' })).toThrow();
+  });
+  it('allows moving while blocking reorder and creation, and preserves legacy fallback', () => {
+    const store = new LayoutStore(fixture(), {
+      capabilities: { defaults: { move: true, reorder: false, addTab: false } },
+    });
+    expect(() => store.move('a', 'a-group', 'tab', 1, { source: 'user' })).toThrow();
+    expect(() => store.add(pane('d'), 'a-group', { source: 'user' })).toThrow();
+    store.move('a', 'c-group', 'tab', undefined, { source: 'user' });
+    store.setCapabilities({ defaults: { move: false } });
+    expect(store.can('a', 'addTab')).toBe(false);
+    expect(store.can('a', 'reorder')).toBe(false);
+  });
+  it('checks maximize scope, permits restore, and validates serializable flags', () => {
+    const layout = fixture();
+    layout.panes.a!.capabilities = { maximize: false, reorder: true, addTab: false };
+    const store = new LayoutStore(layout);
+    expect(() => store.maximize('a-group', { source: 'user' })).toThrow();
+    store.setCapabilities({ panes: { a: { maximize: true } } });
+    store.maximize('a-group', { source: 'user' });
+    store.setCapabilities({ defaults: { maximize: false } });
+    store.maximize(null, { source: 'user' });
+    expect(store.getSnapshot().maximized).toBeNull();
+    expect(parseLayout(store.export()).panes.a!.capabilities?.reorder).toBe(true);
+  });
+  it('applies popout policy independently and allows returning after it is disabled', () => {
+    const store = new LayoutStore(fixture(), {
+      capabilities: { defaults: { popout: false, move: false }, panes: { a: { popout: true } } },
+    });
+    expect(() => store.popout('c', {}, { source: 'user' })).toThrow();
+    store.popout('a', {}, { source: 'user' });
+    store.setCapabilities({ defaults: { popout: false } });
+    store.returnPane('a');
+    expect(store.getSnapshot().popouts).toHaveLength(0);
+    expect(store.getSnapshot().panes.a).toBeDefined();
+  });
+});

@@ -20,7 +20,6 @@ import {
   DIVIDER,
   findNode,
   groups,
-  paneIds,
 } from 'quilt-core';
 import type { Group, Layout, Node, Pane } from 'quilt-core';
 import type { LayoutOptions, ResolvedLayoutOptions, MountedLayout, TabBarStyle } from './types.js';
@@ -40,6 +39,10 @@ interface Region {
   updateTabBar?: () => void;
   tabStyle?: () => TabBarStyle;
 }
+function validateResizeMode(mode: unknown) {
+  if (mode !== undefined && mode !== 'gutter' && mode !== 'border')
+    throw new Error('resizeMode must be gutter or border');
+}
 let nextMount = 0;
 export function mountLayout<State = unknown>(
   host: HTMLElement,
@@ -55,12 +58,14 @@ export function mountLayout<State = unknown>(
     input.initialWorkspace === undefined ? undefined : parseWorkspace(input.initialWorkspace);
   const theme = preset?.theme ?? input.theme ?? {};
   const tabBar = preset?.tabBar ?? input.tabBar ?? {};
+  validateResizeMode(input.resizeMode);
   validateTheme(theme);
   validateTabBar(tabBar);
   const store = new LayoutStore(
     dockLayout(preset?.layout ?? input.initialLayout ?? createLayout()),
     {
       autoCollapse: preset?.autoCollapse ?? 'disabled',
+      capabilities: input.capabilities ?? {},
     },
   );
   // The initialization scope rolls back even if setup fails before returning a handle.
@@ -105,6 +110,7 @@ function mountLayoutInternal(
   const regions = new Map<string, Region>(),
     panes = new Map<string, MountedPane>();
   const root = el(doc, 'div', 'layouts');
+  root.dataset.resizeMode = options.resizeMode ?? 'gutter';
   applyTheme(root, options.theme ?? {});
   root.setAttribute('aria-label', message(options, 'Pane workspace'));
   const stage = el(doc, 'div', 'layouts-stage');
@@ -247,13 +253,12 @@ function mountLayoutInternal(
         const current = findNode(options.store.getSnapshot().root, node.id);
         if (current?.kind !== 'group') return;
         const position = dropPosition(e, r.element);
+        const capability =
+          current.panes.includes(dragId) && position === 'tab' ? 'reorder' : 'move';
         if (
-          !options.store.can(dragId, 'move') ||
-          !current.panes.every(
-            (id) =>
-              options.store.can(id, 'move') &&
-              (position === 'tab' || options.store.can(id, 'split')),
-          )
+          !options.store.can(dragId, capability) ||
+          !options.store.canNode(current.id, capability) ||
+          (position !== 'tab' && !options.store.canNode(current.id, 'split'))
         )
           return;
         e.preventDefault();
@@ -303,8 +308,10 @@ function mountLayoutInternal(
         );
         r.divider!.setPointerCapture(e.pointerId);
         root.classList.add('layouts-resizing');
+        r.divider!.dataset.resizing = 'true';
         drag.add(() => {
           root.classList.remove('layouts-resizing');
+          delete r.divider!.dataset.resizing;
           try {
             r.divider!.releasePointerCapture(e.pointerId);
           } catch {}
@@ -492,10 +499,10 @@ function mountLayoutInternal(
       r.header!.append(tabs);
       if (!definitions.length) {
         const close = button('', message(options, 'Close empty pane'), () =>
-          options.store.removeEmptyGroup(g.id),
+          options.store.removeEmptyGroup(g.id, { source: 'user' }),
         );
         close.append(chromeIcon(doc, 'close'));
-        close.disabled = layout.root.id === g.id;
+        close.disabled = layout.root.id === g.id || !options.store.canNode(g.id, 'close');
         const settings = button('', message(options, 'Empty pane actions'), () =>
           menu.openEmpty(settings, g),
         );
@@ -616,7 +623,9 @@ function mountLayoutInternal(
         horizontal ? b.maxWidth : b.maxHeight,
         gap,
       );
-      const frozen = gap === 0 && !resizable(node, layout);
+      const enabled = resizable(node, layout);
+      const border = options.resizeMode === 'border';
+      const frozen = gap === 0 && (!enabled || border);
       const firstEdge = horizontal ? 'right' : 'bottom';
       const secondEdge = horizontal ? 'left' : 'top';
       geometry(
@@ -637,21 +646,25 @@ function mountLayoutInternal(
         layout,
         [...shared.filter((edge) => edge !== secondEdge), ...(frozen ? [secondEdge] : [])],
       );
-      r.divider!.hidden = gap === 0;
-      // Paint a shared edge without reserving space or adding a resize target.
-      r.element.dataset.frozenBorder = gap === 0 && !resizable(node, layout) ? node.axis : '';
+      r.divider!.hidden = border ? !enabled : gap === 0;
+      // The split paints the shared edge; the resize target is positioned separately.
+      r.element.dataset.frozenBorder = frozen ? node.axis : '';
+      r.element.dataset.resizable = String(enabled);
       r.element.style.setProperty('--layouts-frozen-boundary', `${first}px`);
+      const targetWidth = border
+        ? Math.max(8, themePixels(root, '--layouts-resize-handle-width', DIVIDER))
+        : gap;
+      const targetStart = border ? first - targetWidth / 2 - 0.5 : first;
       Object.assign(
         r.divider!.style,
         horizontal
-          ? { left: `${first}px`, top: '0', width: `${gap}px`, height: `${height}px` }
-          : { left: '0', top: `${first}px`, width: `${width}px`, height: `${gap}px` },
+          ? { left: `${targetStart}px`, top: '0', width: `${targetWidth}px`, height: `${height}px` }
+          : { left: '0', top: `${targetStart}px`, width: `${width}px`, height: `${targetWidth}px` },
       );
     }
   }
   function resizable(node: Node, layout: Layout) {
-    if (node.kind !== 'split' || !paneIds(node).every((id) => options.store.can(id, 'resize')))
-      return false;
+    if (node.kind !== 'split' || !options.store.canNode(node.id, 'resize')) return false;
     return node.children.every((child) => {
       const b = bounds(child, layout);
       return node.axis === 'horizontal' ? b.minWidth < b.maxWidth : b.minHeight < b.maxHeight;
@@ -688,7 +701,12 @@ function mountLayoutInternal(
         ? node
         : {
             ...node,
-            gap: resizable(node, layout) ? (node.gap ?? width) : disabledWidth,
+            gap:
+              options.resizeMode === 'border'
+                ? 0
+                : resizable(node, layout)
+                  ? (node.gap ?? width)
+                  : disabledWidth,
             children: [visit(node.children[0]), visit(node.children[1])],
           };
     return { ...layout, root: visit(layout.root) };
@@ -849,6 +867,13 @@ function mountLayoutInternal(
     requestClose,
     refreshTheme,
     updateOptions(next) {
+      validateResizeMode(next.resizeMode);
+      if ('capabilities' in next) {
+        const validation = new LayoutStore(createLayout(), {
+          capabilities: next.capabilities ?? {},
+        });
+        validation.dispose();
+      }
       if (disposed) return;
       if ('store' in next || 'initialLayout' in next || 'initialWorkspace' in next)
         throw new Error(
@@ -879,6 +904,7 @@ function mountLayoutInternal(
             );
           }));
       const repaintChrome =
+        'capabilities' in next ||
         !sameRegistrations ||
         (!candidate.registry && candidate.tabs !== options.tabs) ||
         candidate.renderIcon !== options.renderIcon ||
@@ -888,7 +914,9 @@ function mountLayoutInternal(
       if ('registry' in next && !next.registry && options.registry) {
         Object.assign(options, { renderers: undefined, tabs: undefined });
       }
+      if ('capabilities' in next) options.store.setCapabilities(next.capabilities);
       Object.assign(options, next);
+      root.dataset.resizeMode = options.resizeMode ?? 'gutter';
       commitCommands();
       if ('theme' in next) applyTheme(root, options.theme ?? {});
       if ('tabBar' in next) tabBar = structuredClone(options.tabBar ?? {});

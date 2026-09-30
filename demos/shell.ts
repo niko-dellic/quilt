@@ -1,5 +1,4 @@
 import { themes, themeFamilies, themeProperties } from 'quilt-vanilla';
-import type { AutoCollapse } from 'quilt-core';
 import { workspace, workspaceSession } from './model.js';
 import { defaultThemeName } from './theme.js';
 import { addThemeFields, installThemeExport } from './theme-export.js';
@@ -11,6 +10,13 @@ let applySettings: (() => void) | undefined;
 export function mountTheming(element: HTMLElement) {
   settingsHost = element;
   element.classList.add('demo-theming');
+  const heading = element.ownerDocument.createElement('h2');
+  heading.textContent = 'Workspace theming';
+  const description = element.ownerDocument.createElement('p');
+  description.className = 'demo-theming-description';
+  description.textContent =
+    'Customize colors, spacing, and pane controls. Changes apply immediately.';
+  element.append(heading, description);
   if (settings) element.append(settings);
   const win = element.ownerDocument.defaultView!;
   const frame = win.requestAnimationFrame(() => applySettings?.());
@@ -143,17 +149,6 @@ export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
   };
   const themeField = labelControl(themeSelect, 'Theme');
   settings.prepend(themeField);
-  const collapseSelect = document.createElement('select');
-  collapseSelect.setAttribute('aria-label', 'Auto collapse');
-  for (const mode of ['disabled', 'protected', 'enabled'] as const) {
-    const option = document.createElement('option');
-    option.value = mode;
-    option.textContent = mode[0]!.toUpperCase() + mode.slice(1);
-    collapseSelect.append(option);
-  }
-  collapseSelect.value = workspace.getAutoCollapse();
-  collapseSelect.onchange = () => workspace.setAutoCollapse(collapseSelect.value as AutoCollapse);
-  const collapseField = labelControl(collapseSelect, 'Auto collapse');
   const barSelect = document.createElement('select');
   barSelect.setAttribute('aria-label', 'Taper options');
   for (const [value, label] of [
@@ -331,6 +326,24 @@ export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
     corners.field,
   );
   const resizing = resizeSection.content;
+  const resizeStyle = document.createElement('select');
+  resizeStyle.setAttribute('aria-label', 'Resize style');
+  for (const [value, label] of [
+    ['gutter', 'Gutter between panes'],
+    ['border', 'Single border with hover grip'],
+  ]) {
+    const option = document.createElement('option');
+    option.value = value!;
+    option.textContent = label!;
+    resizeStyle.append(option);
+  }
+  resizeStyle.value = 'border';
+  const gutterControls: HTMLElement[] = [];
+  resizeStyle.onchange = () => {
+    for (const control of gutterControls) control.hidden = resizeStyle.value !== 'gutter';
+    getMounted()?.updateOptions({ resizeMode: resizeStyle.value as 'gutter' | 'border' });
+  };
+  resizing.append(labelControl(resizeStyle, 'Resize style'));
   settings.prepend(
     themeSection.region,
     colorSection.region,
@@ -445,8 +458,11 @@ export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
       applyTheme();
       applyBar();
     };
-    if (name === 'Resize handle width') resizing.append(field);
-    else if (name === 'Text size' || name === 'Icon size') fontSection.content.append(field);
+    if (name === 'Resize handle width') {
+      gutterControls.push(field);
+      field.hidden = resizeStyle.value !== 'gutter';
+      resizing.append(field);
+    } else if (name === 'Text size' || name === 'Icon size') fontSection.content.append(field);
     else tabSection.content.append(field);
   }
   for (const [name, entries, initial, update] of [
@@ -566,7 +582,9 @@ export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
     showDisabledHandles = disabledInput.checked;
     applyTheme();
   };
-  resizing.append(collapseField, disabledLabel);
+  gutterControls.push(disabledLabel);
+  disabledLabel.hidden = resizeStyle.value !== 'gutter';
+  resizing.append(disabledLabel);
   applySettings = () => {
     applyTheme();
     applyBar();

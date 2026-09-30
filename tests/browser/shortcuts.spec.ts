@@ -22,6 +22,7 @@ for (const demo of ['vanilla', 'react']) {
     const restore = page.getByRole('button', { name: 'Restore region', exact: true });
     await expect(restore.locator('kbd')).toHaveText('`');
     await restore.click();
+    await page.getByRole('tab', { name: 'Hotkeys', exact: true }).click();
     await expect(page.getByRole('table', { name: 'Keyboard and mouse shortcuts' })).toContainText(
       '` or Alt + Space',
     );

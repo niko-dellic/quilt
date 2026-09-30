@@ -41,8 +41,12 @@ export function fillTabs(tabs: HTMLElement, group: Group, panes: Pane[], deps: T
     else icon.textContent = Array.from(pane.title.trim())[0] || '•';
     tab.append(icon, el(doc, 'span', 'layouts-tab-label', pane.title));
     tab.onclick = () => act(() => options.store.activate(group.id, pane.id));
-    tab.draggable = options.store.can(pane.id, 'move');
+    tab.draggable = options.store.can(pane.id, 'move') || options.store.can(pane.id, 'reorder');
     tab.ondragstart = (e) => {
+      if (!options.store.can(pane.id, 'move') && !options.store.can(pane.id, 'reorder')) {
+        e.preventDefault();
+        return;
+      }
       deps.setDrag(pane.id);
       e.dataTransfer?.setData('text/plain', pane.id);
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
@@ -60,11 +64,8 @@ export function fillTabs(tabs: HTMLElement, group: Group, panes: Pane[], deps: T
     };
     item.ondragover = (e) => {
       const id = deps.getDrag();
-      if (
-        !id ||
-        !options.store.can(id, 'move') ||
-        !group.panes.every((p) => options.store.can(p, 'move'))
-      )
+      const capability = id && group.panes.includes(id) ? 'reorder' : 'move';
+      if (!id || !options.store.can(id, capability) || !options.store.canNode(group.id, capability))
         return;
       e.preventDefault();
       e.stopPropagation();

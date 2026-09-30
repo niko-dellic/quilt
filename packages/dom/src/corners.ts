@@ -18,8 +18,7 @@ export function bindCorners(
   let drag: Scope | undefined;
   scope.add(() => drag?.dispose());
   const initial = findNode(options.store.getSnapshot().root, id);
-  if (initial?.kind !== 'group' || !initial.panes.every((p) => options.store.can(p, 'split')))
-    return;
+  if (initial?.kind !== 'group' || !options.store.canNode(initial.id, 'split')) return;
   for (const corner of ['tl', 'tr', 'bl', 'br']) {
     const handle = el(doc, 'button', 'layouts-corner');
     handle.dataset.corner = corner;
@@ -38,7 +37,7 @@ export function bindCorners(
       const start = event as PointerEvent;
       if (start.button !== 0) return;
       const node = findNode(options.store.getSnapshot().root, id);
-      if (node?.kind !== 'group' || !node.panes.every((p) => options.store.can(p, 'split'))) return;
+      if (node?.kind !== 'group' || !options.store.canNode(node.id, 'split')) return;
       event.preventDefault();
       event.stopPropagation();
       drag?.dispose();
@@ -123,7 +122,7 @@ export function bindCorners(
           const total = horizontal ? rect.width : rect.height;
           const disabled =
             current.kind === 'group' &&
-            (!current.panes.every((p) => options.store.can(p, 'resize')) || min === max);
+            (!options.store.canNode(current.id, 'resize') || min === max);
           const configuredGap = parseFloat(
             doc
               .defaultView!.getComputedStyle(host.closest('.layouts')!)
@@ -185,11 +184,7 @@ export function bindCorners(
           if (!hovered) return;
           const receiverId = hovered.dataset.nodeId!;
           const range = joinRange(layout.root, id, receiverId);
-          if (
-            !range ||
-            !range.selected.every((g) => g.panes.every((p) => options.store.can(p, 'join')))
-          )
-            return;
+          if (!range || !range.selected.every((g) => options.store.canNode(g.id, 'join'))) return;
           const receiver = findNode(layout.root, receiverId);
           if (receiver?.kind !== 'group') return;
           const selectedBoxes = range.selected.map((g) => boxes.get(g.id));

@@ -81,7 +81,10 @@ interface Pane {
   header?: boolean;
   confirmClose?: boolean; // optional UI confirmation; default inherits registration or false
   capabilities?: Partial<
-    Record<'resize' | 'move' | 'split' | 'join' | 'close' | 'popout', boolean>
+    Record<
+      'resize' | 'move' | 'reorder' | 'addTab' | 'maximize' | 'split' | 'join' | 'close' | 'popout',
+      boolean
+    >
   >;
   size?: { minWidth?: number; maxWidth?: number; minHeight?: number; maxHeight?: number };
 }
@@ -97,7 +100,7 @@ The `version`, `root`, `panes`, `popouts`, and `maximized` properties are requir
 
 Sizes refer to the full pane region, including chrome. Defaults are minimum zero and no maximum. Tab groups satisfy the intersection of their panes' constraints, so incompatible tabs are rejected. Split children may leave unused space when a maximum prevents them filling the cross axis. A four-pixel divider (overridable with `Split.gap`) contributes to recursive minimum sizes. Below the combined minimum, the workspace scrolls. Above combined maximums, surplus space stays empty. Split ratios are preferences constrained by these limits, not guaranteed pixel proportions.
 
-Capability flags default to true. Group-level operations require permission from affected panes: resizing a split checks both subtrees; tabbing and moving check the dragged pane and destination group; splitting checks the destination; joining checks the sibling region. Fixed bars normally disable all capabilities as well as specify size bounds. Host code can still deliberately reposition them.
+Capability flags default to true; omitted `addTab` and `reorder` inherit the resolved `move` flag for compatibility. Group-level operations require permission from affected panes: resizing a split checks both subtrees; tabbing and moving check the dragged pane and destination group; splitting checks the destination; joining checks the sibling region. Fixed bars normally disable all capabilities as well as specify size bounds. Host code can still deliberately reposition them.
 
 ## Advanced browser-free core exports
 
@@ -143,13 +146,13 @@ Commands clone, validate, and commit atomically. A failed command leaves the pre
 | `move(paneId, groupId, position?, index?, options?)` | Position is `tab`, `left`, `right`, `top`, or `bottom`; index is a tab insertion index after detachment                           |
 | `resize(splitId, ratio, options?)`                   | Set a preferred split proportion                                                                                                  |
 | `resizeMany(ratios, options?)`                       | Atomically update a map of split IDs to preferred proportions                                                                     |
-| `maximize(groupId \| null)`                          | Maximize or restore a region                                                                                                      |
+| `maximize(groupId \| null, options?)`                | Maximize or restore a region                                                                                                      |
 | `close(paneId, options?)`                            | Remove pane and placement                                                                                                         |
 | `popout(paneId, placement?, options?)`               | Pure model transition; does not open a browser                                                                                    |
 | `returnPane(paneId)`                                 | Return to a compatible original/fallback group, or a new region                                                                   |
 | `setTabPlacement(groupId, placement?)`               | Set top/left orientation; omit to inherit                                                                                         |
 | `setTabDisplay(groupId, display?)`                   | Set automatic/compact display; omit to inherit                                                                                    |
-| `removeEmptyGroup(groupId)`                          | Remove an empty region except the final root                                                                                      |
+| `removeEmptyGroup(groupId, options?)`                | Remove an empty region except the final root                                                                                      |
 | `closeGroup(groupId, options?)`                      | Atomically close docked tabs in a region                                                                                          |
 | `canRestoreClosedTab()`                              | Report whether closed-tab history is available                                                                                    |
 | `restoreClosedTab()`                                 | Restore the most recently closed tab with compatible placement                                                                    |
@@ -262,7 +265,7 @@ content, dialogs, and repeated key events are left alone. Some operating systems
 reserve Alt+Space and may intercept it before the page receives it; the actions
 menu remains available. Middle-click closes a tab when enabled and permitted.
 `T` opens the new-tab picker in the hovered region when registered tabs and
-its move capabilities allow adding a tab. Handled events call `preventDefault()`.
+its `addTab` capability allows adding a tab (falling back to `move` when omitted). Handled events call `preventDefault()`.
 The typing, dialog, and repeat safeguards also apply. Use T without modifiers.
 Normal tab arrow-key navigation and divider keyboard resizing remain available
 regardless of this convenience setting.
@@ -356,3 +359,113 @@ only requested for panes opting in through metadata or their registration.
 shortcut actions accept one binding, an array, or their existing boolean preset.
 
 See [Web integration](integration.md) for complete usage and lifetime rules.
+
+## Interaction policy and reusable shortcuts
+
+Both demos open a Settings tab in the left pane. Use it to try workspace defaults,
+region and tab overrides, auto-collapse, popouts, shortcut presets, middle-click
+closing, per-tab close confirmation, size limits, and tab orientation/display. Changes apply
+live. Interaction choices last for the demo session; Reset interaction rules
+clears capability overrides and restores workspace behavior defaults.
+
+Import `defaultShortcuts` from `quilt-vanilla` or `quilt-react` to opt into the
+same shortcuts as the demos. It is a frozen, spreadable object: backtick and
+Alt+Space maximize/restore, T adds a tab, R restores a closed tab, and middle-click
+closes a tab. Importing it installs no listeners. `shortcuts: true` remains equivalent.
+
+```ts
+import { Workspace, defaultShortcuts } from 'quilt-vanilla';
+
+const workspace = new Workspace({
+  container: host,
+  initialLayout,
+  renderers,
+  shortcuts: { ...defaultShortcuts, addTab: false },
+  capabilities: {
+    defaults: { resize: true, close: false, move: false },
+    groups: { editor: { move: true } },
+    panes: { notes: { close: true } },
+  },
+});
+```
+
+Quilt calls a content tab a `Pane`, and the region containing tabs a `Group`.
+`capabilities` accepts `defaults`, `groups` keyed by region ID, and `panes` keyed
+by tab ID. Each scope accepts these flags:
+
+| Flag       | User interaction                                    |
+| ---------- | --------------------------------------------------- |
+| `resize`   | Resize dividers affecting the region/tab            |
+| `addTab`   | Create a new tab through the content picker         |
+| `reorder`  | Reorder tabs within their current region            |
+| `move`     | Move a tab between regions or into a new edge split |
+| `maximize` | Maximize a region                                   |
+| `close`    | Close a tab or its region                           |
+| `split`    | Split a region, including edge drops                |
+| `join`     | Join regions                                        |
+| `popout`   | Open a tab in a companion window                    |
+
+For backward compatibility, omitted `addTab` and `reorder` flags fall back to
+the resolved `move` permission. Explicit values at any scope separate these
+operations. For example, `defaults: { move: false, reorder: true, addTab: true }`
+allows arranging tabs and creating content while keeping tabs in their regions.
+Reordering requires permission from all tabs in the target region; moving checks
+the dragged tab and destination tabs. Edge drops also require `split` permission.
+To disable all tab dragging, disable both `move` and `reorder`.
+
+Maximization checks every tab in the region. Restoring an already maximized region
+remains allowed even if its policy changes, so users can always return to the full
+layout. Direct `maximize(id, { source: 'user' })` also enforces this permission.
+
+`popout` uses the same workspace, region, and tab precedence. The existing
+`popouts: false` workspace option remains a hard off switch: more specific
+capability overrides cannot re-enable it. Policy changes cancel pending openings,
+with the original view retained. Existing companions stay open and can always
+return; return/closing the companion is not blocked by `popout: false`.
+
+For each flag, precedence is session `panes` override, saved `Pane.capabilities`,
+session `groups` override, workspace `defaults`, then `true`. An explicit `true`
+can override a less specific `false`. To prohibit an operation on every tab,
+remove more specific overrides too. Closing a region requires all its tabs to
+allow closing; resizing a divider requires both subtrees to allow resizing.
+Empty regions use their group override and workspace defaults.
+
+Use `workspace.can(paneId, capability)` for one tab or
+`workspace.canNode(groupOrSplitId, capability)` for an entire region/subtree.
+Menu actions, keyboard actions, close buttons, middle-click, drag/drop, resize
+handles, and corner gestures share this policy. Close permission is rechecked
+after asynchronous confirmation. Direct layout commands preserve their existing
+host authority; pass `{ source: 'user' }` to enforce permissions where supported.
+These controls are interaction rules, not a security boundary.
+
+Replace policy live using `workspace.updateOptions({ capabilities: nextPolicy })`,
+or change the React `capabilities` prop. Omitting a scope in the replacement clears
+its previous overrides; passing `undefined` resets session policy. Changes emit a
+workspace `change` event containing `capabilities`. Content views are retained.
+Policy is session configuration and is not saved in layout or workspace JSON;
+existing per-tab `Pane.capabilities` remains serializable.
+
+Related controls already available include `split`, `join`, `popout`, per-tab
+close confirmation, size bounds, and automatic empty-region collapse. These are independent of the interaction flags above.
+
+## Resize presentation
+
+Set `resizeMode: 'gutter' | 'border'` on a Vanilla workspace or React component.
+Use `updateOptions({ resizeMode: 'border' })` to change it live. The Theming pane’s
+Resizing section in both demos includes a Resize style selector. The demos start
+in border mode; handle width and disabled-handle controls appear only in gutter mode.
+
+- `gutter` (default) reserves space between panes. The entire gutter is the resize
+  target; explicit split gaps and theme resize widths keep their existing behavior.
+- `border` draws one shared 1px line between panes, with no reserved gutter.
+  A grip appears on hover, keyboard focus, or dragging. The invisible target is
+  centered on the line and uses `resizeHandleWidth`, with an 8px minimum.
+  Explicit split gaps and disabled-handle widths do not reserve space in this mode.
+  Disabled dividers retain a decorative line but have no resize target.
+
+Both modes preserve pointer and keyboard resizing, minimum/maximum dimensions,
+and capability restrictions. The shared line uses the theme's `line` color;
+disabled lines use `frozenPaneBorder`, and the grip uses `accent`.
+Changing modes preserves content views and layout ratios. It emits a workspace
+change containing `resizeMode`. This option is session configuration and is not
+included in exported layout or workspace JSON; clearing it restores gutter mode.

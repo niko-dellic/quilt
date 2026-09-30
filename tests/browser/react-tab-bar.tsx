@@ -23,10 +23,14 @@ function Notes() {
 }
 const components = { notes: Notes };
 function App() {
+  const [borderResize, setBorderResize] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [shortcutMode, setShortcutMode] = useState(0);
   const [tabBar, setTabBar] = useState<TabBarOptions>({});
   return (
     <>
+      <button onClick={() => setBorderResize((value) => !value)}>Toggle resize style</button>
+      <button onClick={() => setLocked((value) => !value)}>Toggle interaction lock</button>
       <button onClick={() => setShortcutMode((mode) => (mode + 1) % 3)}>Change shortcuts</button>
       <button onClick={() => setTabBar({ mode: 'tapered', shape: 'scoop' })}>Taper</button>
       <button onClick={() => setTabBar({})}>Full</button>
@@ -41,6 +45,8 @@ function App() {
       <Workspace
         initialLayout={initialLayout}
         components={components}
+        {...(borderResize ? { resizeMode: 'border' as const } : {})}
+        {...(locked ? { capabilities: { defaults: { close: false, move: false } } } : {})}
         tabBar={tabBar}
         {...(shortcutMode === 0
           ? { shortcuts: true }

@@ -93,14 +93,17 @@ for (const framework of ['vanilla', 'react']) {
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test(`${framework}: hotkeys open by default and return on reset`, async ({ page }) => {
+  test(`${framework}: settings open by default and return on reset`, async ({ page }) => {
     await page.goto(`/${framework}.html`);
     const hotkeys = page.getByRole('tab', { name: 'Hotkeys', exact: true });
-    await expect(hotkeys).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     await expect(
       page
         .locator('[data-node-id="tools-group"]')
-        .getByRole('tab', { name: 'Hotkeys', exact: true }),
+        .getByRole('tab', { name: 'Settings', exact: true }),
     ).toHaveAttribute('aria-selected', 'true');
     await expect(
       page
@@ -112,6 +115,7 @@ for (const framework of ['vanilla', 'react']) {
         .locator('[data-node-id="timeline-group"]')
         .getByRole('tab', { name: 'Timeline', exact: true }),
     ).toHaveAttribute('aria-selected', 'true');
+    await hotkeys.click();
     await expect(page.getByText('` or Alt + Space', { exact: true })).toBeVisible();
     await hotkeys.hover();
     await page.keyboard.press('Alt+Space');
@@ -121,7 +125,10 @@ for (const framework of ['vanilla', 'react']) {
     await page.getByRole('button', { name: 'Close Hotkeys', exact: true }).click();
     await expect(hotkeys).toHaveCount(0);
     await page.getByRole('button', { name: 'Reset', exact: true }).click();
-    await expect(hotkeys).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 }
 

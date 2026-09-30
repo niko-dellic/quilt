@@ -46,6 +46,10 @@ export interface TabBarOptions extends TabBarStyle {
 }
 /** Live appearance, interactions, and application integration callbacks. */
 export interface WorkspaceSettings<State = unknown> {
+  /** Session interaction policy, with workspace defaults and region/tab overrides. */
+  capabilities?: import('quilt-core').CapabilityPolicy;
+  /** Gutter reserves space; border overlays a resize target on one shared line. */
+  resizeMode?: 'gutter' | 'border';
   tabBar?: TabBarOptions;
   theme?: LayoutTheme;
   messages?: Messages;

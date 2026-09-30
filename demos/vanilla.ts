@@ -1,7 +1,7 @@
 import { defaultTheme } from './theme.js';
 import { renderIcon } from './icons.js';
 import 'quilt-vanilla/styles.css';
-import { Workspace } from 'quilt-vanilla';
+import { Workspace, defaultShortcuts } from 'quilt-vanilla';
 import { initial, bindWorkspace, getPaneState, tabs } from './model.js';
 import { renderers } from './views.js';
 import { setupShell } from './shell.js';
@@ -12,8 +12,9 @@ const layout = new Workspace<unknown>({
   getPaneState,
   tabs,
   theme: defaultTheme,
+  resizeMode: 'border',
   renderIcon,
-  shortcuts: true,
+  shortcuts: defaultShortcuts,
   tabBar: { attachment: 'floating', fit: 'fit' },
 });
 bindWorkspace(layout);

@@ -235,6 +235,8 @@ const WorkspaceImpl = forwardRef<WorkspaceHandle, WorkspaceProps>(function Works
         'prepareWindow',
         'openWindow',
         'renderIcon',
+        'capabilities',
+        'resizeMode',
         'shortcuts',
         'commands',
         'shortcutConflictPolicy',
@@ -368,6 +370,8 @@ const WorkspaceImpl = forwardRef<WorkspaceHandle, WorkspaceProps>(function Works
     rest.prepareWindow,
     rest.openWindow,
     rest.renderIcon,
+    rest.capabilities,
+    rest.resizeMode,
     rest.shortcuts,
     rest.commands,
     rest.shortcutConflictPolicy,
@@ -419,6 +423,7 @@ export type {
   AutoCollapse,
   Json,
   Capability,
+  CapabilityPolicy,
   Axis,
   Pane,
   Group,
@@ -492,3 +497,5 @@ export type {
   ShortcutConflict,
   ShortcutConflictPolicy,
 } from 'quilt-vanilla';
+
+export { defaultShortcuts } from 'quilt-vanilla';

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0
+
+- Export a reusable `defaultShortcuts` preset from Vanilla and React, shared by both demos.
+- Add live workspace, region, and tab capability policies, including independent controls for adding tabs, reordering, movement, maximization, closing, resizing, splitting, joining, and popouts. Existing move restrictions remain compatible.
+- Add `canNode` availability checks and enforce scoped permissions for empty regions, shared dividers, and asynchronous close/popout operations. Returning companions and restoring maximized regions remain available.
+- Add an optional single-border resize mode with shared pane edges and a hover/focus grip, while retaining gutter resizing and keyboard controls.
+- Add a primary Settings tab to both demos for live interaction rules, shortcuts, popouts, auto-collapse, tab presentation, confirmation, and size limits.
+- Improve Theming with a matching introduction, resize-style controls, conditional gutter options, and a Frozen border color picker with inherited/custom/hidden modes. Demos default to single-border resizing.
+- Document the new APIs and demo controls, with browser coverage across Chromium, Firefox, and WebKit.
+
 ## 0.5.0
 
 - Add workspace-owned custom command registration with labels, availability checks, shared action dispatch, and abortable command lifetimes.
