@@ -25,6 +25,7 @@ import type { Group, Layout, Node, Pane } from 'quilt-core';
 import type { LayoutOptions, ResolvedLayoutOptions, MountedLayout, TabBarStyle } from './types.js';
 import { Scope, el, syncChildren } from './lifetime.js';
 import { mountPane } from './panes.js';
+import { PaneScrollPositions } from './scroll.js';
 import type { MountedPane } from './panes.js';
 import { Windows } from './windows.js';
 import { createPaneMenu } from './menu.js';
@@ -109,6 +110,8 @@ function mountLayoutInternal(
   if (!win) throw new Error('Layout host must belong to a live document');
   const regions = new Map<string, Region>(),
     panes = new Map<string, MountedPane>();
+  const scrollPositions = new PaneScrollPositions();
+  let previousStructure = '';
   const root = el(doc, 'div', 'layouts');
   root.dataset.resizeMode = options.resizeMode ?? 'gutter';
   applyTheme(root, options.theme ?? {});
@@ -290,7 +293,7 @@ function mountLayoutInternal(
       r.divider.setAttribute('aria-label', message(options, 'Resize panes'));
       const start = (event: Event) => {
         const e = event as PointerEvent;
-        if (e.button !== 0) return;
+        if (e.button !== 0 || (e.pointerType === 'touch' && !e.isPrimary)) return;
         const n = findNode(options.store.getSnapshot().root, node.id);
         if (n?.kind !== 'split' || !resizable(n, options.store.getSnapshot())) return;
         e.preventDefault();
@@ -306,10 +309,14 @@ function mountLayoutInternal(
           },
           bounds,
         );
+        const first = regions.get(n.children[0].id)!.element.getBoundingClientRect();
+        const initialSize = n.axis === 'horizontal' ? first.width : first.height;
+        const initialPointer = n.axis === 'horizontal' ? e.clientX : e.clientY;
         r.divider!.setPointerCapture(e.pointerId);
         root.classList.add('layouts-resizing');
         r.divider!.dataset.resizing = 'true';
         drag.add(() => {
+          if (dragScope === drag) dragScope = undefined;
           root.classList.remove('layouts-resizing');
           delete r.divider!.dataset.resizing;
           try {
@@ -317,6 +324,7 @@ function mountLayoutInternal(
           } catch {}
         });
         const set = (move: PointerEvent) => {
+          if (move.pointerId !== e.pointerId) return;
           const current = findNode(geometryLayout().root, node.id);
           if (current?.kind !== 'split') return;
           const rect = r.element.getBoundingClientRect();
@@ -330,9 +338,10 @@ function mountLayoutInternal(
                     0.001,
                     Math.min(
                       0.999,
-                      (current.axis === 'horizontal'
-                        ? move.clientX - rect.left
-                        : move.clientY - rect.top) / available,
+                      (initialSize +
+                        (current.axis === 'horizontal' ? move.clientX : move.clientY) -
+                        initialPointer) /
+                        available,
                     ),
                   ),
                 ),
@@ -341,8 +350,12 @@ function mountLayoutInternal(
             );
         };
         drag.listen(r.divider!, 'pointermove', (move) => set(move as PointerEvent));
-        drag.listen(r.divider!, 'pointerup', () => drag.dispose());
-        drag.listen(r.divider!, 'pointercancel', () => drag.dispose());
+        const end = (event: Event) => {
+          if ((event as PointerEvent).pointerId === e.pointerId) drag.dispose();
+        };
+        drag.listen(r.divider!, 'pointerup', end);
+        drag.listen(r.divider!, 'pointercancel', end);
+        drag.listen(r.divider!, 'lostpointercapture', end);
         drag.listen(doc, 'keydown', (key) => {
           if ((key as KeyboardEvent).key === 'Escape') {
             act(() => options.store.resizeMany(resize.original));
@@ -742,6 +755,16 @@ function mountLayoutInternal(
       const focused = (doc.activeElement as HTMLElement | null)?.dataset.focusId;
       const layout = options.store.getSnapshot(),
         used = new Set<string>();
+      const structure = (node: Node): unknown =>
+        node.kind === 'group'
+          ? [node.id, node.active, node.panes]
+          : [node.id, ...node.children.map(structure)];
+      const nextStructure = JSON.stringify([layout.maximized, structure(layout.root)]);
+      // Ordinary divider updates only change geometry. Tree changes and maximized
+      // repaints can detach content, resetting browser-owned scroll offsets.
+      if (layout.maximized || previousStructure !== nextStructure)
+        for (const pane of panes.values()) scrollPositions.capture(pane.element);
+      previousStructure = nextStructure;
       const element = tree(layout.root, layout, used);
       // Maximizing reparents a region; pane views remain mounted.
       const visible = layout.maximized ? regions.get(layout.maximized)?.element : element;
@@ -763,6 +786,7 @@ function mountLayoutInternal(
         Array.from(root.querySelectorAll<HTMLElement>('[data-focus-id]'))
           .find((n) => n.dataset.focusId === focused)
           ?.focus();
+      for (const pane of panes.values()) scrollPositions.restore(pane.element);
     } catch (e) {
       error(e);
     } finally {

@@ -17,7 +17,7 @@ A pane registry maps `type` strings to synchronous mount functions that return a
 
 Register view-owned resources with `context.onCleanup(callback)` as you allocate them. Quilt runs these callbacks in reverse order even when mounting fails before returning. `context.signal` is aborted before cleanup on view teardown. Late cleanup registrations run immediately. Returned `dispose()` is still supported; exceptions are reported without preventing other cleanup, replacement, or window closure. Handle asynchronous data loading inside the view with a loading/error state; returning a Promise is not supported.
 
-In the main document, stable pane IDs retain their view across resizing, tab activation, movement, and maximize/restore. Inactive tabs stay mounted and hidden. Changes to type or params remount that pane. Hiding or moving a view within its document does not abort its signal. Metadata changes call `update` when provided. Data changes should flow through application-owned subscriptions, not repeated layout JSON updates.
+In the main document, stable pane IDs retain their view across resizing, tab activation, movement, and maximize/restore. Inactive tabs stay mounted and hidden. Tab switches and maximize/restore preserve vertical and horizontal scroll positions in pane content, including nested scroll areas. Offsets are restored after the retained view is visible and sized; newly mounted views still own their initial scroll state. Changes to type or params remount that pane. Hiding or moving a view within its document does not abort its signal. Metadata changes call `update` when provided. Data changes should flow through application-owned subscriptions, not repeated layout JSON updates.
 
 ## Popout transaction
 

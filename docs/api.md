@@ -464,7 +464,11 @@ in border mode; handle width and disabled-handle controls appear only in gutter 
   Disabled dividers retain a decorative line but have no resize target.
 
 Both modes preserve pointer and keyboard resizing, minimum/maximum dimensions,
-and capability restrictions. The shared line uses the theme's `line` color;
+and capability restrictions. Touch-capable devices get an invisible target at least
+24px wide across the divider, without changing pane geometry. On touch-only devices,
+the border grip stays visible. Dragging follows the initiating finger; other touches
+cannot move or end that drag. Cancellation or lost pointer capture ends resizing
+at its current position. The shared line uses the theme's `line` color;
 disabled lines use `frozenPaneBorder`, and the grip uses `accent`.
 Changing modes preserves content views and layout ratios. It emits a workspace
 change containing `resizeMode`. This option is session configuration and is not
