@@ -293,7 +293,7 @@ function mountLayoutInternal(
       r.divider.setAttribute('aria-label', message(options, 'Resize panes'));
       const start = (event: Event) => {
         const e = event as PointerEvent;
-        if (e.button !== 0) return;
+        if (e.button !== 0 || (e.pointerType === 'touch' && !e.isPrimary)) return;
         const n = findNode(options.store.getSnapshot().root, node.id);
         if (n?.kind !== 'split' || !resizable(n, options.store.getSnapshot())) return;
         e.preventDefault();
@@ -309,10 +309,14 @@ function mountLayoutInternal(
           },
           bounds,
         );
+        const first = regions.get(n.children[0].id)!.element.getBoundingClientRect();
+        const initialSize = n.axis === 'horizontal' ? first.width : first.height;
+        const initialPointer = n.axis === 'horizontal' ? e.clientX : e.clientY;
         r.divider!.setPointerCapture(e.pointerId);
         root.classList.add('layouts-resizing');
         r.divider!.dataset.resizing = 'true';
         drag.add(() => {
+          if (dragScope === drag) dragScope = undefined;
           root.classList.remove('layouts-resizing');
           delete r.divider!.dataset.resizing;
           try {
@@ -320,6 +324,7 @@ function mountLayoutInternal(
           } catch {}
         });
         const set = (move: PointerEvent) => {
+          if (move.pointerId !== e.pointerId) return;
           const current = findNode(geometryLayout().root, node.id);
           if (current?.kind !== 'split') return;
           const rect = r.element.getBoundingClientRect();
@@ -333,9 +338,10 @@ function mountLayoutInternal(
                     0.001,
                     Math.min(
                       0.999,
-                      (current.axis === 'horizontal'
-                        ? move.clientX - rect.left
-                        : move.clientY - rect.top) / available,
+                      (initialSize +
+                        (current.axis === 'horizontal' ? move.clientX : move.clientY) -
+                        initialPointer) /
+                        available,
                     ),
                   ),
                 ),
@@ -344,8 +350,12 @@ function mountLayoutInternal(
             );
         };
         drag.listen(r.divider!, 'pointermove', (move) => set(move as PointerEvent));
-        drag.listen(r.divider!, 'pointerup', () => drag.dispose());
-        drag.listen(r.divider!, 'pointercancel', () => drag.dispose());
+        const end = (event: Event) => {
+          if ((event as PointerEvent).pointerId === e.pointerId) drag.dispose();
+        };
+        drag.listen(r.divider!, 'pointerup', end);
+        drag.listen(r.divider!, 'pointercancel', end);
+        drag.listen(r.divider!, 'lostpointercapture', end);
         drag.listen(doc, 'keydown', (key) => {
           if ((key as KeyboardEvent).key === 'Escape') {
             act(() => options.store.resizeMany(resize.original));

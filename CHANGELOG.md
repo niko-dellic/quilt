@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- Preserve vertical and horizontal scroll positions across tab switches and maximize/restore, including nested scroll areas and inactive tabs. Scrolling while maximized remains intact on restore.
+- Improve touch resizing in both border and gutter modes with wider invisible targets, visible grips on touch-only devices, and drag positioning that avoids jumps when grabbing the edge of a target.
+- Keep resize gestures owned by their initiating pointer; ignore secondary touches and clean up correctly on cancellation or lost pointer capture.
+- Add scroll-preservation coverage for Vanilla and React across Chromium, Firefox, and WebKit, native Chromium touch-drag tests, and cross-browser pointer ownership checks.
+
 ## 0.6.0
 
 - Export a reusable `defaultShortcuts` preset from Vanilla and React, shared by both demos.

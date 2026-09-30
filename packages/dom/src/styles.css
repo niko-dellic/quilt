@@ -939,3 +939,27 @@
 .layouts[data-resize-mode='border'] .layouts-corner {
   z-index: 6;
 }
+
+/* Expand the touch target without changing pane geometry or gutter styling. */
+@media (any-pointer: coarse) {
+  .layouts-divider:not([aria-disabled='true'])::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .layouts-divider[data-axis='horizontal']:not([aria-disabled='true'])::after {
+    left: 50%;
+    width: max(100%, 24px);
+    transform: translateX(-50%);
+  }
+  .layouts-divider[data-axis='vertical']:not([aria-disabled='true'])::after {
+    top: 50%;
+    height: max(100%, 24px);
+    transform: translateY(-50%);
+  }
+}
+@media (hover: none) and (pointer: coarse) {
+  .layouts[data-resize-mode='border'] .layouts-divider:not([aria-disabled='true'])::before {
+    opacity: 1;
+  }
+}
