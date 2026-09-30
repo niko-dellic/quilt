@@ -6,17 +6,49 @@ const installs = [
   { label: 'Vanilla TS', command: 'npm install quilt-vanilla' },
   { label: 'React', command: 'npm install quilt-react' },
 ];
+const selectedInstall = ref(0);
 const copied = ref('');
 const copyError = ref('');
+
+function selectInstall(index: number) {
+  selectedInstall.value = index;
+  copied.value = '';
+  copyError.value = '';
+}
+
+function navigateInstall(event: KeyboardEvent, index: number) {
+  let next: number;
+  switch (event.key) {
+    case 'ArrowRight':
+      next = (index + 1) % installs.length;
+      break;
+    case 'ArrowLeft':
+      next = (index + installs.length - 1) % installs.length;
+      break;
+    case 'Home':
+      next = 0;
+      break;
+    case 'End':
+      next = installs.length - 1;
+      break;
+    default:
+      return;
+  }
+  event.preventDefault();
+  selectInstall(next);
+  const tab = event.currentTarget as HTMLButtonElement;
+  tab.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+}
 
 async function copyInstall(command: string) {
   copied.value = '';
   copyError.value = '';
   try {
     await navigator.clipboard.writeText(command);
-    copied.value = command;
+    if (installs[selectedInstall.value]?.command === command) copied.value = command;
   } catch {
-    copyError.value = 'Could not copy. Select the command and copy it manually.';
+    if (installs[selectedInstall.value]?.command === command)
+      copyError.value = 'Could not copy. Select the command and copy it manually.';
   }
 }
 </script>
@@ -37,18 +69,57 @@ async function copyInstall(command: string) {
       </div>
       <div class="landing-install" aria-label="Install Quilt">
         <h2>Install Quilt</h2>
-        <div v-for="install in installs" :key="install.command" class="install-option">
-          <span class="install-label">{{ install.label }}</span>
-          <div class="install-command">
-            <pre><code>{{ install.command }}</code></pre>
-            <button
-              type="button"
-              :aria-label="`Copy ${install.label} install command`"
-              @click="copyInstall(install.command)"
+        <div class="install-tabs" role="tablist" aria-label="Framework">
+          <button
+            v-for="(install, index) in installs"
+            :id="`install-tab-${index}`"
+            :key="install.command"
+            type="button"
+            role="tab"
+            :aria-selected="selectedInstall === index"
+            :aria-controls="`install-panel-${index}`"
+            :tabindex="selectedInstall === index ? 0 : -1"
+            @click="selectInstall(index)"
+            @keydown="navigateInstall($event, index)"
+          >
+            {{ install.label }}
+          </button>
+        </div>
+        <div
+          v-for="(install, index) in installs"
+          v-show="selectedInstall === index"
+          :id="`install-panel-${index}`"
+          :key="install.command"
+          role="tabpanel"
+          :aria-labelledby="`install-tab-${index}`"
+          tabindex="0"
+          class="install-command"
+        >
+          <pre><code>{{ install.command }}</code></pre>
+          <button
+            type="button"
+            :aria-label="`Copy ${install.label} install command`"
+            :title="copied === install.command ? 'Copied!' : 'Copy command'"
+            @click="copyInstall(install.command)"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
             >
-              {{ copied === install.command ? 'Copied!' : 'Copy' }}
-            </button>
-          </div>
+              <path v-if="copied === install.command" d="m5 12 4 4L19 6" />
+              <template v-else>
+                <rect x="8" y="8" width="12" height="12" rx="2" />
+                <path d="M16 8V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4" />
+              </template>
+            </svg>
+          </button>
         </div>
         <p class="copy-status" role="status">
           {{ copyError || (copied ? `Copied: ${copied}` : '') }}
@@ -103,14 +174,26 @@ async function copyInstall(command: string) {
   font-weight: 600;
   margin-bottom: 12px;
 }
-.install-option + .install-option {
-  margin-top: 12px;
+.install-tabs {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--vp-c-divider);
 }
-.install-label {
-  display: block;
-  margin-bottom: 5px;
+.install-tabs button {
+  padding: 6px 0 8px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   color: var(--vp-c-text-2);
   font-size: 12px;
+  cursor: pointer;
+}
+.install-tabs button:hover {
+  color: var(--vp-c-text-1);
+}
+.install-tabs button[aria-selected='true'] {
+  border-bottom-color: var(--vp-c-text-1);
+  color: var(--vp-c-text-1);
 }
 .install-command {
   display: flex;
@@ -130,7 +213,10 @@ async function copyInstall(command: string) {
 }
 .install-command button {
   flex-shrink: 0;
-  padding: 4px 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 4px;
   background: var(--vp-c-bg);
@@ -140,6 +226,8 @@ async function copyInstall(command: string) {
 .install-command button:hover {
   border-color: var(--vp-c-text-1);
 }
+.install-tabs button:focus-visible,
+.install-command:focus-visible,
 .install-command button:focus-visible {
   outline: 2px solid var(--vp-c-brand-1);
   outline-offset: 3px;

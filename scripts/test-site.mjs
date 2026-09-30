@@ -50,12 +50,25 @@ try {
     ['Vanilla TS', 'npm install quilt-vanilla'],
     ['React', 'npm install quilt-react'],
   ]) {
+    await page.getByRole('tab', { name: label, exact: true }).click();
+    await expect(page.getByRole('tabpanel')).toHaveCount(1);
     await expect(page.locator('pre code').filter({ hasText: command })).toBeVisible();
     const copy = page.getByRole('button', { name: `Copy ${label} install command` });
     await copy.click();
-    await expect(copy).toHaveText('Copied!');
+    await expect(copy).toHaveAttribute('title', 'Copied!');
+    await expect(copy).toHaveText('');
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command);
   }
+  const vanillaTab = page.getByRole('tab', { name: 'Vanilla TS', exact: true });
+  const reactTab = page.getByRole('tab', { name: 'React', exact: true });
+  await reactTab.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(vanillaTab).toBeFocused();
+  await expect(vanillaTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('status')).toBeEmpty();
+  await page.keyboard.press('End');
+  await expect(reactTab).toBeFocused();
+  await expect(reactTab).toHaveAttribute('aria-selected', 'true');
   await context.clearPermissions();
   await context.grantPermissions([]);
   await page.getByRole('button', { name: 'Copy React install command' }).click();
