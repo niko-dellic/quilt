@@ -25,6 +25,7 @@ import type { Group, Layout, Node, Pane } from 'quilt-core';
 import type { LayoutOptions, ResolvedLayoutOptions, MountedLayout, TabBarStyle } from './types.js';
 import { Scope, el, syncChildren } from './lifetime.js';
 import { mountPane } from './panes.js';
+import { PaneScrollPositions } from './scroll.js';
 import type { MountedPane } from './panes.js';
 import { Windows } from './windows.js';
 import { createPaneMenu } from './menu.js';
@@ -109,6 +110,8 @@ function mountLayoutInternal(
   if (!win) throw new Error('Layout host must belong to a live document');
   const regions = new Map<string, Region>(),
     panes = new Map<string, MountedPane>();
+  const scrollPositions = new PaneScrollPositions();
+  let previousStructure = '';
   const root = el(doc, 'div', 'layouts');
   root.dataset.resizeMode = options.resizeMode ?? 'gutter';
   applyTheme(root, options.theme ?? {});
@@ -742,6 +745,16 @@ function mountLayoutInternal(
       const focused = (doc.activeElement as HTMLElement | null)?.dataset.focusId;
       const layout = options.store.getSnapshot(),
         used = new Set<string>();
+      const structure = (node: Node): unknown =>
+        node.kind === 'group'
+          ? [node.id, node.active, node.panes]
+          : [node.id, ...node.children.map(structure)];
+      const nextStructure = JSON.stringify([layout.maximized, structure(layout.root)]);
+      // Ordinary divider updates only change geometry. Tree changes and maximized
+      // repaints can detach content, resetting browser-owned scroll offsets.
+      if (layout.maximized || previousStructure !== nextStructure)
+        for (const pane of panes.values()) scrollPositions.capture(pane.element);
+      previousStructure = nextStructure;
       const element = tree(layout.root, layout, used);
       // Maximizing reparents a region; pane views remain mounted.
       const visible = layout.maximized ? regions.get(layout.maximized)?.element : element;
@@ -763,6 +776,7 @@ function mountLayoutInternal(
         Array.from(root.querySelectorAll<HTMLElement>('[data-focus-id]'))
           .find((n) => n.dataset.focusId === focused)
           ?.focus();
+      for (const pane of panes.values()) scrollPositions.restore(pane.element);
     } catch (e) {
       error(e);
     } finally {
