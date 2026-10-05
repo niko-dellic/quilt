@@ -33,6 +33,7 @@ export class ScrollArea {
   private options: ScrollbarOptions | undefined;
   private timer = 0;
   private gutterFrame = 0;
+  private pendingStyles = 0;
   private attempted = false;
   private dragging = false;
   private keyboardInput = false;
@@ -57,6 +58,23 @@ export class ScrollArea {
       target.addEventListener(name, callback, { capture, passive: true });
       this.cleanups.push(() => target.removeEventListener(name, callback, capture));
     };
+    // Companion documents copy stylesheet links asynchronously. Measuring before
+    // they load can change the observed viewport during its first resize delivery.
+    for (const link of host.ownerDocument.querySelectorAll<HTMLLinkElement>(
+      'link[rel="stylesheet"]',
+    )) {
+      if (link.sheet || link.disabled) continue;
+      this.pendingStyles++;
+      let settled = false;
+      const ready = () => {
+        if (settled) return;
+        settled = true;
+        this.pendingStyles--;
+        if (!this.pendingStyles) this.update(this.options);
+      };
+      listen(link, 'load', ready);
+      listen(link, 'error', ready);
+    }
     // Track input modality explicitly: text inputs can match :focus-visible after a mouse click.
     listen(
       host.ownerDocument,
@@ -186,6 +204,7 @@ export class ScrollArea {
         this.reset();
         return;
       }
+      if (this.pendingStyles) return;
       host.dataset.quiltScrollbars = options.placement ?? 'overlay';
       const initializing = !this.instance;
       if (!this.instance) {

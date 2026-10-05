@@ -4,6 +4,8 @@ for (const framework of ['vanilla', 'react']) {
     page,
   }) => {
     await page.goto(`/${framework}.html`);
+    // Repainting chrome closes menus but must retain pointer tracking for future menus.
+    await page.getByRole('combobox', { name: 'Resize style', exact: true }).selectOption('gutter');
     const scene = page.locator('[data-node-id="scene-group"]');
     const actions = scene.getByRole('button', { name: 'Scene actions', exact: true });
     const orientation = page.getByRole('button', { name: 'Tab orientation', exact: true });
@@ -61,6 +63,12 @@ for (const framework of ['vanilla', 'react']) {
     await page.keyboard.press('ArrowLeft');
     await expect(menu).toBeHidden();
     await expect(orientation).toBeFocused();
+    // A layout-driven pointerenter must not undo the keyboard close.
+    await orientation.locator('..').dispatchEvent('pointerenter');
+    await expect(menu).toBeHidden();
+    await page.mouse.move(0, 0);
+    await orientation.hover();
+    await expect(menu).toBeVisible();
   });
 
   test(`${framework}: per-region orientation survives JSON loading`, async ({ page }) => {
