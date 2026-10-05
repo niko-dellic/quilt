@@ -4,7 +4,7 @@ import { ScrollArea } from '../../packages/dom/src/scrollbars.js';
 
 vi.mock('overlayscrollbars', () => ({ OverlayScrollbars: vi.fn() }));
 
-function fixture() {
+function fixture(styles: EventTarget[] = []) {
   const win = Object.assign(new EventTarget(), {
     matchMedia: () => Object.assign(new EventTarget(), { matches: false }),
     clearTimeout: vi.fn(),
@@ -22,7 +22,10 @@ function fixture() {
     },
   });
   const host = Object.assign(new EventTarget(), {
-    ownerDocument: Object.assign(new EventTarget(), { defaultView: win }),
+    ownerDocument: Object.assign(new EventTarget(), {
+      defaultView: win,
+      querySelectorAll: () => styles,
+    }),
     dataset: {} as Record<string, string>,
     style: { removeProperty: vi.fn() },
   });
@@ -35,6 +38,44 @@ function fixture() {
 }
 
 describe('scrollbar fallback and cleanup', () => {
+  it('waits for every pending stylesheet, including failed loads, before enhancing', () => {
+    const create = vi.mocked(OverlayScrollbars);
+    create.mockReset();
+    const failure = new Error('Initialization reached');
+    create.mockImplementation(((_target: unknown, options: unknown) => {
+      if (options) throw failure;
+    }) as unknown as typeof OverlayScrollbars);
+    const first = new EventTarget();
+    const second = new EventTarget();
+    const { area, report, viewport } = fixture([first, second]);
+    area.update({});
+    first.dispatchEvent(new Event('load'));
+    first.dispatchEvent(new Event('load'));
+    expect(create).not.toHaveBeenCalled();
+    second.dispatchEvent(new Event('error'));
+    expect(report).toHaveBeenCalledWith(failure);
+    expect([viewport.scrollTop, viewport.scrollLeft]).toEqual([40, 20]);
+    area.dispose();
+  });
+  it('respects native updates and disposal while waiting for styles', () => {
+    const create = vi.mocked(OverlayScrollbars);
+    create.mockReset();
+    const link = new EventTarget();
+    const { area } = fixture([link]);
+    area.update({});
+    area.update(undefined);
+    link.dispatchEvent(new Event('load'));
+    expect(create).not.toHaveBeenCalled();
+    area.dispose();
+    const pending = new EventTarget();
+    const remove = vi.spyOn(pending, 'removeEventListener');
+    const disposed = fixture([pending]).area;
+    disposed.update({});
+    disposed.dispose();
+    pending.dispatchEvent(new Event('load'));
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(create).not.toHaveBeenCalled();
+  });
   it('leaves native mode uninitialized and cleans its listeners', () => {
     const create = vi.mocked(OverlayScrollbars);
     create.mockReset();

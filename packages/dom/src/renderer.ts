@@ -848,7 +848,7 @@ function mountLayoutInternal(
     Object.assign(renderOptions, options, { onError: error });
     for (const pane of panes.values()) pane.updateScrollbars(options.scrollbars);
     if (repaintChrome) {
-      menu.dispose();
+      menu.close();
       root.setAttribute('aria-label', message(options, 'Pane workspace'));
       for (const region of regions.values()) {
         region.element.setAttribute('aria-label', message(options, 'Pane region'));

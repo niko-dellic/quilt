@@ -602,6 +602,10 @@ export function createPaneMenu(
       );
       open(anchor, source, group, undefined, 0.5, true);
     },
+    close() {
+      current?.dispose();
+      for (const picker of persistentPickers.values()) picker.dispose();
+    },
     dispose() {
       pointerScope.dispose();
       current?.dispose();

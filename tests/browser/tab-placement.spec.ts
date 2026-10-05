@@ -4,6 +4,8 @@ for (const framework of ['vanilla', 'react']) {
     page,
   }) => {
     await page.goto(`/${framework}.html`);
+    // Repainting chrome closes menus but must retain pointer tracking for future menus.
+    await page.getByRole('combobox', { name: 'Resize style', exact: true }).selectOption('gutter');
     const scene = page.locator('[data-node-id="scene-group"]');
     const actions = scene.getByRole('button', { name: 'Scene actions', exact: true });
     const orientation = page.getByRole('button', { name: 'Tab orientation', exact: true });
