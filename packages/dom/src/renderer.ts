@@ -25,6 +25,7 @@ import type { Group, Layout, Node, Pane } from 'quilt-core';
 import type { LayoutOptions, ResolvedLayoutOptions, MountedLayout, TabBarStyle } from './types.js';
 import { Scope, el, syncChildren } from './lifetime.js';
 import { mountPane } from './panes.js';
+import { validateScrollbars } from './scrollbars.js';
 import { PaneScrollPositions } from './scroll.js';
 import type { MountedPane } from './panes.js';
 import { Windows } from './windows.js';
@@ -59,6 +60,16 @@ export function mountLayout<State = unknown>(
     input.initialWorkspace === undefined ? undefined : parseWorkspace(input.initialWorkspace);
   const theme = preset?.theme ?? input.theme ?? {};
   const tabBar = preset?.tabBar ?? input.tabBar ?? {};
+  const scrollbars = preset
+    ? preset.scrollbars
+    : Object.hasOwn(input, 'scrollbars')
+      ? input.scrollbars
+      : {
+          visibility: 'auto-hide' as const,
+          placement: 'overlay' as const,
+          revealOn: 'scroll' as const,
+        };
+  validateScrollbars(scrollbars);
   validateResizeMode(input.resizeMode);
   validateTheme(theme);
   validateTabBar(tabBar);
@@ -75,7 +86,7 @@ export function mountLayout<State = unknown>(
   try {
     return mountLayoutInternal(
       host,
-      { ...input, store, theme, tabBar } as unknown as ResolvedLayoutOptions,
+      { ...input, store, theme, tabBar, scrollbars } as unknown as ResolvedLayoutOptions,
       scope,
     ) as MountedLayout<State>;
   } catch (error) {
@@ -464,6 +475,8 @@ function mountLayoutInternal(
       element.dataset.paneId = pane.id;
       const mounted: MountedPane = {
         element,
+        host: element,
+        updateScrollbars() {},
         pane,
         signature,
         renderer: options.renderers?.[pane.type],
@@ -538,6 +551,7 @@ function mountLayoutInternal(
     r.updateTabBar?.();
     const bodies = definitions.map((pane) => {
       const p = content(pane);
+      p.host.hidden = pane.id !== g.active;
       p.element.hidden = pane.id !== g.active;
       p.element.id = `${prefix}-panel-${pane.id}`;
       p.element.setAttribute('role', 'tabpanel');
@@ -548,7 +562,7 @@ function mountLayoutInternal(
         p.element.setAttribute('aria-labelledby', `${prefix}-tab-${pane.id}`);
         p.element.removeAttribute('aria-label');
       }
-      return p.element;
+      return p.host;
     });
     if (!bodies.length) {
       let placeholder = r.body!.querySelector<HTMLButtonElement>('.layouts-empty');
@@ -832,6 +846,7 @@ function mountLayoutInternal(
   const refreshOptions = (repaintChrome = true) => {
     configure();
     Object.assign(renderOptions, options, { onError: error });
+    for (const pane of panes.values()) pane.updateScrollbars(options.scrollbars);
     if (repaintChrome) {
       menu.dispose();
       root.setAttribute('aria-label', message(options, 'Pane workspace'));
@@ -907,6 +922,7 @@ function mountLayoutInternal(
       if (candidate.registry && (next.renderers || next.tabs))
         throw new Error('registry cannot be combined with renderers or tabs');
       const commitCommands = commands.prepare(next);
+      validateScrollbars(candidate.scrollbars);
       validateTheme(candidate.theme ?? {});
       validateTabBar(candidate.tabBar ?? {});
       const sameRegistrations =
@@ -952,6 +968,9 @@ function mountLayoutInternal(
     exportWorkspace() {
       return {
         version: 1,
+        ...(options.scrollbars === undefined
+          ? {}
+          : { scrollbars: structuredClone(options.scrollbars) }),
         layout: dockLayout(options.store.getSnapshot()),
         theme: structuredClone(options.theme ?? {}),
         tabBar: structuredClone(tabBar),
@@ -961,6 +980,11 @@ function mountLayoutInternal(
     loadWorkspace(input) {
       if (disposed) throw new Error('Layout has been disposed');
       const preset = parseWorkspace(input);
+      if (preset.scrollbars === undefined) delete options.scrollbars;
+      else options.scrollbars = preset.scrollbars;
+      for (const pane of panes.values()) pane.updateScrollbars(options.scrollbars);
+      windows.refresh();
+      Object.assign(renderOptions, options);
       options.theme = preset.theme;
       options.tabBar = preset.tabBar;
       tabBar = preset.tabBar;

@@ -229,6 +229,7 @@ const WorkspaceImpl = forwardRef<WorkspaceHandle, WorkspaceProps>(function Works
       [
         'tabs',
         'theme',
+        'scrollbars',
         'tabBar',
         'getPaneState',
         'onError',
@@ -327,9 +328,11 @@ const WorkspaceImpl = forwardRef<WorkspaceHandle, WorkspaceProps>(function Works
       if (cancelled || !host.current) return;
       try {
         const options = adapt();
+        const initialOptions = { ...options };
+        if (!Object.hasOwn(latest.current, 'scrollbars')) delete initialOptions.scrollbars;
         instance = new VanillaWorkspace({
           container: host.current,
-          ...options,
+          ...initialOptions,
           ...initial.current,
         } as unknown as WorkspaceOptions);
         appliedOptions.current = options;
@@ -364,6 +367,7 @@ const WorkspaceImpl = forwardRef<WorkspaceHandle, WorkspaceProps>(function Works
     registry,
     rest.tabs,
     rest.theme,
+    rest.scrollbars,
     rest.tabBar,
     rest.getPaneState,
     rest.onError,
@@ -466,6 +470,8 @@ export type {
   CloseRequest,
   KeyBinding,
   TabBarOptions,
+  ScrollbarOptions,
+  ScrollAreaElements,
   TabBarStyle,
 } from 'quilt-vanilla';
 

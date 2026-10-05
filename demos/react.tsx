@@ -47,6 +47,10 @@ function Imperative(props: PaneProps) {
   useLayoutEffect(() => {
     if (!host.current) return;
     const element = host.current;
+    const unregisterScrollArea = props.registerScrollArea({
+      host: element.parentElement!,
+      viewport: element,
+    });
     const view = imperativeView({ ...props, element }) ?? { dispose() {} };
     let frame = 0;
     const win = props.window;
@@ -62,9 +66,14 @@ function Imperative(props: PaneProps) {
       observer.disconnect();
       if (frame) win.cancelAnimationFrame(frame);
       view.dispose();
+      unregisterScrollArea();
     };
   }, [props.pane.id, props.document]);
-  return <div ref={host} style={{ width: '100%', height: '100%' }} />;
+  return (
+    <div className="layouts-pane-host">
+      <div ref={host} style={{ width: '100%', height: '100%' }} />
+    </div>
+  );
 }
 const components = {
   settings: Imperative,

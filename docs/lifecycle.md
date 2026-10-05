@@ -116,3 +116,14 @@ Cleanup runs once per mounted view, including failed companion attempts. Keep
 application data and application-wide jobs outside this scope. React components
 should still use ordinary effect cleanup for effect-owned resources; the context
 scope lasts for the whole pane view, not each React effect execution.
+
+## Scrollbar resources
+
+Scrollbar controls belong to each pane view and use the existing content
+node as their native viewport. Settings updates preserve the node, its children,
+and scroll offsets. A library-owned host contains the controls outside application
+content. Nested application scroll areas register explicitly through
+`context.registerScrollArea({ host, viewport })`; React pane props expose the same
+callback. Call the returned cleanup before removing a nested host. Pane disposal
+also removes all registrations, controls, listeners, observers, and timers.
+Companion views receive current preferences at mount and on live updates.

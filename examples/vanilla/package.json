@@ -8,8 +8,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "quilt-core": "0.7.0",
-    "quilt-vanilla": "0.7.0"
+    "quilt-core": "0.8.0",
+    "quilt-vanilla": "0.8.0"
   },
   "devDependencies": {
     "typescript": "~7.0.2",
