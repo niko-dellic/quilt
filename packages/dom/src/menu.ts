@@ -230,6 +230,8 @@ export function createPaneMenu(
       flyout.setAttribute('role', 'menu');
       flyout.setAttribute('aria-label', label);
       flyouts.push({ trigger, flyout });
+      let keyboardClosed = false;
+      let lastPointer: { x: number; y: number } | undefined;
       let closeTimer: number | undefined;
       const cancelClose = () => {
         win.clearTimeout(closeTimer);
@@ -248,8 +250,22 @@ export function createPaneMenu(
         trigger.setAttribute('aria-expanded', String(open));
         if (open) positionMenus();
       };
-      local.listen(container, 'pointerenter', () => {
-        if (!trigger.disabled) setOpen(true);
+      local.listen(container, 'pointerenter', (event) => {
+        const pointer = event as PointerEvent;
+        lastPointer ??= { x: pointer.clientX, y: pointer.clientY };
+        if (!trigger.disabled && !keyboardClosed) setOpen(true);
+      });
+      // Hiding a flyout can retarget a stationary pointer in WebKit. Only actual
+      // pointer movement should undo an explicit keyboard close.
+      local.listen(doc, 'pointermove', (event) => {
+        const pointer = event as PointerEvent;
+        const moved =
+          lastPointer && (pointer.clientX !== lastPointer.x || pointer.clientY !== lastPointer.y);
+        lastPointer = { x: pointer.clientX, y: pointer.clientY };
+        if (keyboardClosed && moved) {
+          keyboardClosed = false;
+          if (!trigger.disabled && container.contains(pointer.target as Node)) setOpen(true);
+        }
       });
       // Allow the pointer to cross the dialog padding or move diagonally into the flyout.
       local.listen(container, 'pointerleave', () => {
@@ -266,6 +282,7 @@ export function createPaneMenu(
       local.listen(flyout, 'keydown', (event) => {
         if ((event as KeyboardEvent).key === 'ArrowLeft') {
           event.preventDefault();
+          keyboardClosed = true;
           setOpen(false);
           trigger.focus();
         }

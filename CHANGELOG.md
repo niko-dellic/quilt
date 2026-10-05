@@ -2,6 +2,7 @@
 
 ## 0.8.0
 
+- Keep keyboard-closed submenus hidden until the pointer moves, preventing WebKit hover retargeting from reopening them.
 - Add shared fading scrollbars across Vanilla, React, Electron, and companion windows. New workspaces default to auto-hide, overlay placement, scroll intent only, and a 500 ms idle delay, followed by a 300 ms opacity fade that remains enabled with reduced motion.
 - Expose `ScrollbarOptions` for visibility, overlay or reserved gutter placement, reveal triggers, and idle delay. Apply updates live without replacing pane content, React state, focus, or native scroll targets. Explicit `scrollbars: undefined` selects native controls.
 - Save scrollbar preferences in version-1 workspace presets; older presets without them retain native behavior. Core layout JSON remains unchanged.

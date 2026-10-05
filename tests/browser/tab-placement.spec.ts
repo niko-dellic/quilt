@@ -61,6 +61,12 @@ for (const framework of ['vanilla', 'react']) {
     await page.keyboard.press('ArrowLeft');
     await expect(menu).toBeHidden();
     await expect(orientation).toBeFocused();
+    // A layout-driven pointerenter must not undo the keyboard close.
+    await orientation.locator('..').dispatchEvent('pointerenter');
+    await expect(menu).toBeHidden();
+    await page.mouse.move(0, 0);
+    await orientation.hover();
+    await expect(menu).toBeVisible();
   });
 
   test(`${framework}: per-region orientation survives JSON loading`, async ({ page }) => {
