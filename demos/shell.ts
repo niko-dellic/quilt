@@ -31,6 +31,16 @@ export function mountTheming(element: HTMLElement) {
   };
 }
 export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
+  // Page departure tears down the workspace/companions and shell subscriptions.
+  // History-cache restoration does not rerun entry modules, so start a fresh
+  // demo document instead of restoring those disposed resources.
+  const restore = (event: PageTransitionEvent) => {
+    if (event.persisted) window.location.reload();
+  };
+  window.addEventListener('pageshow', restore);
+  window.addEventListener('pagehide', (event) => {
+    if (!event.persisted) window.removeEventListener('pageshow', restore);
+  });
   const overrides: LayoutTheme = {};
   let syncThemeFields = (_theme: LayoutTheme) => {};
   let headerHeight = 32,

@@ -7,11 +7,24 @@ import { checkSiteNavbar } from './check-site-navbar.mjs';
 const server = await preview({ preview: { host: 'localhost', port: 0 } });
 let browser;
 try {
-  browser = await chromium.launch();
+  // Playwright normally disables the history cache, masking disposed-page restores.
+  browser = await chromium.launch({
+    channel: 'chromium',
+    ignoreDefaultArgs: ['--disable-back-forward-cache'],
+  });
   const context = await browser.newContext({
     permissions: ['clipboard-read', 'clipboard-write'],
   });
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted)
+        sessionStorage.setItem(
+          'demo-history-restores',
+          String(Number(sessionStorage.getItem('demo-history-restores') ?? 0) + 1),
+        );
+    });
+  });
   const baseURL = server.resolvedUrls.local[0];
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -33,7 +46,24 @@ try {
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.reload();
     await expect(page.locator('#workspace .layouts')).toBeVisible();
-    await page.goBack();
+    const restores = await page.evaluate(() =>
+      Number(sessionStorage.getItem('demo-history-restores') ?? 0),
+    );
+    await page.getByRole('link', { name: 'Home', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Workspace layouts' })).toBeVisible();
+    await page.goBack({ waitUntil: 'commit' });
+    await expect(page.locator('#workspace .layouts')).toBeVisible();
+    expect(
+      await page.evaluate(() => Number(sessionStorage.getItem('demo-history-restores'))),
+    ).toBeGreaterThan(restores);
+    await page.getByRole('button', { name: 'Layout JSON', exact: true }).click();
+    await expect(page.locator('#json-dialog')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.goForward({ waitUntil: 'commit' });
+    await expect(page.getByRole('heading', { name: 'Workspace layouts' })).toBeVisible();
+    await page.goBack({ waitUntil: 'commit' });
+    await expect(page.locator('#workspace .layouts')).toBeVisible();
+    await page.goBack({ waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: 'Workspace layouts' })).toBeVisible();
   }
 
