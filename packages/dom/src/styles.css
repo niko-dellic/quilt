@@ -222,7 +222,8 @@
   border-bottom: 1px solid var(--layouts-line, #39414e);
   padding: 0 10px;
 }
-.layouts-companion > .layouts-pane {
+.layouts-companion > .layouts-pane,
+.layouts-companion > .layouts-pane-host {
   flex: 1;
   min-height: 0;
   height: auto;
@@ -962,4 +963,52 @@
   .layouts[data-resize-mode='border'] .layouts-divider:not([aria-disabled='true'])::before {
     opacity: 1;
   }
+}
+
+/* Pane hosts keep library controls outside application-owned viewport children. */
+.layouts-pane-host {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.layouts-pane-host[hidden] {
+  display: none;
+}
+[data-quilt-scrollbars] > [data-overlayscrollbars-viewport] {
+  min-height: 0;
+}
+[data-quilt-scrollbars] {
+  position: relative;
+}
+[data-quilt-scrollbars='gutter'] > [data-overlayscrollbars-viewport] {
+  width: calc(100% - var(--quilt-scrollbar-gutter-y, 0px)) !important;
+  height: calc(100% - var(--quilt-scrollbar-gutter-x, 0px)) !important;
+}
+.layouts-scrollbar {
+  --os-size: var(--layouts-scrollbar-size, 6px);
+  --os-padding-perpendicular: 0px;
+  --os-padding-axis: 0px;
+  --os-track-bg: var(--layouts-scrollbar-track, transparent);
+  --os-handle-bg: var(--layouts-scrollbar-thumb, var(--layouts-line, #39414e));
+  --os-handle-bg-hover: var(--layouts-scrollbar-thumb, var(--layouts-line, #39414e));
+  --os-handle-bg-active: var(--layouts-scrollbar-thumb, var(--layouts-line, #39414e));
+  --os-handle-border-radius: var(--layouts-radius, 5px);
+  /* Quilt owns opacity, including during the dependency's transitionless setup phase. */
+  transition: opacity 300ms ease-out !important;
+}
+[data-scrollbars-visible='false'] > .layouts-scrollbar {
+  opacity: 0;
+  pointer-events: none;
+}
+[data-quilt-scrollbars] > [data-overlayscrollbars-viewport]:focus-visible {
+  outline: 2px solid var(--layouts-focus, #b3decf);
+  outline-offset: -2px;
+}
+
+[data-quilt-scrollbars][data-scrollbars-visible='false'] > .layouts-scrollbar,
+[data-quilt-scrollbars][data-scrollbars-visible='false'] > .layouts-scrollbar * {
+  pointer-events: none;
 }

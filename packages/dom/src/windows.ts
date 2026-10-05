@@ -46,6 +46,8 @@ export class Windows {
     for (const [id, operation] of this.opening)
       if (!this.available() || !this.options.store.can(id, 'popout')) operation.cancel();
     for (const c of this.companions.values()) {
+      c.mounted.updateScrollbars(this.options.scrollbars);
+      c.replacement?.updateScrollbars(this.options.scrollbars);
       const button = c.window.document.querySelector('.layouts-companion-bar button');
       if (button) button.textContent = message(this.options, 'Return to layout');
     }
@@ -87,8 +89,8 @@ export class Windows {
             onError: this.error,
           });
           c.replacement = replacement;
-          replacement.element.style.visibility = 'hidden';
-          c.mounted.element.parentElement?.append(replacement.element);
+          replacement.host.style.visibility = 'hidden';
+          c.mounted.host.parentElement?.append(replacement.host);
           const finish = () => {
             if (this.companions.get(id) !== c || c.replacement !== replacement) return;
             delete c.replacement;
@@ -101,8 +103,8 @@ export class Windows {
               this.reconcile();
               return;
             }
-            replacement.element.style.removeProperty('visibility');
-            c.mounted.element.replaceWith(replacement.element);
+            replacement.host.style.removeProperty('visibility');
+            c.mounted.host.replaceWith(replacement.host);
             c.mounted.dispose();
             c.mounted = replacement;
           };
@@ -224,7 +226,7 @@ export class Windows {
       scope.add(() => themeObserver.disconnect());
       this.options.prepareWindow?.(child, pane);
       mounted = mountPane(dest, pane, 'popout', { ...this.options, onError: this.error });
-      shell.append(mounted.element);
+      shell.append(mounted.host);
       let cancel!: () => void;
       const cancelled = new Promise<never>((_, reject) => {
         cancel = () => reject(new Error('Popout opening cancelled'));
@@ -246,6 +248,7 @@ export class Windows {
       scope.listen(button, 'click', () => this.returnPane(id));
       if (mounted.view.ready) await Promise.race([mounted.view.ready, cancelled]);
       if (!this.available() || child.closed) throw new Error('Popout opening cancelled');
+      mounted.updateScrollbars(this.options.scrollbars);
       this.opening.delete(id);
       const c: Companion = { window: child, mounted, scope, suppressReturn: false, syncTheme };
       this.companions.set(id, c);

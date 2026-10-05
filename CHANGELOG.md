@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0
+
+- Add shared fading scrollbars across Vanilla, React, Electron, and companion windows. New workspaces default to auto-hide, overlay placement, scroll intent only, and a 500 ms idle delay, followed by a 300 ms opacity fade that remains enabled with reduced motion.
+- Expose `ScrollbarOptions` for visibility, overlay or reserved gutter placement, reveal triggers, and idle delay. Apply updates live without replacing pane content, React state, focus, or native scroll targets. Explicit `scrollbars: undefined` selects native controls.
+- Save scrollbar preferences in version-1 workspace presets; older presets without them retain native behavior. Core layout JSON remains unchanged.
+- Add `PaneContext.registerScrollArea({ host, viewport })` and the matching React pane prop for application-owned nested scroll areas, with automatic view cleanup.
+- Add styled scrollbar controls to both demos, document the defaults and native opt-out, and extend cross-browser and desktop coverage for fading, scroll intent, gutters, nested areas, popouts, and lifecycle preservation.
+
 ## 0.7.0
 
 - Preserve vertical and horizontal scroll positions across tab switches and maximize/restore, including nested scroll areas and inactive tabs. Scrolling while maximized remains intact on restore.

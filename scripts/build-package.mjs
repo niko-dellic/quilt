@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, rmSync } from 'node:fs';
+import { copyFileSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -18,9 +18,14 @@ for (const name of packages) {
     { stdio: 'inherit' },
   );
   if (name !== 'core') {
-    copyFileSync(
-      resolve(root, 'packages/dom/src/styles.css'),
+    writeFileSync(
       resolve(directory, 'dist/styles.css'),
+      readFileSync(
+        fileURLToPath(import.meta.resolve('overlayscrollbars/overlayscrollbars.css')),
+        'utf8',
+      ) +
+        '\n' +
+        readFileSync(resolve(root, 'packages/dom/src/styles.css'), 'utf8'),
     );
     copyFileSync(
       resolve(root, 'packages/dom/src/styles.css.d.ts'),

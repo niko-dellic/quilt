@@ -92,6 +92,7 @@ export interface WorkspaceChange {
     | 'commands'
     | 'capabilities'
     | 'resizeMode'
+    | 'scrollbars'
   )[];
 }
 export interface WorkspaceEvents {
@@ -344,7 +345,10 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     } finally {
       this.#batch = false;
     }
-    this.#emit({ action: 'loadWorkspace', changes: ['layout', 'theme', 'tabBar', 'autoCollapse'] });
+    this.#emit({
+      action: 'loadWorkspace',
+      changes: ['layout', 'theme', 'tabBar', 'autoCollapse', 'scrollbars'],
+    });
   }
   canExecuteAction(action: CommandId, context?: ActionContext): boolean {
     return !this.#disposed && this.#mounted.canExecuteAction(action, context);
@@ -408,6 +412,7 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     ] as const)
       if (!(key in next)) delete adapted[key];
     // Initial appearance is mount-only: only explicitly updated appearance keys apply.
+    if (!('scrollbars' in next)) delete adapted.scrollbars;
     if (!('theme' in next)) delete adapted.theme;
     if (!('tabBar' in next)) delete adapted.tabBar;
     if (!('capabilities' in next)) delete adapted.capabilities;
@@ -427,6 +432,8 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
       ('commands' in next && beforeCommands !== candidate.commands)
     )
       changes.push('commands');
+    if (JSON.stringify(before.scrollbars) !== JSON.stringify(after.scrollbars))
+      changes.push('scrollbars');
     if ('capabilities' in next) changes.push('capabilities');
     if ('resizeMode' in next && next.resizeMode !== previousResizeMode) changes.push('resizeMode');
     if (changes.length) this.#emit({ action: 'updateOptions', changes });

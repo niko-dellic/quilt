@@ -13,6 +13,8 @@ export type {
 } from './workspace-api.js';
 export type {
   PaneContext,
+  ScrollbarOptions,
+  ScrollAreaElements,
   PaneView,
   PaneRenderer,
   TabBarStyle,

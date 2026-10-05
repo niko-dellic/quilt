@@ -1,5 +1,19 @@
 # API migration
 
+## Scrollbar defaults in 0.8.0
+
+New Vanilla and React workspaces use auto-hiding overlay scrollbars that reveal
+on scroll intent, wait 500 ms after inactivity, and fade over 300 ms. To retain
+native scrollbars, explicitly pass `scrollbars: undefined` (React:
+`<Workspace scrollbars={undefined} />`). Existing presets without a `scrollbars`
+field still restore native behavior.
+
+Use `scrollbars: { revealOn: 'pointer' }` to reveal controls on pointer activity,
+or `placement: 'gutter'` to reserve space while they fade. Register nested
+application scroll areas through `registerScrollArea({ host, viewport })`;
+arbitrary descendants are not enhanced automatically. See the
+[scrollbar guide](theming.md#scrollbar-visibility-and-placement) for the full API.
+
 ## Workspace-first API in 0.3.0
 
 - Replace `mountLayout(host, options)` with `new Workspace({ container: host, ...options })`.

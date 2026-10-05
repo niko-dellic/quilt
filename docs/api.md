@@ -473,3 +473,20 @@ disabled lines use `frozenPaneBorder`, and the grip uses `accent`.
 Changing modes preserves content views and layout ratios. It emits a workspace
 change containing `resizeMode`. This option is session configuration and is not
 included in exported layout or workspace JSON; clearing it restores gutter mode.
+
+## Scrollbar options
+
+`WorkspaceSettings.scrollbars?: ScrollbarOptions` is shared by Vanilla and React.
+`ScrollbarOptions` exposes `visibility?: 'always' | 'auto-hide'`,
+`placement?: 'overlay' | 'gutter'`, `revealOn?: 'pointer' | 'scroll'` (default `'scroll'`), and `hideDelay?: number` (milliseconds).
+New workspaces and empty options objects default to auto-hide, overlay, scroll intent only,
+and 500 ms. Explicit `scrollbars: undefined` selects native controls. `updateOptions({ scrollbars: undefined })` restores native
+controls. Workspace change events include `'scrollbars'` when the setting changes.
+Workspace presets serialize the optional configuration; older presets restore native
+controls. See [scrollbar behavior and nested registration](theming.md#scrollbar-visibility-and-placement).
+
+`PaneContext.registerScrollArea(elements: ScrollAreaElements): () => void` registers
+an application-owned nested host and direct-child viewport, returning idempotent
+cleanup. `ScrollAreaElements` contains `host: HTMLElement` and `viewport: HTMLElement`.
+React `PaneProps` includes the same callback. Registrations inherit live workspace
+options and are removed automatically on pane disposal.

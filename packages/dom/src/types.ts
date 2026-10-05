@@ -4,7 +4,23 @@ import type { Messages } from './messages.js';
 import type { TabRegistry } from './registry.js';
 import type { LayoutTheme } from './theme.js';
 import type { LayoutStore, Layout, Pane, WindowPlacement } from 'quilt-core';
+export interface ScrollbarOptions {
+  /** Defaults to auto-hide; the 300 ms opacity fade also runs with reduced motion. */
+  visibility?: 'always' | 'auto-hide';
+  /** Defaults to overlay. Gutter space remains reserved while the controls fade. */
+  placement?: 'overlay' | 'gutter';
+  /** Reveal on pointer activity or only scroll intent and scrolling (default). */
+  revealOn?: 'pointer' | 'scroll';
+  /** Nonnegative finite milliseconds; defaults to 500. */
+  hideDelay?: number;
+}
+export interface ScrollAreaElements {
+  host: HTMLElement;
+  viewport: HTMLElement;
+}
 export interface PaneContext<State = unknown> {
+  /** Register an application-owned host and direct-child viewport. Returns idempotent cleanup. */
+  registerScrollArea(elements: ScrollAreaElements): () => void;
   element: HTMLElement;
   /** Aborted when this view is torn down, including a failed mount. */
   signal: AbortSignal;
@@ -52,6 +68,8 @@ export interface WorkspaceSettings<State = unknown> {
   resizeMode?: 'gutter' | 'border';
   tabBar?: TabBarOptions;
   theme?: LayoutTheme;
+  /** New workspaces default to auto-hide, overlay, scroll intent, and 500 ms idle delay. Explicit undefined selects native controls. */
+  scrollbars?: ScrollbarOptions;
   messages?: Messages;
   popouts?: boolean;
   confirmClose?: (request: CloseRequest) => boolean | Promise<boolean>;

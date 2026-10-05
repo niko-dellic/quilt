@@ -64,3 +64,34 @@ describe('unified registry', () => {
     expect(registry.tabs.list()[0]!.create(context)!.id).toBe('explicit');
   });
 });
+
+describe('workspace scrollbars', () => {
+  it('keeps old presets native and round-trips optional preferences by value', () => {
+    expect(parseWorkspace(preset()).scrollbars).toBeUndefined();
+    const input = {
+      ...preset(),
+      scrollbars: {
+        visibility: 'auto-hide',
+        placement: 'gutter',
+        hideDelay: 0,
+        revealOn: 'scroll',
+      },
+    };
+    const parsed = parseWorkspace(input);
+    expect(parsed).toEqual(input);
+    expect(parsed.scrollbars).not.toBe(input.scrollbars);
+  });
+  it.each([
+    null,
+    [],
+    false,
+    { visibility: 'hidden' },
+    { placement: 'auto' },
+    { revealOn: 'hover' },
+    { hideDelay: -1 },
+    { hideDelay: Infinity },
+    { hideDelay: '1000' },
+  ])('rejects invalid scrollbar preferences: %j', (scrollbars) => {
+    expect(() => parseWorkspace({ ...preset(), scrollbars })).toThrow();
+  });
+});

@@ -70,7 +70,7 @@ stylesheet edits made only through CSSOM do not emit DOM mutations; call
 when custom properties depend on ancestors absent from companion windows.
 
 Theme preferences are separate from core layout JSON and included as configured overrides in workspace presets. The
-library does not read OS preferences or write browser storage. The demo theme
+library does not choose a theme from OS preferences or write browser storage. The demo theme
 selector switches chrome presets; visualization palettes remain authored data.
 
 ## Exporting theme files from the demos
@@ -436,3 +436,73 @@ These measured constraints are renderer-owned: they do not modify exported
 layout JSON or the browser-free layout model. Use `refreshTheme()` after external
 CSSOM changes, as described above. Custom CSS that changes Quilt's structural
 chrome rules may require its own sizing adjustments.
+
+## Scrollbar visibility and placement
+
+Both adapters accept `scrollbars` as a workspace option; React also accepts it as
+a live prop. New workspaces default to custom controls over native scrolling,
+with auto-hide, overlay placement, scroll intent only, and a 500 ms idle delay.
+An empty options object uses the same defaults. Explicit `scrollbars: undefined`
+selects native scrollbars:
+
+```ts
+workspace.updateOptions({
+  scrollbars: { visibility: 'auto-hide', placement: 'gutter', hideDelay: 500 },
+});
+workspace.updateOptions({ scrollbars: undefined }); // restore native controls
+```
+
+`visibility` accepts `'always'` or `'auto-hide'`; `placement` accepts `'overlay'`
+or `'gutter'`. `revealOn` accepts `'pointer'` (pointer activity or scrolling)
+or `'scroll'` (default: scroll intent only). `hideDelay` must be a finite, nonnegative number of milliseconds.
+An updated object replaces the previous configuration; omitted object fields use
+the defaults. Invalid options reject the update before other settings change.
+
+Overlay controls occupy no layout space. Gutter controls reserve space for each
+overflowing axis, using `scrollbarSize`; the gutter remains while controls fade.
+Both modes use `scrollbarThumb`, `scrollbarTrack`, and `scrollbarSize` theme tokens.
+With `revealOn: 'pointer'`, scrolling and pointer interaction reveal controls. By default (`revealOn: 'scroll'`),
+only scrolling, wheel/trackpad input, touch movement, or scroll keys reveal them,
+including attempts at a content boundary. Mouse movement, ordinary clicks, and focus
+alone do not reveal them. Scroll keys used inside editable fields do not count.
+Dragging and keyboard focus within the area keep revealed controls visible. Mouse or touch focus does not prevent the idle fade. The opacity fade lasts 300 ms, including when reduced motion is enabled.
+Forced-colors mode uses native controls. Initialization failures report through
+`onError` and leave native scrolling available.
+
+The setting applies to every pane viewport, including companions. Application
+scroll areas inside panes require explicit registration (see below). Menus and
+tab strips retain their existing scrollbars. The imported adapter stylesheet
+includes all required styles; no extra dependency import is needed.
+
+Workspace JSON includes these preferences. Older version-1 presets without the
+field restore native behavior; core layout JSON and exported theme files do not
+include scrollbar behavior. The demo exposes these controls under
+**Theming → Scrollbars**, including **Reveal on** and **Idle delay (ms)** (default 500). This is
+the wait before fading; the opacity transition itself takes 300 ms. The controls
+fade to transparent rather than blending toward a background color, so gradients
+and application backgrounds remain visible underneath.
+
+### Nested application scroll areas
+
+Use the pane's `registerScrollArea` callback for nested content. Supply an
+application-owned, sized host and its direct-child viewport in the pane's document.
+The viewport must fill the host and use `box-sizing: border-box`. Quilt attaches
+controls as siblings of the viewport; it does not wrap or replace its children.
+Keep the host reserved for this viewport and its controls.
+
+```ts
+const host = context.document.createElement('div');
+host.style.cssText = 'width:100%;height:200px;position:relative';
+const viewport = context.document.createElement('div');
+viewport.style.cssText = 'width:100%;height:100%;overflow:auto;box-sizing:border-box';
+host.append(viewport);
+context.element.append(host);
+const unregister = context.registerScrollArea({ host, viewport });
+// Append application content to viewport. Call unregister before removing host.
+```
+
+Registration follows live workspace preferences even when initially native.
+Its cleanup is idempotent and also runs automatically on pane disposal. React
+pane props expose the same callback; register refs in a layout effect and return
+the cleanup from that effect. Editors or virtualized lists with their own
+scrollbar implementations should remain unregistered.

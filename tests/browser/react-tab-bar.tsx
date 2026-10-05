@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
 import { Workspace } from 'quilt-react';
 import type { Layout as LayoutSnapshot } from 'quilt-core';
-import type { TabBarOptions } from 'quilt-vanilla';
+import type { ScrollbarOptions, TabBarOptions } from 'quilt-vanilla';
 import 'quilt-vanilla/styles.css';
 const initialLayout: LayoutSnapshot = {
   version: 1,
@@ -23,12 +23,16 @@ function Notes() {
 }
 const components = { notes: Notes };
 function App() {
+  const [scrollbars, setScrollbars] = useState<ScrollbarOptions | undefined>();
   const [borderResize, setBorderResize] = useState(false);
   const [locked, setLocked] = useState(false);
   const [shortcutMode, setShortcutMode] = useState(0);
   const [tabBar, setTabBar] = useState<TabBarOptions>({});
   return (
     <>
+      <button onClick={() => setScrollbars((value) => (value ? undefined : { hideDelay: 30 }))}>
+        Toggle scrollbars
+      </button>
       <button onClick={() => setBorderResize((value) => !value)}>Toggle resize style</button>
       <button onClick={() => setLocked((value) => !value)}>Toggle interaction lock</button>
       <button onClick={() => setShortcutMode((mode) => (mode + 1) % 3)}>Change shortcuts</button>
@@ -47,6 +51,7 @@ function App() {
         components={components}
         {...(borderResize ? { resizeMode: 'border' as const } : {})}
         {...(locked ? { capabilities: { defaults: { close: false, move: false } } } : {})}
+        {...(scrollbars ? { scrollbars } : {})}
         tabBar={tabBar}
         {...(shortcutMode === 0
           ? { shortcuts: true }

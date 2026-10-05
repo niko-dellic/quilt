@@ -40,11 +40,11 @@ renderer lifetimes; dispose view resources without deleting application data.
 
 ## Three kinds of JSON
 
-| File or value    | Includes                                                        | Use it for                            |
-| ---------------- | --------------------------------------------------------------- | ------------------------------------- |
-| Raw layout       | Pane records, tree, detached records                            | Advanced model manipulation           |
-| Workspace preset | Docked layout, theme overrides, tab-bar settings, auto-collapse | Save/restore user configuration       |
-| Theme            | Typed appearance overrides                                      | Share appearance between applications |
+| File or value    | Includes                                                                               | Use it for                            |
+| ---------------- | -------------------------------------------------------------------------------------- | ------------------------------------- |
+| Raw layout       | Pane records, tree, detached records                                                   | Advanced model manipulation           |
+| Workspace preset | Docked layout, theme overrides, tab-bar settings, auto-collapse, scrollbar preferences | Save/restore user configuration       |
+| Theme            | Typed appearance overrides                                                             | Share appearance between applications |
 
 Callbacks, components, fonts, stylesheets, and pane data are not serialized.
 Workspace exports leave live popouts untouched but save them docked. Loading a

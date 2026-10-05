@@ -47,6 +47,16 @@ try {
     await companion.getByRole('textbox', { name: 'Working notes' }).fill('Returned from desktop');
     await page.getByRole('tab', { name: 'Theming', exact: true }).click();
     await page.getByRole('combobox', { name: 'Workspace theme' }).selectOption('zinc-dark');
+    await page.getByText('Scrollbars', { exact: true }).click();
+    await page.getByLabel('Scrollbar visibility').selectOption('auto-hide');
+    await page.getByLabel('Scrollbar placement').selectOption('gutter');
+    await expect(companion.locator('.layouts-pane-host').first()).toHaveAttribute(
+      'data-quilt-scrollbars',
+      'gutter',
+    );
+    await expect(
+      companion.locator('.layouts-pane-host').first().locator(':scope > .os-scrollbar'),
+    ).toHaveCount(2);
     await expect(companion.locator('.layouts')).toHaveCSS('--layouts-panel', '#18181b');
     await companion.close();
     await page.getByRole('tab', { name: 'Inspector', exact: true }).click();
@@ -63,6 +73,12 @@ try {
       await page.getByRole('textbox', { name: 'Layout JSON' }).inputValue(),
     );
     expect(preset.layout.popouts).toEqual([]);
+    expect(preset.scrollbars).toEqual({
+      visibility: 'auto-hide',
+      placement: 'gutter',
+      hideDelay: 500,
+      revealOn: 'scroll',
+    });
     await page.getByRole('button', { name: 'Load layout', exact: true }).click();
     await page.getByRole('tab', { name: 'Inspector', exact: true }).click();
     await expect(notes).toHaveValue('Returned from desktop');

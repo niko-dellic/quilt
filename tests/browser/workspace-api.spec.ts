@@ -183,7 +183,7 @@ test('workspace events include appearance and consolidate workspace loading', as
     ['tabBar'],
     ['autoCollapse'],
     ['layout'],
-    ['layout', 'theme', 'tabBar', 'autoCollapse'],
+    ['layout', 'theme', 'tabBar', 'autoCollapse', 'scrollbars'],
   ]);
   expect(result).toMatchObject({ unchanged: true, unsubscribed: true, errors: 1, disposed: true });
 });

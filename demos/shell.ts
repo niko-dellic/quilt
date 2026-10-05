@@ -311,6 +311,89 @@ export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
   const colorSection = section('Colors', false);
   const spacingSection = section('Spacing', false);
   const scrollbarSection = section('Scrollbars', false);
+  const scrollbarVisibility = document.createElement('select');
+  scrollbarVisibility.setAttribute('aria-label', 'Scrollbar visibility');
+  for (const [value, label] of [
+    ['native', 'Native'],
+    ['always', 'Always visible'],
+    ['auto-hide', 'Auto-hide'],
+  ]) {
+    const option = document.createElement('option');
+    option.value = value!;
+    option.textContent = label!;
+    scrollbarVisibility.append(option);
+  }
+  const scrollbarPlacement = document.createElement('select');
+  scrollbarPlacement.setAttribute('aria-label', 'Scrollbar placement');
+  for (const [value, label] of [
+    ['overlay', 'Overlay'],
+    ['gutter', 'Gutter'],
+  ]) {
+    const option = document.createElement('option');
+    option.value = value!;
+    option.textContent = label!;
+    scrollbarPlacement.append(option);
+  }
+  const scrollbarReveal = document.createElement('select');
+  scrollbarReveal.setAttribute('aria-label', 'Scrollbar reveal on');
+  for (const [value, label] of [
+    ['pointer', 'Pointer activity or scrolling'],
+    ['scroll', 'Scroll intent only'],
+  ]) {
+    const option = document.createElement('option');
+    option.value = value!;
+    option.textContent = label!;
+    scrollbarReveal.append(option);
+  }
+  const scrollbarDelay = document.createElement('input');
+  scrollbarDelay.type = 'number';
+  scrollbarDelay.className = 'demo-theme-value';
+  scrollbarDelay.min = '0';
+  scrollbarDelay.step = 'any';
+  scrollbarDelay.required = true;
+  scrollbarDelay.setAttribute('aria-label', 'Scrollbar idle delay (ms)');
+  scrollbarDelay.title = 'Time without interaction before the 300 ms fade begins.';
+  const syncScrollbars = () => {
+    const value = getMounted()?.exportWorkspace().scrollbars;
+    scrollbarVisibility.value = value ? (value.visibility ?? 'auto-hide') : 'native';
+    scrollbarPlacement.value = value?.placement ?? 'overlay';
+    scrollbarPlacement.disabled = !value;
+    scrollbarReveal.value = value?.revealOn ?? 'scroll';
+    scrollbarReveal.disabled = !value || value.visibility === 'always';
+    scrollbarDelay.value = String(value?.hideDelay ?? 500);
+    scrollbarDelay.disabled = !value || value.visibility === 'always';
+  };
+  const applyScrollbars = () => {
+    if (!scrollbarDelay.checkValidity() || !Number.isFinite(scrollbarDelay.valueAsNumber)) {
+      scrollbarDelay.reportValidity();
+      return;
+    }
+    getMounted()?.updateOptions({
+      scrollbars:
+        scrollbarVisibility.value === 'native'
+          ? undefined
+          : {
+              visibility: scrollbarVisibility.value as 'always' | 'auto-hide',
+              placement: scrollbarPlacement.value as 'overlay' | 'gutter',
+              hideDelay: scrollbarDelay.valueAsNumber,
+              revealOn: scrollbarReveal.value as 'pointer' | 'scroll',
+            },
+    });
+    syncScrollbars();
+  };
+  scrollbarVisibility.onchange = applyScrollbars;
+  scrollbarPlacement.onchange = applyScrollbars;
+  scrollbarDelay.onchange = applyScrollbars;
+  scrollbarReveal.onchange = applyScrollbars;
+  scrollbarSection.content.append(
+    labelControl(scrollbarVisibility, 'Visibility'),
+    labelControl(scrollbarPlacement, 'Placement'),
+    labelControl(scrollbarReveal, 'Reveal on'),
+    labelControl(scrollbarDelay, 'Idle delay (ms)'),
+  );
+  syncScrollbars();
+  const unsubscribeScrollbars = getMounted()?.on('change', syncScrollbars);
+  window.addEventListener('pagehide', () => unsubscribeScrollbars?.(), { once: true });
   const fontSection = section('Font');
   const tabSection = section('Tab');
   const resizeSection = section('Resizing');
