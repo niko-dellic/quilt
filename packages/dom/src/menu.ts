@@ -17,6 +17,17 @@ export function createPaneMenu(
 ) {
   const doc = root.ownerDocument,
     win = doc.defaultView!;
+  const pointerScope = new Scope();
+  let pointerPosition: { x: number; y: number } | undefined;
+  pointerScope.listen(
+    doc,
+    'pointermove',
+    (event) => {
+      const pointer = event as PointerEvent;
+      pointerPosition = { x: pointer.clientX, y: pointer.clientY };
+    },
+    { capture: true, passive: true },
+  );
   let current: Scope | undefined;
   let shortcutTarget:
     { dialog: HTMLDialogElement; context: ActionContext; close(): void } | undefined;
@@ -231,7 +242,7 @@ export function createPaneMenu(
       flyout.setAttribute('aria-label', label);
       flyouts.push({ trigger, flyout });
       let keyboardClosed = false;
-      let lastPointer: { x: number; y: number } | undefined;
+      let closedAt: { x: number; y: number } | undefined;
       let closeTimer: number | undefined;
       const cancelClose = () => {
         win.clearTimeout(closeTimer);
@@ -250,18 +261,14 @@ export function createPaneMenu(
         trigger.setAttribute('aria-expanded', String(open));
         if (open) positionMenus();
       };
-      local.listen(container, 'pointerenter', (event) => {
-        const pointer = event as PointerEvent;
-        lastPointer ??= { x: pointer.clientX, y: pointer.clientY };
+      local.listen(container, 'pointerenter', () => {
         if (!trigger.disabled && !keyboardClosed) setOpen(true);
       });
       // Hiding a flyout can retarget a stationary pointer in WebKit. Only actual
       // pointer movement should undo an explicit keyboard close.
       local.listen(doc, 'pointermove', (event) => {
         const pointer = event as PointerEvent;
-        const moved =
-          lastPointer && (pointer.clientX !== lastPointer.x || pointer.clientY !== lastPointer.y);
-        lastPointer = { x: pointer.clientX, y: pointer.clientY };
+        const moved = !closedAt || pointer.clientX !== closedAt.x || pointer.clientY !== closedAt.y;
         if (keyboardClosed && moved) {
           keyboardClosed = false;
           if (!trigger.disabled && container.contains(pointer.target as Node)) setOpen(true);
@@ -283,6 +290,7 @@ export function createPaneMenu(
         if ((event as KeyboardEvent).key === 'ArrowLeft') {
           event.preventDefault();
           keyboardClosed = true;
+          closedAt = pointerPosition;
           setOpen(false);
           trigger.focus();
         }
@@ -595,6 +603,7 @@ export function createPaneMenu(
       open(anchor, source, group, undefined, 0.5, true);
     },
     dispose() {
+      pointerScope.dispose();
       current?.dispose();
       for (const picker of persistentPickers.values()) picker.dispose();
     },
