@@ -490,3 +490,24 @@ an application-owned nested host and direct-child viewport, returning idempotent
 cleanup. `ScrollAreaElements` contains `host: HTMLElement` and `viewport: HTMLElement`.
 React `PaneProps` includes the same callback. Registrations inherit live workspace
 options and are removed automatically on pane disposal.
+
+### Pane context menu
+
+Set the global `contextMenu` option to `'button'` (integrated), `'right-click'`,
+`'both'` (default), or `'none'` in Vanilla or React. Change it live with
+`updateOptions({ contextMenu: 'right-click' })`; explicit `undefined` restores
+the default. The Theming pane’s Tab section in the demos includes the same four choices.
+
+The integrated button mode shows the menu button in every pane header, including empty
+regions. Right-click opens the same menu at the pointer anywhere on a tab bar,
+using that region's active tab. Pane content retains its normal context menu.
+Disabling right-click leaves the browser's native context menu available.
+This is session configuration, like `resizeMode`, and is not saved in layout
+JSON or workspace presets.
+
+Set `contextMenuIcon: 'three-dots' | 'one-dot'` to choose the integrated button's
+global appearance. Three dots is the default; explicit `undefined` restores it.
+The setting applies live to populated and empty pane headers in Vanilla and React,
+without changing the button's hit area or accessible label. The demo exposes it
+as **Integrated button appearance** under **Theming → Tab**. Like `contextMenu`,
+this option is session configuration and is not saved in workspace presets.

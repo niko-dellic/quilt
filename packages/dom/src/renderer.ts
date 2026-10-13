@@ -45,6 +45,14 @@ function validateResizeMode(mode: unknown) {
   if (mode !== undefined && mode !== 'gutter' && mode !== 'border')
     throw new Error('resizeMode must be gutter or border');
 }
+function validateContextMenu(mode: unknown) {
+  if (mode !== undefined && !['button', 'right-click', 'both', 'none'].includes(mode as string))
+    throw new Error('contextMenu must be button, right-click, both, or none');
+}
+function validateContextMenuIcon(icon: unknown) {
+  if (icon !== undefined && icon !== 'three-dots' && icon !== 'one-dot')
+    throw new Error('contextMenuIcon must be three-dots or one-dot');
+}
 let nextMount = 0;
 export function mountLayout<State = unknown>(
   host: HTMLElement,
@@ -71,6 +79,8 @@ export function mountLayout<State = unknown>(
         };
   validateScrollbars(scrollbars);
   validateResizeMode(input.resizeMode);
+  validateContextMenu(input.contextMenu);
+  validateContextMenuIcon(input.contextMenuIcon);
   validateTheme(theme);
   validateTabBar(tabBar);
   const store = new LayoutStore(
@@ -228,6 +238,17 @@ function mountLayoutInternal(
     r.element.dataset.nodeId = node.id;
     if (node.kind === 'group') {
       r.header = el(doc, 'header', 'layouts-header');
+      r.scope.listen(r.header, 'contextmenu', (event) => {
+        const mode = options.contextMenu ?? 'both';
+        if (mode !== 'right-click' && mode !== 'both') return;
+        const layout = options.store.getSnapshot();
+        const group = findNode(layout.root, node.id);
+        if (group?.kind !== 'group') return;
+        event.preventDefault();
+        event.stopPropagation();
+        const pointer = event as MouseEvent;
+        menu.openContext(r.header!, group, { x: pointer.clientX, y: pointer.clientY });
+      });
       r.body = el(doc, 'div', 'layouts-body');
       r.element.append(r.header, r.body);
       r.tabStyle = () => {
@@ -523,26 +544,33 @@ function mountLayoutInternal(
           regions.get(g.id)?.header?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus(),
       });
       r.header!.append(tabs);
+      const showMenuButton =
+        options.contextMenu === undefined ||
+        options.contextMenu === 'button' ||
+        options.contextMenu === 'both';
       if (!definitions.length) {
         const close = button('', message(options, 'Close empty pane'), () =>
           options.store.removeEmptyGroup(g.id, { source: 'user' }),
         );
         close.append(chromeIcon(doc, 'close'));
         close.disabled = layout.root.id === g.id || !options.store.canNode(g.id, 'close');
-        const settings = button('', message(options, 'Empty pane actions'), () =>
-          menu.openEmpty(settings, g),
-        );
-        settings.append(chromeIcon(doc, 'more'));
-        settings.setAttribute('aria-haspopup', 'dialog');
-        settings.dataset.focusId = `menu-${g.id}`;
-        r.header!.append(close, settings);
+        r.header!.append(close);
+        if (showMenuButton) {
+          const settings = button('', message(options, 'Empty pane actions'), () =>
+            menu.openEmpty(settings, g),
+          );
+          settings.append(chromeIcon(doc, options.contextMenuIcon === 'one-dot' ? 'dot' : 'more'));
+          settings.setAttribute('aria-haspopup', 'dialog');
+          settings.dataset.focusId = `menu-${g.id}`;
+          r.header!.append(settings);
+        }
       }
       const active = g.active ? layout.panes[g.active] : undefined;
-      if (active) {
+      if (active && showMenuButton) {
         const more = button('', message(options, '{title} actions', { title: active.title }), () =>
           menu.open(more, active, g),
         );
-        more.append(chromeIcon(doc, 'more'));
+        more.append(chromeIcon(doc, options.contextMenuIcon === 'one-dot' ? 'dot' : 'more'));
         more.dataset.focusId = `menu-${active.id}`;
         more.setAttribute('aria-haspopup', 'dialog');
         r.header!.append(more);
@@ -907,6 +935,8 @@ function mountLayoutInternal(
     refreshTheme,
     updateOptions(next) {
       validateResizeMode(next.resizeMode);
+      validateContextMenu(next.contextMenu);
+      validateContextMenuIcon(next.contextMenuIcon);
       if ('capabilities' in next) {
         const validation = new LayoutStore(createLayout(), {
           capabilities: next.capabilities ?? {},
@@ -949,6 +979,8 @@ function mountLayoutInternal(
         (!candidate.registry && candidate.tabs !== options.tabs) ||
         candidate.renderIcon !== options.renderIcon ||
         candidate.popouts !== options.popouts ||
+        candidate.contextMenu !== options.contextMenu ||
+        candidate.contextMenuIcon !== options.contextMenuIcon ||
         JSON.stringify(candidate.messages) !== JSON.stringify(options.messages);
       // Clear maps derived from the old registry when returning to low-level registration.
       if ('registry' in next && !next.registry && options.registry) {

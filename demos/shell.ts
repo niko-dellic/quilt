@@ -2,7 +2,7 @@ import { themes, themeFamilies, themeProperties } from 'quilt-vanilla';
 import { workspace, workspaceSession } from './model.js';
 import { defaultThemeName } from './theme.js';
 import { addThemeFields, installThemeExport } from './theme-export.js';
-import type { LayoutTheme, WorkspaceHandle } from 'quilt-vanilla';
+import type { LayoutTheme, WorkspaceHandle, WorkspaceSettings } from 'quilt-vanilla';
 // Controls belong to the demo session and survive pane moves and layout resets.
 let settings: HTMLElement | undefined;
 let settingsHost: HTMLElement | undefined;
@@ -203,6 +203,27 @@ export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
     ['automatic', 'Automatic'],
     ['compact', 'Compact'],
   ]);
+  const contextMenu = choice('Pane context menu', [
+    ['button', 'Integrated only'],
+    ['right-click', 'Right-click only'],
+    ['both', 'Integrated and right-click'],
+    ['none', 'Neither'],
+  ]);
+  contextMenu.select.value = 'both';
+  contextMenu.select.onchange = () => {
+    getMounted()?.updateOptions({
+      contextMenu: contextMenu.select.value as WorkspaceSettings['contextMenu'],
+    });
+  };
+  const contextMenuIcon = choice('Integrated button appearance', [
+    ['three-dots', 'Three dots'],
+    ['one-dot', 'One dot'],
+  ]);
+  contextMenuIcon.select.onchange = () => {
+    getMounted()?.updateOptions({
+      contextMenuIcon: contextMenuIcon.select.value as WorkspaceSettings['contextMenuIcon'],
+    });
+  };
   const attachment = choice('Tab placement', [
     ['anchored', 'Anchored'],
     ['floating', 'Floating'],
@@ -412,6 +433,8 @@ export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
   tabSection.content.append(
     placementField,
     display.field,
+    contextMenu.field,
+    contextMenuIcon.field,
     attachment.field,
     barField,
     amountField,
