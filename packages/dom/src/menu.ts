@@ -55,6 +55,7 @@ export function createPaneMenu(
     ratio = 0.5,
     groupActions = false,
     addTab = false,
+    position?: { x: number; y: number },
   ) {
     current?.dispose();
     const latestGroup = findNode(options.store.getSnapshot().root, group.id);
@@ -503,8 +504,8 @@ export function createPaneMenu(
       const above = rect.top - bounds.height - 4;
       place(
         dialog,
-        rect.right - bounds.width,
-        below + bounds.height <= top + height || above < top ? below : above,
+        position?.x ?? rect.right - bounds.width,
+        position?.y ?? (below + bounds.height <= top + height || above < top ? below : above),
       );
       for (const { trigger, flyout } of flyouts) {
         if (flyout.hidden) continue;
@@ -517,6 +518,34 @@ export function createPaneMenu(
         place(flyout, x, row.top);
       }
     };
+    // Modal backdrops retarget pointer events to the dialog instead of the tab bar.
+    // Keep the current action context and move the existing menu on repeated right-clicks.
+    local.listen(
+      dialog,
+      'contextmenu',
+      (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const pointer = event as MouseEvent;
+        position = { x: pointer.clientX, y: pointer.clientY };
+        positionMenus();
+      },
+      { capture: true },
+    );
+    // Firefox suppresses contextmenu on disabled buttons but still emits pointer events.
+    local.listen(
+      dialog,
+      'pointerdown',
+      (event) => {
+        const pointer = event as PointerEvent;
+        if (pointer.button !== 2) return;
+        event.preventDefault();
+        event.stopPropagation();
+        position = { x: pointer.clientX, y: pointer.clientY };
+        positionMenus();
+      },
+      { capture: true },
+    );
     local.listen(dialog, 'close', () => local.dispose());
     local.listen(dialog, 'click', (event) => {
       if (event.target === dialog) {
@@ -584,6 +613,11 @@ export function createPaneMenu(
     getShortcutTarget: () => shortcutTarget,
     refreshShortcuts: () => refreshShortcuts(),
     open,
+    openContext(anchor: HTMLElement, group: Group, position: { x: number; y: number }) {
+      const layout = options.store.getSnapshot();
+      const pane = group.active ? layout.panes[group.active] : undefined;
+      open(anchor, pane, group, undefined, 0.5, !group.panes.length, false, position);
+    },
     addTab(anchor: HTMLElement, group: Group) {
       const layout = options.store.getSnapshot();
       open(

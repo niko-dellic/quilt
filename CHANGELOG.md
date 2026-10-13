@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0
+
+- Add global `contextMenu` settings for integrated buttons, tab-bar right-click, both, or neither in Vanilla and React. Both entry points are enabled by default.
+- Add `contextMenuIcon` to choose three dots (default) or a larger solid single dot for integrated menu buttons across populated and empty regions.
+- Reposition open pane menus on repeated right-clicks while suppressing native browser menus, including over disabled items in Firefox.
+- Expose both controls in the demo Theming pane's Tab section. Settings apply live without remounting pane content and remain session configuration outside saved layouts and workspace presets.
+- Add cross-browser coverage for all modes, icon choices, live updates, repeated right-clicks, and viewport clamping.
+
 ## 0.8.0
 
 - Keep keyboard-closed submenus hidden until the pointer moves, preventing WebKit hover retargeting from reopening them.
