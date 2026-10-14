@@ -84,7 +84,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      "import { ThreeSession, ThreeView, CameraHelpers, createThreeSession } from 'quilt-three'; if (![ThreeSession, ThreeView, CameraHelpers, createThreeSession].every(value => typeof value === 'function')) throw new Error('Missing export');",
+      "import { ThreeSession, ThreeView, CameraHelpers, NavigationControls, createThreeSession } from 'quilt-three'; if (![ThreeSession, ThreeView, CameraHelpers, NavigationControls, createThreeSession].every(value => typeof value === 'function')) throw new Error('Missing export');",
     ],
     temp,
   );

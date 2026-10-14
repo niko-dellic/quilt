@@ -161,11 +161,13 @@ across different documents is not a supported interaction model in this release.
 - Demand rendering is the default. Set `frameloop: 'always'` for continuous animation.
 - `update(delta)` advances shared simulation once per tick; hidden views skip drawing.
 - Pixel ratio follows each document and is capped at 2 by default; configure `maxPixelRatio`.
-- Controls factories receive `{ camera, element, invalidate }`. Return `enabled`,
+- Controls factories receive `{ camera, element, invalidate, inputScope }`. Return `enabled`,
   `update(delta)` (true while another frame is needed), and `dispose()`.
 - Subscribe controls change events to `invalidate`, and unsubscribe in `dispose`.
-  All demo workspaces share the same OrbitControls adapter with orbit, zoom, reset,
-  and drag cancellation. Right-drag, Shift-drag, and middle-drag pan; pane menus remain available from the tab bar. Orbit and pan use damping; no controls dependency is required by the package.
+  `NavigationControls` handles invalidation and cleanup itself. All demo workspaces
+  share this adapter. In Orbit, right-drag, Shift-drag, and middle-drag pan with
+  damping; pane menus remain available from the tab bar. No additional controls
+  package is required.
 - Only the first live view of a given camera accepts input during overlapping mounts.
   Use independent cameras for independently interactive docked views.
 - A renderer factory receives a canvas created in the correct document. Return a
@@ -237,3 +239,167 @@ moves with its position so subsequent input preserves its viewing direction.
 While sync is enabled, camera helpers are hidden and their buttons are disabled.
 Turning sync off restores the previous helper settings and independent movement without resetting camera poses.
 The two workspaces retain their own toggle settings for the current demo session.
+
+## Optional Free navigation
+
+`NavigationControls` is an optional class implementing `ViewControls`. It combines
+OrbitControls with keyboard navigation and works through the same controls factory
+in vanilla and React. Other controls factories remain supported.
+
+```ts
+import { PerspectiveCamera, Vector3 } from 'three';
+import { NavigationControls } from 'quilt-three';
+import type { ControlsContext, ViewOptions } from 'quilt-three';
+
+const camera = new PerspectiveCamera(50, 1, 0.1, 100);
+camera.position.set(5, 5, 5);
+const target = new Vector3(); // Application-owned orbit point for this camera.
+camera.lookAt(target);
+
+const controls = (context: ControlsContext) =>
+  new NavigationControls(context, {
+    target,
+    orbitTargetPolicy: 'follow',
+    speed: 2,
+    minSpeed: 0.05,
+    maxSpeed: 100,
+    boostMultiplier: 4,
+    acceleration: 0.15,
+    braking: 0.15,
+    lookSensitivity: 0.003,
+    bindings: { forward: ['KeyW', 'ArrowUp'], down: [] },
+  });
+
+const viewOptions: ViewOptions = { camera, controls };
+// Vanilla: session.register(paneContext, viewOptions).
+// React: <ThreeView paneContext={paneContext} {...viewOptions} />.
+```
+
+Keep React camera and factory references stable: changing their identity remounts
+the view. Use a separate application-owned target for each independently controlled
+camera. No global installation or Three.js prototype changes are needed.
+
+### Mouse and keyboard controls
+
+These are the default bindings; the example above disables Q/down deliberately.
+
+| Input                            | Orbit                   | Free navigation                                                     |
+| -------------------------------- | ----------------------- | ------------------------------------------------------------------- |
+| Left-drag                        | Orbit around the target | Stop translation, return to Orbit, and start orbiting               |
+| Right-drag                       | Damped pan              | Yaw and pitch without adding roll                                   |
+| Middle-drag or Shift + left-drag | Damped pan              | Use left-drag to return to Orbit first                              |
+| Wheel                            | Zoom                    | Adjust movement speed within its limits                             |
+| W / Up, S / Down                 | Enter Free navigation   | Move forward / backward along the camera direction, including pitch |
+| A / Left, D / Right              | Enter Free navigation   | Strafe along camera-right                                           |
+| Q / E                            | Enter Free navigation   | Move down / up along `camera.up`                                    |
+| Shift                            | Modifies Orbit gestures | Boost movement speed                                                |
+| Escape                           | Cancel an active drag   | Stop immediately and return to Orbit                                |
+| Double-click                     | Reset original pose     | Reset original pose and return to Orbit                             |
+
+Hover the viewport to use navigation keys. Diagonal movement is normalized, and
+movement accelerates smoothly. Releasing keys brakes smoothly but leaves Free
+navigation active. The demos display a noninteractive indicator with an Escape hint
+while Free navigation is active. The library leaves overlay UI to the application.
+
+Both perspective and orthographic cameras retain their projection. In orthographic
+views, forward movement changes camera position without perspective-style zoom.
+Native context menus are suppressed on viewport input surfaces; Quilt pane menus
+remain available from the tab bar.
+
+### Options and defaults
+
+| Option                     | Default                              | Meaning                                                                    |
+| -------------------------- | ------------------------------------ | -------------------------------------------------------------------------- |
+| `target`                   | A point 10 units ahead of the camera | Mutable application-owned `Vector3` used as the orbit target               |
+| `orbitTargetPolicy`        | `'follow'`                           | Target behavior when returning to Orbit; see below                         |
+| `speed`                    | `2`                                  | World units per second, clamped to the speed limits                        |
+| `minSpeed` / `maxSpeed`    | `0.05` / `100`                       | Bounds for the base movement speed, including wheel adjustments            |
+| `boostMultiplier`          | `4`                                  | Multiplier while a boost key is held                                       |
+| `acceleration` / `braking` | `0.15` / `0.15`                      | Time constants in seconds; larger values accelerate or stop more gradually |
+| `lookSensitivity`          | `0.003`                              | Radians per CSS pixel during Free mouse-look                               |
+| `bindings`                 | The keys listed above                | `KeyboardEvent.code` arrays per action                                     |
+
+Numeric options must be positive and finite; `maxSpeed` must be at least `minSpeed`.
+Acceleration and braking describe Free navigation inertia, not Orbit damping.
+Orbit and pan currently use a fixed damping factor of `0.12`.
+
+Bindings accept `forward`, `backward`, `left`, `right`, `down`, `up`, and `boost`.
+Omitted actions retain defaults, supplied arrays replace them, and empty arrays
+disable them. For example, `{ forward: ['KeyI'], down: [] }` replaces W/Up with I,
+disables Q/down, and leaves all other actions unchanged. The default boost codes are
+`ShiftLeft` and `ShiftRight`.
+
+### Orbit target policies
+
+| Policy       | Demo label           | Behavior when returning to Orbit                                                                       |
+| ------------ | -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `'follow'`   | Follow navigation    | Retain the viewing direction; put the target ahead at the distance saved when Free navigation began    |
+| `'preserve'` | Preserve orbit point | Restore the world-space target saved when Free navigation began; turn the camera toward it immediately |
+
+During Free translation, the working target moves by the same XYZ displacement as
+the camera. Follow then rebuilds that target on return:
+
+```text
+target = camera position + viewing direction × previous orbit distance
+```
+
+Follow includes vertical displacement and pitch. Preserve restores the full saved
+point instead. Its return changes orientation as needed, but retains camera position
+and zoom. The saved point survives pane remounts and companion transitions.
+
+Assign `controls.orbitTargetPolicy` at runtime to choose the policy for the next
+return without moving the camera immediately. A change made while Free navigation
+is active uses the point saved on entry to that navigation sequence.
+
+In both demos, **Settings → Camera navigation → Orbit target** exposes these two
+choices, with Follow selected initially. The choice applies to all viewports and
+survives workspace changes and popouts for the current demo session. The **Hotkeys**
+tab documents the keyboard and mouse controls; arrow keys navigate the hovered
+viewport, while focused tabs retain their tab-switching shortcuts.
+
+### Runtime API
+
+| Member                 | Behavior                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `mode`                 | Read `'orbit'` or `'free'`                                                                                 |
+| `setMode(mode)`        | Switch modes, clearing held movement and velocity                                                          |
+| `speed`                | Read or set base speed; assignments are clamped to the configured limits                                   |
+| `orbitTargetPolicy`    | Read or set `'follow'` or `'preserve'`                                                                     |
+| `camera` / `target`    | Access the controlled camera and mutable orbit target                                                      |
+| `enabled`              | Enable or disable input; disabling stops movement                                                          |
+| `setPosition(Vector3)` | Translate camera and working target together, preserving orientation and zoom and clearing residual motion |
+| `reset()`              | Restore the original pose and Orbit mode                                                                   |
+| `update(delta)`        | Advance controls in seconds; return true while another frame is needed                                     |
+| `dispose()`            | Remove listeners and dispose the underlying OrbitControls; safe to call again                              |
+
+`setPosition()` does not replace the saved Preserve return point during Free
+navigation. This makes it suitable for position synchronization without rotating
+peer cameras. Speed and target policy are runtime settings; bindings, speed limits,
+boost, inertia, and sensitivity are constructor options.
+
+Use `addEventListener('change', handler)` for camera changes and
+`addEventListener('modechange', handler)` for mode changes; the latter event carries
+`mode`. Remove application subscriptions when their owner is disposed.
+
+### Scheduling and input ownership
+
+The controller invalidates its session automatically and advances through the existing
+session scheduler. It creates no animation loop; on-demand rendering settles after
+movement and damping stop. The React adapter uses the same scheduling infrastructure.
+
+Only one hovered viewport owns keyboard navigation within a session, including
+companions. Inputs, textareas, selects, editable content, visible menus/dialogs, and
+Ctrl/Meta/Alt shortcuts are excluded. Leaving a viewport, switching hovered panes,
+losing window focus, hiding/disabling a view, or disposing controls stops keyboard
+motion immediately. Held-key repeat cannot transfer movement to another pane:
+a fresh key press is required. After editing a form control, focus the viewport to
+resume navigation.
+
+Camera pose, target, mode, and speed survive remounts within the same session; held
+keys and velocity do not. `ThreeSession` supplies `ControlsContext.inputScope` for
+shared ownership and retained state. Standalone controllers may supply the same
+scope object across documents; without one, the scope is the input element's document.
+
+Mounted views dispose their controls. View teardown never disposes shared scene
+assets. Collision detection, gravity, pointer lock, and gamepad navigation are outside
+this controller's scope.

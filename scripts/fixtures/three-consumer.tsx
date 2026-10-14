@@ -1,5 +1,5 @@
 import { Scene } from 'three';
-import { ThreeSession, ThreeView as View, CameraHelpers } from 'quilt-three';
+import { ThreeSession, ThreeView as View, CameraHelpers, NavigationControls } from 'quilt-three';
 import {
   CameraHelpers as ReactCameraHelpers,
   SharedScene,
@@ -28,3 +28,5 @@ export function App() {
   );
 }
 export { ThreeView, useThreeSession };
+
+export { NavigationControls };

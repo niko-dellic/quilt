@@ -1,8 +1,8 @@
+import { navigationSettings } from './navigation-settings.js';
 import { cameraKinds } from './custom-views-layout.js';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { grayscale } from './three-effect.js';
-import { CameraHelpers } from 'quilt-three';
+import { CameraHelpers, NavigationControls } from 'quilt-three';
 import type { ControlsContext, ThreeSession } from 'quilt-three';
 import { helperDisplay, cameraSync, cameraSyncScope } from './camera-helper-controls.js';
 export { layout } from './three-layout.js';
@@ -38,12 +38,9 @@ export function getCamera(id: string) {
   }
   return camera;
 }
-type CameraPose = { position: THREE.Vector3; target: THREE.Vector3; zoom: number };
 const cameraTargets = new WeakMap<THREE.Camera, THREE.Vector3>();
-const initialPoses = new WeakMap<THREE.Camera, CameraPose>();
-const orbitInstances = new Set<OrbitControls>();
+const orbitInstances = new Set<NavigationControls>();
 const positionListeners = new Set<(camera: THREE.Camera) => void>();
-const positionBaselines = new WeakMap<THREE.Camera, THREE.Vector3>();
 
 /** Demo policy shared by vanilla and React; targets translate with positions to preserve rotation. */
 class CameraPositionSync {
@@ -89,31 +86,18 @@ class CameraPositionSync {
       for (const camera of new Set(views.map((view) => view.camera))) {
         if (camera === source || cameraSyncScope(camera.name) !== scope) continue;
         const position = source.position.clone();
-        const rotation = camera.quaternion.clone();
-        const projection = camera as THREE.PerspectiveCamera | THREE.OrthographicCamera;
-        const zoom = projection.zoom;
         const target = (cameraTargets.get(camera) ?? new THREE.Vector3())
           .clone()
           .add(position.clone().sub(camera.position));
         const controls =
-          [...orbitInstances].find((instance) => instance.object === camera && instance.enabled) ??
-          [...orbitInstances].find((instance) => instance.object === camera);
+          [...orbitInstances].find((instance) => instance.camera === camera && instance.enabled) ??
+          [...orbitInstances].find((instance) => instance.camera === camera);
         if (controls) {
-          const damping = controls.enableDamping;
-          controls.enableDamping = false;
-          controls.update(); // Drain residual motion before assigning the synchronized pose.
-          controls.target.copy(target);
-          camera.position.copy(position);
-          projection.zoom = zoom;
-          projection.updateProjectionMatrix();
-          controls.update();
-          controls.enableDamping = damping;
+          controls.setPosition(position);
         } else {
           camera.position.copy(position);
           cameraTargets.set(camera, target);
         }
-        camera.quaternion.copy(rotation);
-        positionBaselines.get(camera)?.copy(camera.position);
         camera.updateMatrixWorld();
       }
       this.session.invalidate();
@@ -125,85 +109,35 @@ class CameraPositionSync {
     for (const cleanup of this.cleanup.splice(0)) cleanup();
   }
 }
-export function orbit({ camera, element, invalidate }: ControlsContext) {
-  const viewCamera = camera as THREE.PerspectiveCamera | THREE.OrthographicCamera;
+export function orbit(context: ControlsContext) {
+  const { camera, element, invalidate } = context;
   const target = cameraTargets.get(camera) ?? new THREE.Vector3();
   cameraTargets.set(camera, target);
-  const snapshot = (): CameraPose => ({
-    position: camera.position.clone(),
-    target: target.clone(),
-    zoom: viewCamera.zoom,
+  const controls = new NavigationControls(context, {
+    target,
+    orbitTargetPolicy: navigationSettings.orbitTargetPolicy,
   });
-  if (!initialPoses.has(camera)) initialPoses.set(camera, snapshot());
-  const controls = new OrbitControls(camera, element);
-  controls.target = target;
-  controls.enablePan = true;
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.12;
-  // Right-drag pans with damping; Quilt menus belong to pane chrome.
-  controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
-  controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
-  element.tabIndex = 0;
-  element.setAttribute(
-    'aria-label',
-    'Scene viewport. Drag to orbit, right-drag, Shift-drag or middle-drag to pan, scroll to zoom, double-click to reset.',
-  );
-  let drag: { id: number; pose: CameraPose } | undefined;
-  const restore = (pose: CameraPose) => {
-    controls.disconnect();
-    if (drag && element.hasPointerCapture(drag.id)) element.releasePointerCapture(drag.id);
-    drag = undefined;
-    // Drain residual damping before restoring so reset/cancel stops immediately.
-    controls.enableDamping = false;
-    controls.update();
-    camera.position.copy(pose.position);
-    viewCamera.zoom = pose.zoom;
-    viewCamera.updateProjectionMatrix();
-    controls.target.copy(pose.target);
-    controls.update();
-    controls.enableDamping = true;
-    controls.connect(element);
-    invalidate();
-  };
-  const start = (event: PointerEvent) => {
-    if (!controls.enabled || (event.button !== 0 && event.button !== 1 && event.button !== 2))
-      return;
-    element.focus({ preventScroll: true });
-    drag = { id: event.pointerId, pose: snapshot() };
-  };
-  const end = () => {
-    drag = undefined;
-  };
-  const cancel = () => {
-    if (drag) restore(drag.pose);
-  };
-  const key = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && drag) {
-      event.preventDefault();
-      cancel();
-    }
-  };
-  const reset = () => {
-    if (controls.enabled) restore(initialPoses.get(camera)!);
-  };
-  element.addEventListener('pointerdown', start, true);
-  element.ownerDocument.addEventListener('pointerup', end);
-  element.addEventListener('pointercancel', cancel);
-  element.ownerDocument.addEventListener('keydown', key);
-  element.addEventListener('dblclick', reset);
-  const previousPosition = positionBaselines.get(camera) ?? camera.position.clone();
-  positionBaselines.set(camera, previousPosition);
-  const syncPosition = () => {
+  const unsubscribeNavigation = navigationSettings.subscribe(() => {
+    controls.orbitTargetPolicy = navigationSettings.orbitTargetPolicy;
+  });
+  orbitInstances.add(controls);
+  const previousPosition = camera.position.clone();
+  const change = () => {
     if (previousPosition.distanceToSquared(camera.position) > 1e-18) {
       previousPosition.copy(camera.position);
       for (const listener of positionListeners) listener(camera);
     }
-  };
-  const change = () => {
-    syncPosition();
     invalidate();
   };
-  orbitInstances.add(controls);
+  const indicator = element.ownerDocument.createElement('span');
+  indicator.className = 'demo-free-navigation';
+  indicator.textContent = 'Free navigation · Esc to orbit';
+  const mode = () => {
+    indicator.hidden = controls.mode !== 'free';
+  };
+  mode();
+  element.parentElement!.append(indicator);
+  controls.addEventListener('modechange', mode);
   controls.addEventListener('change', change);
   return {
     get enabled() {
@@ -212,21 +146,13 @@ export function orbit({ camera, element, invalidate }: ControlsContext) {
     set enabled(value: boolean) {
       controls.enabled = value;
     },
-    update: () => {
-      const moving = controls.update();
-      // OrbitControls suppresses change events below its own epsilon; still copy
-      // the final damping steps so synchronized XYZ coordinates do not drift apart.
-      syncPosition();
-      return moving;
-    },
+    update: (delta: number) => controls.update(delta),
     dispose() {
-      element.removeEventListener('pointerdown', start, true);
-      element.ownerDocument.removeEventListener('pointerup', end);
-      element.removeEventListener('pointercancel', cancel);
-      element.ownerDocument.removeEventListener('keydown', key);
-      element.removeEventListener('dblclick', reset);
+      unsubscribeNavigation();
+      indicator.remove();
       orbitInstances.delete(controls);
       controls.removeEventListener('change', change);
+      controls.removeEventListener('modechange', mode);
       controls.dispose();
     },
   };

@@ -8,6 +8,8 @@ export interface ViewControls {
   dispose(): void;
 }
 export interface ControlsContext {
+  /** Shared input ownership and camera state scope; supplied by ThreeSession. */
+  inputScope?: object;
   camera: Camera;
   element: HTMLElement;
   invalidate(): void;
@@ -446,6 +448,7 @@ export class ThreeSession {
       surface.views.add(view);
       if (viewOptions.controls) {
         view.controls = viewOptions.controls({
+          inputScope: this,
           camera: viewOptions.camera,
           element: input,
           invalidate: this.invalidate,
@@ -679,3 +682,11 @@ export function createThreeSession(options: SessionOptions): ThreeSession {
 
 export { CameraHelpers } from './camera-helpers.js';
 export type { CameraHelpersOptions } from './camera-helpers.js';
+
+export { NavigationControls } from './navigation-controls.js';
+export type {
+  NavigationControlsOptions,
+  NavigationMode,
+  OrbitTargetPolicy,
+  NavigationAction,
+} from './navigation-controls.js';

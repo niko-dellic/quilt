@@ -1035,3 +1035,16 @@ html:has(.demo-main:fullscreen) {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.demo-free-navigation {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 1;
+  pointer-events: none;
+  padding: 5px 7px;
+  border-radius: 4px;
+  color: var(--layouts-text);
+  background: var(--layouts-header);
+  font-size: 11px;
+}
