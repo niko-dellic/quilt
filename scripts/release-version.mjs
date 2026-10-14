@@ -5,6 +5,7 @@ const paths = [
   'packages/core/package.json',
   'packages/dom/package.json',
   'packages/react/package.json',
+  'packages/three/package.json',
 ];
 const read = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const manifests = paths.map(read);
@@ -30,10 +31,12 @@ const lock = read('package-lock.json');
 for (let i = 0; i < paths.length; i++) {
   const m = manifests[i];
   m.version = version;
-  for (const name of names) if (m.dependencies?.[name]) m.dependencies[name] = version;
+  for (const field of ['dependencies', 'peerDependencies'])
+    for (const name of names) if (m[field]?.[name]) m[field][name] = version;
   const key = i === 0 ? '' : paths[i].replace('/package.json', '');
   lock.packages[key].version = version;
   if (m.dependencies) lock.packages[key].dependencies = m.dependencies;
+  if (m.peerDependencies) lock.packages[key].peerDependencies = m.peerDependencies;
 }
 lock.version = version;
 for (let i = 0; i < paths.length; i++)

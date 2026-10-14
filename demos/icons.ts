@@ -1,5 +1,8 @@
 import {
   Activity,
+  Square,
+  PanelTop,
+  PanelLeft,
   Search,
   Keyboard,
   Box,
@@ -12,6 +15,10 @@ import {
 } from 'lucide';
 import type { IconNode } from 'lucide';
 const icons: Record<string, IconNode> = {
+  'camera-perspective': Box,
+  'camera-top': PanelTop,
+  'camera-front': Square,
+  'camera-side': PanelLeft,
   fullscreen: Maximize,
   exitFullscreen: Minimize,
   activity: Activity,

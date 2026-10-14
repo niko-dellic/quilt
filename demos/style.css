@@ -345,25 +345,6 @@ html:has(.demo-main:fullscreen) {
   color: var(--layouts-muted);
   line-height: 1.6;
 }
-.scene-container {
-  position: relative;
-  overflow: hidden;
-}
-.scene-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.scene-chip {
-  position: absolute;
-  top: 17px;
-  left: 19px;
-  font:
-    8px ui-monospace,
-    monospace;
-  letter-spacing: 1px;
-  color: var(--layouts-muted);
-}
 .demo-timeline {
   padding: var(--layouts-panel-padding, 8px);
 }
@@ -680,28 +661,20 @@ html:has(.demo-main:fullscreen) {
   outline-offset: 3px;
 }
 
-.scene-canvas {
+[data-quilt-three-input] {
   cursor: grab;
-  touch-action: none;
 }
-.layouts .scene-canvas:focus {
-  outline: none;
-}
-.scene-canvas.is-orbiting {
+[data-quilt-three-input]:active {
   cursor: grabbing;
 }
-.scene-chip {
-  pointer-events: none;
+[data-quilt-three-input]:focus {
+  outline: none;
 }
 .layouts-group[data-tab-placement='top'][data-tab-bar='tapered'] .demo-inspector,
 .layouts-group[data-tab-placement='top'][data-tab-bar='tapered'] .demo-tools,
 .layouts-group[data-tab-placement='top'][data-tab-bar='tapered'] .demo-hotkeys,
 .layouts-group[data-tab-placement='top'][data-tab-bar='tapered'] .demo-timeline {
   padding-top: calc(var(--layouts-tab-bar-height, 0px) + var(--layouts-panel-padding, 8px));
-}
-.scene-chip {
-  top: auto;
-  bottom: 12px;
 }
 
 /* Labels sit across the border without adding height to the toolbar. */
@@ -982,4 +955,39 @@ html:has(.demo-main:fullscreen) {
   border-radius: 5px;
   background: var(--layouts-panel);
   cursor: pointer;
+}
+
+.demo-view-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.demo-view-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.demo-view-controls input {
+  width: 48px;
+}
+.demo-view-controls input,
+.demo-view-controls button {
+  color: var(--layouts-text);
+  background: var(--layouts-header);
+  border: 1px solid var(--layouts-line);
+  border-radius: 4px;
+  padding: 6px;
+  font: inherit;
+}
+.demo-view-controls button {
+  white-space: nowrap;
+  cursor: pointer;
+}
+.demo-view-controls span {
+  color: var(--layouts-muted);
+  white-space: nowrap;
 }

@@ -10,6 +10,7 @@ const files = [
   'packages/core/package.json',
   'packages/dom/package.json',
   'packages/react/package.json',
+  'packages/three/package.json',
   'CHANGELOG.md',
   'examples/vanilla/package.json',
   'examples/react/package.json',
@@ -50,6 +51,7 @@ test('version command rejects invalid/decreasing input without writes and update
     ))
       assert.equal(read(file).version, next);
     assert.equal(read('packages/react/package.json').dependencies['quilt-vanilla'], next);
+    assert.equal(read('packages/three/package.json').peerDependencies['quilt-react'], next);
     assert.equal(read('examples/react/package.json').dependencies['quilt-react'], next);
     assert.equal(
       read('package-lock.json').packages['packages/dom'].dependencies['quilt-core'],

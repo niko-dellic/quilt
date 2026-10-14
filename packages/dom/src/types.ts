@@ -26,6 +26,8 @@ export interface PaneContext<State = unknown> {
   signal: AbortSignal;
   /** Register view-owned cleanup; callbacks run once in reverse order. */
   onCleanup(callback: () => void): void;
+  /** Delay pane readiness until application resources initialize. Register during mount/commit. */
+  deferReady(ready: Promise<void>): void;
   reportError(error: unknown): void;
   document: Document;
   window: Window;

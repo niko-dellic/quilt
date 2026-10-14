@@ -1,3 +1,4 @@
+import { ThreeDemo, ThreePane } from './three-react.js';
 import { defaultTheme } from './theme.js';
 import { surfaces, swatchBackground } from './surfaces.js';
 import { renderIcon } from './icons.js';
@@ -7,7 +8,7 @@ import { createRef, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { Workspace, defaultShortcuts } from 'quilt-react';
 import type { PaneProps } from 'quilt-react';
 import type { WorkspaceHandle } from 'quilt-react';
-import { initial, bindWorkspace, state, getPaneState, tabs } from './model.js';
+import { initial, bindWorkspace, state, getPaneState, tabs, workspaceSession } from './model.js';
 import { imperativeView } from './views.js';
 import { setupShell } from './shell.js';
 function Notes() {
@@ -76,10 +77,12 @@ function Imperative(props: PaneProps) {
   );
 }
 const components = {
+  'view-controls': Imperative,
+  three: ThreePane,
   settings: Imperative,
   notes: Notes,
   theming: Imperative,
-  canvas: Imperative,
+  canvas: ThreePane,
   toolbar: Imperative,
   tools: Imperative,
   timeline: Imperative,
@@ -91,20 +94,27 @@ const demoTabBar = { attachment: 'floating', fit: 'fit' } as const;
 const ref = createRef<WorkspaceHandle>();
 const root = createRoot(document.querySelector('#workspace')!);
 root.render(
-  <Workspace
-    ref={ref}
-    initialLayout={initial}
-    onReady={(handle) => {
-      bindWorkspace(handle);
-      setupShell(() => handle);
-    }}
-    components={components}
-    getPaneState={getPaneState}
-    tabs={tabs}
-    theme={defaultTheme}
-    resizeMode="border"
-    renderIcon={renderIcon}
-    shortcuts={defaultShortcuts}
-    tabBar={demoTabBar}
-  />,
+  <ThreeDemo>
+    <Workspace
+      ref={ref}
+      initialLayout={initial}
+      onReady={(handle) => {
+        bindWorkspace(handle);
+        setupShell(() => handle);
+        const requestedWorkspace = new URLSearchParams(location.search).get('workspace');
+        if (requestedWorkspace === 'three' || requestedWorkspace === 'custom')
+          workspaceSession.select(requestedWorkspace);
+      }}
+      components={components}
+      getPaneState={getPaneState}
+      tabs={tabs}
+      theme={defaultTheme}
+      resizeMode="border"
+      renderIcon={renderIcon}
+      shortcuts={defaultShortcuts}
+      tabBar={demoTabBar}
+    />
+  </ThreeDemo>,
 );
+
+window.addEventListener('pagehide', () => root.unmount(), { once: true });

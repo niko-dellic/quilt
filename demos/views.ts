@@ -1,9 +1,8 @@
+import { customViews } from './model.js';
 import { settings } from './settings.js';
 import { formatShortcut } from 'quilt-vanilla';
 import { mountFullscreenToggle } from './fullscreen.js';
 import { mountTheming } from './shell.js';
-import { canvas } from './scene.js';
-export { canvas } from './scene.js';
 import type { PaneRenderer, PaneContext } from 'quilt-vanilla';
 import { state, workspaces, workspaceSession, onWorkspace } from './model.js';
 import { surfaces, swatchBackground } from './surfaces.js';
@@ -228,15 +227,59 @@ export const hotkeys: PaneRenderer = ({ element, document: doc }) => {
 };
 export const footer: PaneRenderer = ({ element, document: doc }) => {
   element.classList.add('demo-footer');
-  element.append(field(doc, 'span', '●  Ready'), field(doc, 'span', 'Local session'));
+  const status = field(doc, 'span', '●  Ready');
+  status.id = 'status';
+  element.append(status, field(doc, 'span', 'Local session'));
   return { dispose() {} };
 };
 export const theming: PaneRenderer = ({ element }) => mountTheming(element);
+const viewControls: PaneRenderer = ({ element, document: doc, signal }) => {
+  const form = doc.createElement('form');
+  form.className = 'demo-view-controls';
+  const inputs = ['Rows', 'Columns'].map((title) => {
+    const label = doc.createElement('label');
+    label.textContent = title;
+    const input = doc.createElement('input');
+    input.type = 'number';
+    input.min = '1';
+    input.step = '1';
+    input.required = true;
+    input.setAttribute('aria-label', title);
+    label.append(input);
+    form.append(label);
+    return input;
+  });
+  const apply = doc.createElement('button');
+  apply.type = 'submit';
+  apply.textContent = 'Apply grid';
+  const status = doc.createElement('span');
+  status.setAttribute('aria-live', 'polite');
+  form.append(apply, status);
+  const sync = () => {
+    const { rows, columns } = customViews.get();
+    inputs[0]!.value = String(rows);
+    inputs[1]!.value = String(columns);
+    status.textContent = `${rows * columns} viewports`;
+  };
+  sync();
+  const unsubscribe = customViews.subscribe(sync);
+  form.addEventListener(
+    'submit',
+    (event) => {
+      event.preventDefault();
+      if (form.reportValidity())
+        customViews.set(inputs[0]!.valueAsNumber, inputs[1]!.valueAsNumber);
+    },
+    { signal },
+  );
+  element.append(form);
+  return { dispose: unsubscribe };
+};
 export const renderers = {
+  'view-controls': viewControls,
   settings,
   theming,
   notes,
-  canvas,
   toolbar,
   tools,
   timeline,

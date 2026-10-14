@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Quilt — Three.js workspace</title>
+  </head>
+  <body>
+    <script>
+      const query = new URLSearchParams(location.search);
+      query.set('workspace', 'three');
+      location.replace('/vanilla.html?' + query);
+    </script>
+    <a href="/vanilla.html?workspace=three">Open the Three.js workspace</a>
+  </body>
+</html>

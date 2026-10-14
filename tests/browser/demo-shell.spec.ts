@@ -26,15 +26,27 @@ for (const framework of ['vanilla', 'react']) {
   test(`${framework}: theme covers the page, controls, dialog, and scene`, async ({ page }) => {
     await page.goto(`/${framework}.html`);
     const theme = page.getByRole('combobox', { name: 'Workspace theme' });
-    const canvas = page.locator('.scene-canvas');
+    const canvas = page.locator('[data-quilt-three-canvas]');
     await expect(canvas).toBeVisible();
-    const initial = await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL());
+    const initial = await canvas.evaluate(
+      (element: HTMLCanvasElement) => (
+        window.threeDemo.session.render(performance.now()),
+        element.toDataURL()
+      ),
+    );
     await theme.selectOption('zinc-dark');
     await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(24, 24, 27)');
     await expect(page.locator('html')).toHaveCSS('color', 'rgb(250, 250, 250)');
     await expect(theme).toHaveCSS('background-color', 'rgb(24, 24, 27)');
     await expect
-      .poll(() => canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL()))
+      .poll(() =>
+        canvas.evaluate(
+          (element: HTMLCanvasElement) => (
+            window.threeDemo.session.render(performance.now()),
+            element.toDataURL()
+          ),
+        ),
+      )
       .not.toBe(initial);
     const controls = page
       .locator('.demo-theming .demo-actions')
@@ -66,15 +78,27 @@ for (const framework of ['vanilla', 'react']) {
     await blue.click();
     await expect(blue).toHaveAttribute('aria-pressed', 'true');
     const lightSwatch = await blue.evaluate((element) => getComputedStyle(element).backgroundColor);
-    const canvas = page.locator('.scene-canvas');
-    const lightScene = await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL());
+    const canvas = page.locator('[data-quilt-three-canvas]');
+    const lightScene = await canvas.evaluate(
+      (element: HTMLCanvasElement) => (
+        window.threeDemo.session.render(performance.now()),
+        element.toDataURL()
+      ),
+    );
     await page.getByRole('tab', { name: 'Theming', exact: true }).click();
     await theme.selectOption('neutral-dark');
     await page.getByRole('tab', { name: 'Inspector', exact: true }).click();
     await expect(blue).not.toHaveCSS('background-color', lightSwatch);
     await expect(blue).toHaveAttribute('aria-pressed', 'true');
     await expect
-      .poll(() => canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL()))
+      .poll(() =>
+        canvas.evaluate(
+          (element: HTMLCanvasElement) => (
+            window.threeDemo.session.render(performance.now()),
+            element.toDataURL()
+          ),
+        ),
+      )
       .not.toBe(lightScene);
     await page.getByRole('button', { name: 'Inspector actions', exact: true }).click();
     const popupEvent = page.waitForEvent('popup');

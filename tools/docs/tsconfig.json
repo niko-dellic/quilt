@@ -7,5 +7,10 @@
       "quilt-vanilla": ["../../packages/dom/src/index.ts"]
     }
   },
-  "include": ["../../packages/core/src", "../../packages/dom/src", "../../packages/react/src"]
+  "include": [
+    "../../packages/core/src",
+    "../../packages/dom/src",
+    "../../packages/react/src",
+    "../../packages/three/src"
+  ]
 }

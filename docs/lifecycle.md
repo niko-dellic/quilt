@@ -127,3 +127,12 @@ content. Nested application scroll areas register explicitly through
 callback. Call the returned cleanup before removing a nested host. Pane disposal
 also removes all registrations, controls, listeners, observers, and timers.
 Companion views receive current preferences at mount and on live updates.
+
+## Application readiness barriers
+
+`context.deferReady(promise)` registers an additional readiness barrier during
+mounting or a React layout effect. Quilt first waits for the returned view's
+`ready` acknowledgement, then for registered barriers. Rejection prevents a
+popout commit and preserves the source view. Cleanup still runs if the destination
+closes before readiness. Register only initialization work here; ongoing jobs
+remain application-owned and must not block pane readiness indefinitely.

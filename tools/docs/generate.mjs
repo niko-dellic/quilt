@@ -7,14 +7,19 @@ const out = resolve(root, 'docs/api-reference');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const version = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version;
-for (const [folder, name] of [
+for (const [folder, name, entry] of [
   ['core', 'quilt-core'],
   ['dom', 'quilt-vanilla'],
   ['react', 'quilt-react'],
+  ['three', 'quilt-three'],
+  ['three', 'quilt-three-react', 'react.tsx'],
 ]) {
   const app = await Application.bootstrapWithPlugins({
     entryPoints: [
-      resolve(root, `packages/${folder}/src/index.${folder === 'react' ? 'tsx' : 'ts'}`),
+      resolve(
+        root,
+        `packages/${folder}/src/${entry ?? `index.${folder === 'react' ? 'tsx' : 'ts'}`}`,
+      ),
     ],
     tsconfig: resolve(root, 'tools/docs/tsconfig.json'),
     plugin: ['typedoc-plugin-markdown'],
@@ -51,5 +56,5 @@ for (const [folder, name] of [
 }
 writeFileSync(
   resolve(out, 'index.md'),
-  `# API reference\n\nPublic exports for Quilt **${version}**. These pages are generated from TypeScript.\n\n- [Vanilla](./quilt-vanilla/index.md): mounting, handles, registration, themes, and shared model exports.\n- [React](./quilt-react/index.md): components, hooks, and shared renderer APIs.\n- [Core](./quilt-core/index.md): the framework-independent layout model and commands.\n\nStart with the [quickstarts](../index.md) for a working integration, or [API concepts](../api.md) for behavior and constraints.\n`,
+  `# API reference\n\nPublic exports for Quilt **${version}**. These pages are generated from TypeScript.\n\n- [Vanilla](./quilt-vanilla/index.md): mounting, handles, registration, themes, and shared model exports.\n- [React](./quilt-react/index.md): components, hooks, and shared renderer APIs.\n- [Three.js](./quilt-three/index.md): experimental shared-scene sessions and views.\n- [Three.js React](./quilt-three-react/index.md): experimental R3F bindings.\n- [Core](./quilt-core/index.md): the framework-independent layout model and commands.\n\nStart with the [quickstarts](../index.md) for a working integration, or [API concepts](../api.md) for behavior and constraints.\n`,
 );
