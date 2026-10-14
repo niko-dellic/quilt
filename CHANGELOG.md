@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1
+
+- Size Add tab pickers against the viewport instead of their source pane, keeping them usable in short or narrow regions.
+- Clamp picker placement within screen edges and reposition on viewport resizing and scrolling, while keeping search and Cancel visible above and below the scrolling results.
+- Add cross-browser coverage for bottom-edge panes, filtering, small viewports, and keyboard selection.
+
 ## 0.9.0
 
 - Add global `contextMenu` settings for integrated buttons, tab-bar right-click, both, or neither in Vanilla and React. Both entry points are enabled by default.

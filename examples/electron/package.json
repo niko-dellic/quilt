@@ -9,8 +9,8 @@
     "start": "npm run build && electron ."
   },
   "dependencies": {
-    "quilt-core": "0.9.0",
-    "quilt-vanilla": "0.9.0"
+    "quilt-core": "0.9.1",
+    "quilt-vanilla": "0.9.1"
   },
   "devDependencies": {
     "typescript": "~7.0.2",
