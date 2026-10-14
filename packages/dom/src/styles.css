@@ -312,6 +312,17 @@
 .layouts-picker {
   width: min(340px, calc(100vw - 16px));
 }
+dialog.layouts-picker[open] {
+  display: flex;
+  flex-direction: column;
+}
+dialog.layouts-picker > :not(.layouts-picker-list) {
+  flex-shrink: 0;
+}
+dialog.layouts-picker > .layouts-picker-list {
+  min-height: 0;
+  flex-shrink: 1;
+}
 .layouts-picker-search {
   width: 100%;
   padding: 10px;

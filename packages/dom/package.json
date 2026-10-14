@@ -1,6 +1,6 @@
 {
   "name": "quilt-vanilla",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Vanilla DOM split panes, tabs, themes, and same-origin window popouts",
   "type": "module",
   "license": "MIT",
@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "overlayscrollbars": "^2.16.0",
-    "quilt-core": "0.9.0"
+    "quilt-core": "0.9.1"
   },
   "sideEffects": [
     "**/*.css"

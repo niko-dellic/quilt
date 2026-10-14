@@ -190,17 +190,28 @@ export function createPaneMenu(
         if (region) {
           const position = () => {
             const bounds = region.getBoundingClientRect();
-            picker.style.width = `${Math.max(0, Math.min(340, bounds.width - 16))}px`;
-            picker.style.maxHeight = `${Math.max(0, bounds.height - 16)}px`;
-            picker.style.left = `${bounds.left + (bounds.width - picker.offsetWidth) / 2}px`;
-            picker.style.top = `${bounds.top + (bounds.height - picker.offsetHeight) / 2}px`;
+            const viewport = win.visualViewport;
+            const left = (viewport?.offsetLeft ?? 0) + 8;
+            const top = (viewport?.offsetTop ?? 0) + 8;
+            const width = Math.max(0, (viewport?.width ?? doc.documentElement.clientWidth) - 16);
+            const height = Math.max(0, (viewport?.height ?? doc.documentElement.clientHeight) - 16);
+            picker.style.width = `${Math.min(340, width)}px`;
+            picker.style.maxHeight = `${Math.min(520, height)}px`;
+            const box = picker.getBoundingClientRect();
+            picker.style.left = `${Math.max(left, Math.min(bounds.left + (bounds.width - box.width) / 2, left + width - box.width))}px`;
+            picker.style.top = `${Math.max(top, Math.min(bounds.top + (bounds.height - box.height) / 2, top + height - box.height))}px`;
           };
           position();
-          const observer = new ResizeObserver(position);
+          const observer = new win.ResizeObserver(position);
           observer.observe(region);
           observer.observe(picker);
           pickerScope.add(() => observer.disconnect());
           pickerScope.listen(win, 'resize', position);
+          pickerScope.listen(doc, 'scroll', position, { capture: true });
+          if (win.visualViewport) {
+            pickerScope.listen(win.visualViewport, 'resize', position);
+            pickerScope.listen(win.visualViewport, 'scroll', position);
+          }
           pickerScope.add(
             options.store.subscribe(() => {
               if (!findNode(options.store.getSnapshot().root, destination.id))
