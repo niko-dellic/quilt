@@ -499,8 +499,9 @@ Set the global `contextMenu` option to `'button'` (integrated), `'right-click'`,
 the default. The Theming pane’s Tab section in the demos includes the same four choices.
 
 The integrated button mode shows the menu button in every pane header, including empty
-regions. Right-click opens the same menu at the pointer anywhere on a tab bar,
-using that region's active tab. Pane content retains its normal context menu.
+regions. Right-click opens the same menu at the pointer anywhere on a tab bar or
+in pane content, using that region's active tab. Application context menus that
+prevent the event's default behavior take priority, as do embedded workspaces.
 Disabling right-click leaves the browser's native context menu available.
 This is session configuration, like `resizeMode`, and is not saved in layout
 JSON or workspace presets.

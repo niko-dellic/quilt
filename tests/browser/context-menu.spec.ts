@@ -64,7 +64,8 @@ for (const placement of ['top', 'left'] as const) {
           (node) =>
             !node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })),
         ),
-    ).toBe(false);
+    ).toBe(true);
+    await page.keyboard.press('Escape');
     await page.getByRole('tab', { name: 'B', exact: true }).click({ button: 'right' });
     await expect(dialog).toBeVisible();
     await page.evaluate(() => window.harness.mounted.updateOptions({ contextMenu: 'none' }));
@@ -162,7 +163,8 @@ for (const entry of ['right-click', 'integrated'] as const) {
         .evaluate((node) =>
           node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })),
         ),
-    ).toBe(true);
+    ).toBe(false);
+    await expect(page.getByRole('dialog', { name: 'A actions', exact: true })).toBeVisible();
   });
 }
 
@@ -210,5 +212,112 @@ for (const framework of ['vanilla', 'react']) {
     await expect(button.locator('circle')).toHaveCount(1);
     await setting.selectOption('three-dots');
     await expect(button.locator('circle')).toHaveCount(3);
+  });
+}
+
+for (const mode of [undefined, 'both', 'right-click', 'button', 'none'] as const) {
+  test(`Add tab picker respects ${mode} context menus on its content and backdrop`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1200, height: 900 });
+    await page.goto('/tests/browser/harness.html');
+    await page.evaluate(() =>
+      window.harness.tabs.register({
+        id: 'new-tab',
+        title: 'New tab',
+        create: () => ({ id: 'new-tab', type: 'test', title: 'New tab' }),
+      }),
+    );
+    const before = await page.evaluate(() => window.harness.store.exportLayout());
+    const picker = page.locator('dialog.layouts-picker');
+    const menu = page.getByRole('dialog', { name: 'B actions', exact: true });
+    for (const target of ['search', 'backdrop'] as const) {
+      await page.evaluate(async (contextMenu) => {
+        window.harness.mounted.updateOptions({ contextMenu });
+        await window.harness.mounted.executeAction('addTab', { groupId: 'right' });
+      }, mode);
+      await expect(picker).toBeVisible();
+      const enabled = mode === undefined || mode === 'both' || mode === 'right-click';
+      if (target === 'search') {
+        const prevented = await picker.getByRole('combobox').evaluate((node) => {
+          const box = node.getBoundingClientRect();
+          return !node.dispatchEvent(
+            new MouseEvent('contextmenu', {
+              bubbles: true,
+              cancelable: true,
+              clientX: box.x + 10,
+              clientY: box.y + 10,
+            }),
+          );
+        });
+        expect(prevented).toBe(enabled);
+      } else if (enabled) {
+        await page.mouse.click(50, 80, { button: 'right' });
+        const bounds = (await menu.boundingBox())!;
+        expect(bounds.x).toBeCloseTo(50, 0);
+        expect(bounds.y).toBeCloseTo(80, 0);
+      } else {
+        expect(
+          await picker.evaluate(
+            (node) =>
+              !node.dispatchEvent(
+                new MouseEvent('contextmenu', {
+                  bubbles: true,
+                  cancelable: true,
+                  clientX: 50,
+                  clientY: 80,
+                }),
+              ),
+          ),
+        ).toBe(false);
+      }
+      if (enabled) {
+        await expect(picker).toHaveCount(0);
+        await expect(menu).toBeVisible();
+        await expect(page.locator('dialog.layouts-menu')).toHaveCount(1);
+        await page.mouse.click(100, 120, { button: 'right' });
+        const bounds = (await menu.boundingBox())!;
+        expect(bounds.x).toBeCloseTo(100, 0);
+        expect(bounds.y).toBeCloseTo(120, 0);
+      } else {
+        await expect(picker).toBeVisible();
+        await expect(menu).toHaveCount(0);
+      }
+      await page.keyboard.press('Escape');
+      expect(await page.evaluate(() => window.harness.store.exportLayout())).toEqual(before);
+    }
+  });
+}
+
+for (const overlay of ['menu', 'picker'] as const) {
+  test(`right-click in pane content opens its menu after Escape closes the ${overlay}`, async ({
+    page,
+  }) => {
+    await page.goto('/tests/browser/harness.html');
+    await page.evaluate(() =>
+      window.harness.tabs.register({
+        id: 'new-tab',
+        title: 'New tab',
+        create: () => ({ id: 'new-tab', type: 'test', title: 'New tab' }),
+      }),
+    );
+    await page.getByRole('tab', { name: 'B', exact: true }).click({ button: 'right' });
+    if (overlay === 'picker')
+      await page.getByRole('button', { name: '+ Add tab', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('dialog.layouts-menu')).toHaveCount(0);
+    for (const title of ['A', 'B', 'A']) {
+      await page.getByRole('tabpanel', { name: title, exact: true }).click({ button: 'right' });
+      await expect(
+        page.getByRole('dialog', { name: `${title} actions`, exact: true }),
+      ).toBeVisible();
+      await page.keyboard.press('Escape');
+    }
+    // Consumer menus can handle their event without also opening the pane menu.
+    await page.getByRole('tabpanel', { name: 'A', exact: true }).evaluate((node) => {
+      node.addEventListener('contextmenu', (event) => event.preventDefault(), { once: true });
+    });
+    await page.getByRole('tabpanel', { name: 'A', exact: true }).click({ button: 'right' });
+    await expect(page.locator('dialog.layouts-menu')).toHaveCount(0);
   });
 }
