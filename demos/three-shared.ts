@@ -2,7 +2,9 @@ import { cameraKinds } from './custom-views-layout.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { grayscale } from './three-effect.js';
-import type { ControlsContext } from 'quilt-three';
+import { CameraHelpers } from 'quilt-three';
+import type { ControlsContext, ThreeSession } from 'quilt-three';
+import { helperDisplay } from './camera-helper-controls.js';
 export { layout } from './three-layout.js';
 
 export const cameras = new Map<string, THREE.PerspectiveCamera | THREE.OrthographicCamera>();
@@ -19,6 +21,7 @@ for (const [id, position] of [
   camera.position.set(position[0], position[1], position[2]);
   if (id === 'top') camera.up.set(0, 0, -1);
   camera.lookAt(0, 0, 0);
+  camera.name = id;
   cameras.set(id, camera);
 }
 export function getCamera(id: string) {
@@ -30,6 +33,7 @@ export function getCamera(id: string) {
       : 'perspective';
     camera = cameras.get(kind)!.clone();
     camera.layers.set(0);
+    camera.name = id;
     cameras.set(id, camera);
   }
   return camera;
@@ -134,64 +138,29 @@ export function viewOptions(id: string) {
 }
 export { populate } from './three-scene.js';
 
-// One center ray per camera, clipped to the first scene hit or 10 world units.
-// Each four-view camera sees the other rays; other presets keep them hidden.
-export function cameraHelpers(scene: THREE.Scene) {
-  const helpers = [...cameras.values()].slice(0, 4).map((camera, index) => {
-    const layer = index + 1;
-    const geometry = new THREE.BufferGeometry();
-    const positions = new THREE.Float32BufferAttribute(6, 3);
-    geometry.setAttribute('position', positions);
-    const helper = new THREE.Line(
-      geometry,
-      new THREE.LineBasicMaterial({
-        color: '#d5aa62',
-        transparent: true,
-        opacity: 0.7,
-        depthWrite: false,
-      }),
-    );
-    helper.name = `camera-helper-${[...cameras.keys()][index]}`;
-    helper.userData.cameraRay = true;
-    helper.layers.set(layer);
-    helper.raycast = () => {};
-    helper.frustumCulled = false;
-    const origin = new THREE.Vector3(),
-      direction = new THREE.Vector3(),
-      end = new THREE.Vector3();
-    const raycaster = new THREE.Raycaster();
-    raycaster.far = 10;
-    const hits: THREE.Intersection[] = [];
-    helper.onBeforeRender = () => {
-      camera.updateMatrixWorld();
-      camera.getWorldPosition(origin);
-      camera.getWorldDirection(direction);
-      raycaster.set(origin, direction);
-      hits.length = 0;
-      raycaster.intersectObjects(scene.children, true, hits);
-      end.copy(origin).addScaledVector(direction, hits[0]?.distance ?? raycaster.far);
-      positions.setXYZ(0, origin.x, origin.y, origin.z);
-      positions.setXYZ(1, end.x, end.y, end.z);
-      positions.needsUpdate = true;
-    };
-    for (const [id, viewCamera] of cameras) {
-      if (!cameraKinds.includes(id as (typeof cameraKinds)[number])) {
-        viewCamera.layers.disable(layer);
-        continue;
-      }
-      if (viewCamera !== camera) viewCamera.layers.enable(layer);
-      else viewCamera.layers.disable(layer);
-    }
-    scene.add(helper);
-    return helper;
+// Display policy belongs to the demo; graphics and pointer tracking belong to quilt-three.
+export function createDemoHelpers(session: ThreeSession) {
+  const helpers = new CameraHelpers(session, {
+    visibleIn: (camera) =>
+      camera.name.startsWith('custom-view-')
+        ? helperDisplay.customVisible()
+        : cameraKinds.includes(camera.name as (typeof cameraKinds)[number]),
+    ray: 'pointer',
   });
-  return () => {
-    for (const helper of helpers) {
-      scene.remove(helper);
-      helper.geometry.dispose();
-      helper.material.dispose();
-    }
+  const sync = () => {
+    for (const [id, camera] of cameras)
+      helpers.setCameraVisible(camera, helperDisplay.cameraVisible(id));
+    session.invalidate();
   };
+  const unsubscribe = helperDisplay.subscribe(sync);
+  const dispose = () => {
+    unsubscribe();
+    unsubscribeSession();
+    helpers.dispose();
+  };
+  const unsubscribeSession = session.subscribe({ viewsChanged: sync, dispose });
+  sync();
+  return { helpers, dispose };
 }
 export function setThreeStatus(message: string) {
   const status = document.querySelector('#status');

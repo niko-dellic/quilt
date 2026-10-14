@@ -8,6 +8,7 @@ declare global {
   interface Window {
     threeDemo: {
       session: ThreeSession;
+      helpers?: import('quilt-three').CameraHelpers;
       workspace: WorkspaceHandle;
       cameras: Map<string, Camera>;
       counters?: { mounts: number; unmounts: number; ticks: number; clicks: number };
@@ -275,16 +276,20 @@ test('Three high-DPI cap, zero size, pointer capture, and application resource o
       await page.evaluate(() => window.threeDemo.cameras.get('front')!.position.toArray()),
     ).toEqual(frontPose);
     const disposedAssets = await page.evaluate(() => {
-      let count = 0;
+      let shared = 0,
+        helpers = 0;
       window.threeDemo.session.scene.traverse((object) => {
         const mesh = object as import('three').Mesh;
-        mesh.geometry?.addEventListener('dispose', () => count++);
+        mesh.geometry?.addEventListener('dispose', () => {
+          if (object.userData.cameraRay || object.userData.cameraMarker) helpers++;
+          else shared++;
+        });
       });
       window.threeDemo.workspace.dispose();
       window.threeDemo.session.dispose();
-      return count;
+      return { shared, helpers };
     });
-    expect(disposedAssets).toBe(0);
+    expect(disposedAssets).toEqual({ shared: 0, helpers: 8 });
     await expect(page.locator('canvas')).toHaveCount(0);
   } finally {
     await context.close();
@@ -435,14 +440,22 @@ for (const framework of ['vanilla', 'react']) {
     await configure(2, 3);
     expect(
       await page.evaluate(() => {
-        const { session, cameras } = window.threeDemo;
-        const helpers: import('three').Object3D[] = [];
+        const { session } = window.threeDemo;
+        let draws = 0;
+        const restore: (() => void)[] = [];
         session.scene.traverse((object) => {
-          if (object.userData.cameraRay === true) helpers.push(object);
+          if (object.userData.cameraRay !== true) return;
+          const original = object.onBeforeRender;
+          object.onBeforeRender = () => {
+            draws++;
+          };
+          restore.push(() => {
+            object.onBeforeRender = original;
+          });
         });
-        return [...cameras]
-          .filter(([id]) => id.startsWith('custom-view-'))
-          .every(([, camera]) => helpers.every((helper) => !camera.layers.test(helper.layers)));
+        session.render(performance.now());
+        restore.forEach((fn) => fn());
+        return draws === 0;
       }),
     ).toBe(true);
     await expect(page.locator('[data-node-id="inspector-group"]')).toHaveCount(0);
@@ -503,10 +516,16 @@ test('camera rays stop at the nearest mesh or their maximum length', async ({
       session.render(performance.now());
       const helper = session.scene.getObjectByName('camera-helper-front')! as import('three').Line;
       const positions = helper.geometry.getAttribute('position');
+      const marker = helper.children[0]! as import('three').LineSegments;
       return {
         count: positions.count,
         start: [positions.getX(0), positions.getY(0), positions.getZ(0)],
         end: [positions.getX(1), positions.getY(1), positions.getZ(1)],
+        markerPosition: marker.position.toArray(),
+        markerOrientation: marker.quaternion.toArray(),
+        cameraOrientation: cameras.get('front')!.quaternion.toArray(),
+        markerLayer: marker.layers.mask,
+        rayLayer: helper.layers.mask,
       };
     };
     const hit = read();
@@ -524,6 +543,9 @@ test('camera rays stop at the nearest mesh or their maximum length', async ({
   expect(rays.helpers).toBe(0);
   expect(rays.hit.count).toBe(2);
   rays.hit.start.forEach((value, i) => expect(value).toBeCloseTo(rays.origin[i]!, 5));
+  expect(rays.hit.markerPosition).toEqual(rays.origin);
+  expect(rays.hit.markerOrientation).toEqual(rays.hit.cameraOrientation);
+  expect(rays.hit.markerLayer).toBe(rays.hit.rayLayer);
   // The center ray meets the tall study block's front face at z = -0.575.
   expect(rays.hit.end[2]).toBeCloseTo(-0.575, 5);
   const length = (ray: typeof rays.hit) =>
@@ -531,3 +553,191 @@ test('camera rays stop at the nearest mesh or their maximum length', async ({
   expect(length(rays.hit)).toBeLessThan(10);
   expect(length(rays.miss)).toBeCloseTo(10, 5);
 });
+
+for (const framework of ['vanilla', 'react']) {
+  test(`${framework}: custom views merge a rectangular block and retain cameras`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'Requires WebGL');
+    await page.goto(`/${framework}.html?workspace=custom`);
+    await page.getByRole('spinbutton', { name: 'Rows', exact: true }).fill('3');
+    await page.getByRole('spinbutton', { name: 'Columns', exact: true }).fill('3');
+    await page.getByRole('button', { name: 'Apply grid', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.threeDemo.session.stats.views)).toBe(9);
+    const before = await page.evaluate(() => ({
+      cameras: [...window.threeDemo.cameras].map(([id, camera]) => [id, camera.uuid]),
+      mounts: window.threeDemo.counters?.mounts,
+    }));
+    const source = page.locator('[data-node-id="group-custom-view-0-0"]');
+    const target = page.locator('[data-node-id="group-custom-view-1-1"]');
+    const box = (await target.boundingBox())!;
+    await source.locator('[data-corner="br"]').hover();
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.locator('[data-corner-preview=join-source]')).toHaveCount(3);
+    await page.mouse.up();
+    await expect(source.getByRole('tab')).toHaveCount(4);
+    await expect(source.getByRole('tab', { name: 'View 1.1', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(page.locator('.layouts-group[data-node-id^="group-custom-view-"]')).toHaveCount(6);
+    expect(
+      await page.evaluate(() =>
+        [...window.threeDemo.cameras].map(([id, camera]) => [id, camera.uuid]),
+      ),
+    ).toEqual(before.cameras);
+    expect(await page.evaluate(() => window.threeDemo.counters?.mounts)).toEqual(before.mounts);
+    await expect.poll(() => page.evaluate(() => window.threeDemo.session.stats.views)).toBe(9);
+  });
+}
+
+for (const framework of ['vanilla', 'react']) {
+  test(`${framework}: camera rays follow viewport cursors and reset on leave`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'Requires WebGL');
+    await page.goto(`/${framework}.html?workspace=three`);
+    await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
+    const read = () =>
+      page.evaluate(() => {
+        window.threeDemo.session.render(performance.now());
+        return ['perspective', 'front'].map((id) => {
+          const line = window.threeDemo.session.scene.getObjectByName(
+            `camera-helper-${id}`,
+          )! as import('three').Line;
+          return Array.from(line.geometry.getAttribute('position').array);
+        });
+      });
+    await page.mouse.move(0, 0);
+    const centered = await read();
+    for (const [index, id] of ['perspective', 'front'].entries()) {
+      const bounds = (await page
+        .locator(`[data-pane-id="${id}"] [data-quilt-three-input]`)
+        .boundingBox())!;
+      await page.mouse.move(bounds.x + bounds.width * 0.7, bounds.y + bounds.height * 0.65);
+      const hovered = await read();
+      expect(hovered[index]!.slice(0, 3)).toEqual(centered[index]!.slice(0, 3));
+      expect(hovered[index]!.slice(3)).not.toEqual(centered[index]!.slice(3));
+      expect(hovered[1 - index]).toEqual(centered[1 - index]);
+      await page.mouse.move(0, 0);
+      expect(await read()).toEqual(centered);
+    }
+  });
+}
+
+test('camera helper classes toggle globally and per camera without changing the scene', async ({
+  page,
+  browserName,
+}) => {
+  test.skip(browserName !== 'chromium', 'Requires WebGL');
+  await page.goto('/vanilla.html?workspace=three');
+  await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
+  const result = await page.evaluate(() => {
+    const { session, helpers, cameras } = window.threeDemo;
+    const types = [
+      session.constructor.name,
+      ...session.getViews().map((view) => view.constructor.name),
+      helpers!.constructor.name,
+    ];
+    const model = session.scene.getObjectByName('model')!;
+    const lines = session.scene.children.filter((object) => object.userData.cameraRay);
+    let count = 0;
+    for (const line of lines)
+      line.onBeforeRender = () => {
+        count++;
+      };
+    const draw = () => {
+      count = 0;
+      session.render(performance.now());
+      return count;
+    };
+    const all = draw();
+    helpers!.setCameraVisible(cameras.get('front')!, false);
+    const oneHidden = draw();
+    helpers!.setVisible(false);
+    const hidden = draw();
+    helpers!.setCameraVisible(cameras.get('front')!, true);
+    helpers!.setVisible(true);
+    const restored = draw();
+    helpers!.dispose();
+    const disposed = draw();
+    return {
+      types,
+      counts: [all, oneHidden, hidden, restored, disposed],
+      modelIntact: model.parent === session.scene,
+    };
+  });
+  expect(result.types).toEqual([
+    'ThreeSession',
+    'ThreeView',
+    'ThreeView',
+    'ThreeView',
+    'ThreeView',
+    'CameraHelpers',
+  ]);
+  expect(result.counts).toEqual([12, 9, 0, 12, 0]);
+  expect(result.modelIntact).toBe(true);
+});
+
+for (const framework of ['vanilla', 'react']) {
+  test(`${framework}: pane and grid helper toggles retain their settings`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'Requires WebGL');
+    await page.goto(`/${framework}.html?workspace=three`);
+    await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
+    const draws = () =>
+      page.evaluate(() => {
+        const { session } = window.threeDemo;
+        const names: string[] = [];
+        const restore: (() => void)[] = [];
+        session.scene.traverse((object) => {
+          if (!object.userData.cameraRay) return;
+          const original = object.onBeforeRender;
+          object.onBeforeRender = () => {
+            names.push(object.name);
+          };
+          restore.push(() => {
+            object.onBeforeRender = original;
+          });
+        });
+        session.render(performance.now());
+        restore.forEach((fn) => fn());
+        return names;
+      });
+    const frontToggle = page
+      .locator('[data-pane-id="front"]')
+      .getByRole('button', { name: 'Camera helper', exact: true });
+    await expect(frontToggle).toHaveAttribute('aria-pressed', 'true');
+    expect(await draws()).toHaveLength(12);
+    await frontToggle.click();
+    await expect(frontToggle).toHaveAttribute('aria-pressed', 'false');
+    const reduced = await draws();
+    expect(reduced).toHaveLength(9);
+    expect(reduced).not.toContain('camera-helper-front');
+    await page.getByRole('button', { name: 'Custom views', exact: true }).click();
+    const globalToggle = page
+      .locator('.demo-view-controls')
+      .getByRole('button', { name: 'Camera helpers', exact: true });
+    await expect(globalToggle).toHaveAttribute('aria-pressed', 'false');
+    expect(await draws()).toHaveLength(0);
+    await globalToggle.click();
+    await expect(globalToggle).toHaveAttribute('aria-pressed', 'true');
+    expect(await draws()).toHaveLength(12);
+    await page.getByRole('spinbutton', { name: 'Columns', exact: true }).fill('3');
+    await page.getByRole('button', { name: 'Apply grid', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.threeDemo.session.stats.views)).toBe(6);
+    expect(await draws()).toHaveLength(30);
+    await page.getByRole('button', { name: '4 view', exact: true }).click();
+    await expect(frontToggle).toHaveAttribute('aria-pressed', 'false');
+    expect(await draws()).toHaveLength(9);
+    await page.getByRole('button', { name: 'Custom views', exact: true }).click();
+    await expect(globalToggle).toHaveAttribute('aria-pressed', 'true');
+    await globalToggle.click();
+    expect(await draws()).toHaveLength(0);
+  });
+}

@@ -1,12 +1,19 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { PaneProps } from 'quilt-react';
-import { SharedScene, ThreeSessionProvider, ThreeView } from 'quilt-three/react';
+import { SharedScene, ThreeSessionProvider, ThreeView, useThreeSession } from 'quilt-three/react';
 import type { ThreeSession } from 'quilt-three';
 import { workspace } from './model.js';
-import { cameras, populate, viewOptions, cameraHelpers, setThreeStatus } from './three-shared.js';
+import {
+  cameras,
+  populate,
+  viewOptions,
+  createDemoHelpers,
+  setThreeStatus,
+} from './three-shared.js';
+import { mountHelperToggle } from './camera-helper-controls.js';
 let session: ThreeSession;
 
 const counters = { mounts: 0, unmounts: 0, ticks: 0, clicks: 0 };
@@ -36,7 +43,11 @@ function SceneContent() {
   );
 }
 export function ThreePane(props: PaneProps) {
-  return <ThreeView paneContext={props} {...viewOptions(props.pane.id)} />;
+  return (
+    <ThreeView paneContext={props} {...viewOptions(props.pane.id)}>
+      <HelperToggle id={props.pane.id} />
+    </ThreeView>
+  );
 }
 export function ThreeDemo({ children }: { children: ReactNode }) {
   return (
@@ -47,16 +58,25 @@ export function ThreeDemo({ children }: { children: ReactNode }) {
     >
       <SharedScene>
         <SceneContent />
-        <Helpers />
       </SharedScene>
+      <Helpers />
       {children}
     </ThreeSessionProvider>
   );
 }
-function Helpers() {
-  useEffect(() => cameraHelpers(session.scene), []);
-  return null;
-}
 Object.defineProperty(window, 'threeDemo', {
   get: () => ({ workspace, session, cameras, counters }),
 });
+
+function HelperToggle({ id }: { id: string }) {
+  const element = useRef<HTMLDivElement>(null);
+  useEffect(() => (element.current ? mountHelperToggle(element.current, id) : undefined), [id]);
+  return <div ref={element} />;
+}
+function Helpers() {
+  const owner = useThreeSession();
+  useEffect(() => {
+    return createDemoHelpers(owner).dispose;
+  }, [owner]);
+  return null;
+}

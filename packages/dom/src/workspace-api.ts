@@ -92,6 +92,7 @@ export interface WorkspaceChange {
     | 'commands'
     | 'capabilities'
     | 'resizeMode'
+    | 'resizeSnapping'
     | 'scrollbars'
   )[];
 }
@@ -347,7 +348,7 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     }
     this.#emit({
       action: 'loadWorkspace',
-      changes: ['layout', 'theme', 'tabBar', 'autoCollapse', 'scrollbars'],
+      changes: ['layout', 'theme', 'tabBar', 'autoCollapse', 'scrollbars', 'resizeSnapping'],
     });
   }
   canExecuteAction(action: CommandId, context?: ActionContext): boolean {
@@ -416,6 +417,7 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
     if (!('theme' in next)) delete adapted.theme;
     if (!('tabBar' in next)) delete adapted.tabBar;
     if (!('capabilities' in next)) delete adapted.capabilities;
+    if (!('resizeSnapping' in next)) delete adapted.resizeSnapping;
     this.#mounted.updateOptions({ ...adapted, onError: this.#report });
     this.#options = candidate;
     const after = this.exportWorkspace();
@@ -434,6 +436,7 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
       changes.push('commands');
     if (JSON.stringify(before.scrollbars) !== JSON.stringify(after.scrollbars))
       changes.push('scrollbars');
+    if (before.resizeSnapping !== after.resizeSnapping) changes.push('resizeSnapping');
     if ('capabilities' in next) changes.push('capabilities');
     if ('resizeMode' in next && next.resizeMode !== previousResizeMode) changes.push('resizeMode');
     if (changes.length) this.#emit({ action: 'updateOptions', changes });

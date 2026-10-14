@@ -12,8 +12,8 @@ import { createRoot, events, extend, useFrame } from '@react-three/fiber';
 import type { RootStore, ReconcilerRoot, Events } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { PaneProps } from 'quilt-react';
-import { createThreeSession } from './index.js';
-import type { ThreeSession, SessionOptions, ViewOptions } from './index.js';
+import { ThreeSession, CameraHelpers as CameraHelpersController } from './index.js';
+import type { CameraHelpersOptions, SessionOptions, ViewOptions } from './index.js';
 
 interface Bridge {
   session: ThreeSession;
@@ -101,7 +101,7 @@ export function ThreeSessionProvider({ children, options, onReady }: ThreeSessio
     const drawScene = () => {
       root?.render(sceneTree());
     };
-    const session = createThreeSession({
+    const session = new ThreeSession({
       ...initial.current.options,
       scene: new THREE.Scene(),
       window: win,
@@ -263,3 +263,24 @@ export function ThreeView({ paneContext, children, ...options }: ThreeViewProps)
 
 // Preserve R3F JSX augmentation for consumers importing only quilt-three/react.
 export type { ThreeElements, ThreeEvent } from '@react-three/fiber';
+
+/** Mount inside ThreeSessionProvider, alongside SharedScene (not inside its R3F tree).
+ * Visibility is reactive; other options are mount-only.
+ */
+export function CameraHelpers({ visible = true, ...options }: CameraHelpersOptions) {
+  const session = useThreeSession();
+  const initial = useRef(options);
+  const instance = useRef<CameraHelpersController | null>(null);
+  useEffect(() => {
+    const helpers = new CameraHelpersController(session, { ...initial.current, visible });
+    instance.current = helpers;
+    return () => {
+      helpers.dispose();
+      instance.current = null;
+    };
+  }, [session]);
+  useEffect(() => {
+    instance.current?.setVisible(visible);
+  }, [visible]);
+  return null;
+}

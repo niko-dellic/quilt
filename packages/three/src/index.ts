@@ -55,6 +55,56 @@ export interface ViewHandle extends PaneView {
   readonly camera: Camera;
   readonly element: HTMLElement;
 }
+/** A mounted viewport. Create through ThreeSession.register(), dispose independently or with its session. */
+export class ThreeView implements ViewHandle {
+  private disposed = false;
+  /** @internal */ readonly cleanups: (() => void)[] = [];
+  /** @internal */ controls?: ViewControls;
+  /** @internal */ pipeline?: ViewPipeline;
+  /** @internal */ size = '';
+  /** Current pane-local pointer, or null outside the viewport. */
+  pointer: Vector2 | null = null;
+  /** @internal */
+  constructor(
+    readonly context: PaneContext,
+    readonly options: ViewOptions,
+    /** @internal */ readonly surface: Surface,
+    private readonly release: () => void,
+    private readonly report: (error: unknown) => void,
+    readonly resize: () => void,
+  ) {}
+  get camera(): Camera {
+    return this.options.camera;
+  }
+  get element(): HTMLElement {
+    return this.context.element;
+  }
+  dispose = (): void => {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.pointer = null;
+    for (const cleanup of [
+      ...this.cleanups.reverse(),
+      () => this.pipeline?.dispose(),
+      () => this.controls?.dispose(),
+      this.release,
+    ]) {
+      try {
+        cleanup();
+      } catch (error) {
+        this.report(error);
+      }
+    }
+    this.cleanups.length = 0;
+  };
+}
+/** Optional integrations observe session lifetimes without owning scene assets. */
+export interface SessionObserver {
+  viewsChanged?(): void;
+  /** Return cleanup to restore temporary display state, including after a rendering failure. */
+  beforeRender?(view: ThreeView): void | (() => void);
+  dispose?(): void;
+}
 export interface SessionStats {
   frames: number;
   views: number;
@@ -65,15 +115,7 @@ export interface SessionStats {
   geometries: number;
   textures: number;
 }
-export interface ThreeSession {
-  readonly scene: Scene;
-  readonly stats: Readonly<SessionStats>;
-  register(context: PaneContext, options: ViewOptions): ViewHandle;
-  invalidate(): void;
-  /** Render one session tick. Timestamp uses requestAnimationFrame milliseconds. */
-  render(timestamp: number): void;
-  dispose(): void;
-}
+
 export interface Rect {
   left: number;
   top: number;
@@ -109,6 +151,7 @@ const eventNames = [
   'pointerdown',
   'pointerup',
   'pointermove',
+  'pointerenter',
   'pointercancel',
   'lostpointercapture',
   'pointerleave',
@@ -124,18 +167,10 @@ interface Surface {
   canvas: HTMLCanvasElement;
   renderer: WebGLRenderer;
   cleanup(): void;
-  views: Set<MountedView>;
+  views: Set<ThreeView>;
   lost: boolean;
 }
-interface MountedView {
-  context: PaneContext;
-  options: ViewOptions;
-  surface: Surface;
-  controls?: ViewControls;
-  pipeline?: ViewPipeline;
-  cleanup(): void;
-  size: string;
-}
+
 function bounds(element: HTMLElement, win: Window): { full: Rect; clip: Rect } | undefined {
   if (!element.isConnected || !element.getClientRects().length) return;
   const full = element.getBoundingClientRect();
@@ -164,10 +199,12 @@ function bounds(element: HTMLElement, win: Window): { full: Rect; clip: Rect } |
   return clip.width > 0 && clip.height > 0 ? { full, clip } : undefined;
 }
 
-export function createThreeSession(options: SessionOptions): ThreeSession {
-  const surfaces = new Map<Document, Surface>();
-  const views = new Set<MountedView>();
-  const stats: SessionStats = {
+export class ThreeSession {
+  readonly scene: Scene;
+  private readonly surfaces = new Map<Document, Surface>();
+  private readonly observers = new Set<SessionObserver>();
+  private readonly views = new Set<ThreeView>();
+  private readonly metrics: SessionStats = {
     frames: 0,
     views: 0,
     documents: 0,
@@ -177,51 +214,98 @@ export function createThreeSession(options: SessionOptions): ThreeSession {
     geometries: 0,
     textures: 0,
   };
-  const maxDpr = options.maxPixelRatio ?? 2;
-  if (!Number.isFinite(maxDpr) || maxDpr <= 0)
-    throw new Error('maxPixelRatio must be positive and finite');
-  let disposed = false,
-    frame = 0,
-    lastTime: number | undefined,
-    rendering = false;
-  const report = (error: unknown) => {
+  private readonly maxDpr: number;
+  private disposed = false;
+  private frame = 0;
+  private lastTime: number | undefined;
+  private rendering = false;
+  private frameWindow: Window;
+  constructor(private readonly options: SessionOptions) {
+    this.scene = options.scene;
+    this.maxDpr = options.maxPixelRatio ?? 2;
+    if (!Number.isFinite(this.maxDpr) || this.maxDpr <= 0)
+      throw new Error('maxPixelRatio must be positive and finite');
+    this.frameWindow = options.window;
+  }
+  get stats(): Readonly<SessionStats> {
+    return this.metrics;
+  }
+  /** Snapshot of registered views, including retained hidden panes. */
+  getViews(): readonly ThreeView[] {
+    return [...this.views];
+  }
+  subscribe(observer: SessionObserver): () => void {
+    if (this.disposed) throw new Error('Three session has been disposed');
+    this.observers.add(observer);
+    return () => {
+      this.observers.delete(observer);
+    };
+  }
+  private notifyViews(): void {
+    for (const observer of this.observers) {
+      try {
+        observer.viewsChanged?.();
+      } catch (error) {
+        this.report(error);
+      }
+    }
+  }
+  private draw(view: ThreeView, render: () => void): void {
+    const cleanups: (() => void)[] = [];
     try {
-      options.onError?.(error);
+      for (const observer of this.observers) {
+        const cleanup = observer.beforeRender?.(view);
+        if (cleanup) cleanups.push(cleanup);
+      }
+      render();
+    } finally {
+      for (const cleanup of cleanups.reverse()) {
+        try {
+          cleanup();
+        } catch (error) {
+          this.report(error);
+        }
+      }
+    }
+  }
+  private report = (error: unknown) => {
+    try {
+      this.options.onError?.(error);
     } catch {
       /* Reporting must never interrupt cleanup. */
     }
   };
-  let frameWindow = options.window;
-  const invalidate = () => {
-    if (disposed) return;
+  invalidate = () => {
+    if (this.disposed) return;
     const owner =
-      [...surfaces.values()].find((surface) => !surface.document.hidden && !surface.window.closed)
-        ?.window ?? options.window;
-    if (options.requestFrame) {
-      options.requestFrame(owner);
+      [...this.surfaces.values()].find(
+        (surface) => !surface.document.hidden && !surface.window.closed,
+      )?.window ?? this.options.window;
+    if (this.options.requestFrame) {
+      this.options.requestFrame(owner);
       return;
     }
-    if (frame && frameWindow !== owner) {
-      frameWindow.cancelAnimationFrame(frame);
-      frame = 0;
+    if (this.frame && this.frameWindow !== owner) {
+      this.frameWindow.cancelAnimationFrame(this.frame);
+      this.frame = 0;
     }
-    if (!frame) {
-      frameWindow = owner;
-      frame = owner.requestAnimationFrame(() => {
-        frame = 0;
-        session.render(options.window.performance.now());
+    if (!this.frame) {
+      this.frameWindow = owner;
+      this.frame = owner.requestAnimationFrame(() => {
+        this.frame = 0;
+        this.render(this.options.window.performance.now());
       });
     }
   };
-  const active = (view: MountedView) => {
-    for (const other of views) if (other.options.camera === view.options.camera) return other;
+  private active = (view: ThreeView) => {
+    for (const other of this.views) if (other.options.camera === view.options.camera) return other;
     return view;
   };
-  function createSurface(context: PaneContext): Surface {
+  private createSurface(context: PaneContext): Surface {
     const doc = context.document,
       win = context.window;
     const host =
-      options.container?.(doc) ??
+      this.options.container?.(doc) ??
       context.element.closest<HTMLElement>('.layouts, .layouts-companion') ??
       doc.body;
     const canvas = doc.createElement('canvas');
@@ -238,7 +322,7 @@ export function createThreeSession(options: SessionOptions): ThreeSession {
     const cleanup: (() => void)[] = [];
     try {
       renderer =
-        options.createRenderer?.(canvas) ??
+        this.options.createRenderer?.(canvas) ??
         new WebGLRenderer({ canvas, alpha: true, antialias: true });
       renderer.autoClear = false;
       renderer.info.autoReset = false;
@@ -251,12 +335,12 @@ export function createThreeSession(options: SessionOptions): ThreeSession {
         renderer,
         views: new Set(),
         lost: false,
-        cleanup() {
+        cleanup: () => {
           for (const fn of cleanup.reverse()) {
             try {
               fn();
             } catch (error) {
-              report(error);
+              this.report(error);
             }
           }
           try {
@@ -271,24 +355,24 @@ export function createThreeSession(options: SessionOptions): ThreeSession {
         target.addEventListener(type, fn, capture);
         cleanup.push(() => target.removeEventListener(type, fn, capture));
       };
-      listener(win, 'resize', invalidate);
-      listener(doc, 'scroll', invalidate, true);
-      listener(doc, 'visibilitychange', invalidate);
+      listener(win, 'resize', this.invalidate);
+      listener(doc, 'scroll', this.invalidate, true);
+      listener(doc, 'visibilitychange', this.invalidate);
       listener(canvas, 'webglcontextlost', (event) => {
         event.preventDefault();
         surface.lost = true;
-        report(new Error('Three.js WebGL context lost'));
+        this.report(new Error('Three.js WebGL context lost'));
       });
       listener(canvas, 'webglcontextrestored', () => {
         surface.lost = false;
-        invalidate();
+        this.invalidate();
       });
       const realm = win as Window & typeof globalThis;
-      const observer = new realm.ResizeObserver(invalidate);
+      const observer = new realm.ResizeObserver(this.invalidate);
       observer.observe(host);
       cleanup.push(() => observer.disconnect());
       const mutations = new realm.MutationObserver((records) => {
-        if (records.some((record) => record.target !== canvas)) invalidate();
+        if (records.some((record) => record.target !== canvas)) this.invalidate();
       });
       mutations.observe(host, {
         subtree: true,
@@ -302,12 +386,12 @@ export function createThreeSession(options: SessionOptions): ThreeSession {
         media?.removeEventListener('change', watchDpr);
         media = win.matchMedia(`(resolution: ${win.devicePixelRatio}dppx)`);
         media.addEventListener('change', watchDpr);
-        invalidate();
+        this.invalidate();
       };
       watchDpr();
       cleanup.push(() => media.removeEventListener('change', watchDpr));
-      surfaces.set(doc, surface);
-      stats.documents = surfaces.size;
+      this.surfaces.set(doc, surface);
+      this.metrics.documents = this.surfaces.size;
       return surface;
     } catch (error) {
       for (const fn of cleanup.reverse()) fn();
@@ -316,281 +400,295 @@ export function createThreeSession(options: SessionOptions): ThreeSession {
       throw error;
     }
   }
-  const session: ThreeSession = {
-    scene: options.scene,
-    stats,
-    invalidate,
-    register(context, viewOptions) {
-      if (disposed) throw new Error('Three session has been disposed');
-      const surface = surfaces.get(context.document) ?? createSurface(context);
-      const element = context.element;
-      const cleanups: (() => void)[] = [];
-      let mounted = true;
-      const view: MountedView = {
-        context,
-        options: viewOptions,
-        surface,
-        size: '',
-        cleanup() {
-          if (!mounted) return;
-          mounted = false;
-          views.delete(view);
-          surface.views.delete(view);
-          for (const fn of cleanups.reverse()) {
-            try {
-              fn();
-            } catch (error) {
-              report(error);
-            }
-          }
-          try {
-            view.pipeline?.dispose();
-          } catch (error) {
-            report(error);
-          }
-          try {
-            view.controls?.dispose();
-          } catch (error) {
-            report(error);
-          }
-          if (!surface.views.size && context.document !== options.window.document) {
-            surfaces.delete(context.document);
-            surface.cleanup();
-          }
-          stats.views = views.size;
-          stats.documents = surfaces.size;
-          invalidate();
-        },
+  register(context: PaneContext, viewOptions: ViewOptions): ThreeView {
+    if (this.disposed) throw new Error('Three session has been disposed');
+    const surface = this.surfaces.get(context.document) ?? this.createSurface(context);
+    const element = context.element;
+    const view = new ThreeView(
+      context,
+      viewOptions,
+      surface,
+      () => {
+        this.views.delete(view);
+        surface.views.delete(view);
+        if (!surface.views.size && context.document !== this.options.window.document) {
+          this.surfaces.delete(context.document);
+          surface.cleanup();
+        }
+        this.metrics.views = this.views.size;
+        this.metrics.documents = this.surfaces.size;
+        this.notifyViews();
+        this.invalidate();
+      },
+      this.report,
+      this.invalidate,
+    );
+    const cleanups = view.cleanups;
+    try {
+      const previous = {
+        position: element.style.position,
+        zIndex: element.style.zIndex,
+        touchAction: element.style.touchAction,
       };
-      try {
-        const previous = {
-          position: element.style.position,
-          zIndex: element.style.zIndex,
-          touchAction: element.style.touchAction,
-        };
-        Object.assign(element.style, { position: 'relative', zIndex: '1', touchAction: 'none' });
-        cleanups.push(() => Object.assign(element.style, previous));
-        const input = context.document.createElement('div');
-        input.dataset.quiltThreeInput = '';
-        Object.assign(input.style, {
-          position: 'absolute',
-          inset: '0',
-          zIndex: '0',
-          touchAction: 'none',
+      Object.assign(element.style, { position: 'relative', zIndex: '1', touchAction: 'none' });
+      cleanups.push(() => Object.assign(element.style, previous));
+      const input = context.document.createElement('div');
+      input.dataset.quiltThreeInput = '';
+      Object.assign(input.style, {
+        position: 'absolute',
+        inset: '0',
+        zIndex: '0',
+        touchAction: 'none',
+      });
+      element.prepend(input);
+      cleanups.push(() => input.remove());
+      this.views.add(view);
+      surface.views.add(view);
+      if (viewOptions.controls) {
+        view.controls = viewOptions.controls({
+          camera: viewOptions.camera,
+          element: input,
+          invalidate: this.invalidate,
         });
-        element.prepend(input);
-        cleanups.push(() => input.remove());
-        views.add(view);
-        surface.views.add(view);
-        if (viewOptions.controls) {
-          view.controls = viewOptions.controls({
-            camera: viewOptions.camera,
-            element: input,
-            invalidate,
-          });
-          view.controls.enabled = active(view) === view;
-        }
-        if (viewOptions.pipeline) view.pipeline = viewOptions.pipeline(surface.renderer);
-        const raycaster = new Raycaster(),
-          pointer = new Vector2();
-        const handle = (event: Event) => {
-          if (active(view) !== view) return;
-          const e = event as PointerEvent;
-          const rect = bounds(element, context.window);
+        view.controls.enabled = this.active(view) === view;
+      }
+      if (viewOptions.pipeline) view.pipeline = viewOptions.pipeline(surface.renderer);
+      const raycaster = new Raycaster(),
+        pointer = new Vector2();
+      const handle = (event: Event) => {
+        if (this.active(view) !== view) return;
+        const e = event as PointerEvent;
+        const rect = bounds(element, context.window);
+        if (e.type === 'pointerleave' || e.type === 'pointercancel' || !rect) {
+          view.pointer = null;
+          this.invalidate();
           if (!rect) return;
-          if (e.type === 'pointerdown') {
-            input.setPointerCapture?.(e.pointerId);
-          }
-          if (
-            (e.type === 'pointerup' || e.type === 'pointercancel') &&
-            input.hasPointerCapture?.(e.pointerId)
-          )
-            input.releasePointerCapture(e.pointerId);
-          resizeCamera(viewOptions.camera, rect.full.width, rect.full.height);
-          pointer.set(
-            ((e.clientX - rect.full.left) / rect.full.width) * 2 - 1,
-            (-(e.clientY - rect.full.top) / rect.full.height) * 2 + 1,
-          );
-          viewOptions.camera.updateMatrixWorld();
-          options.scene.updateMatrixWorld();
-          if (viewOptions.onPointer) {
-            raycaster.setFromCamera(pointer, viewOptions.camera);
-            raycaster.layers.mask = viewOptions.camera.layers.mask;
-            viewOptions.onPointer(
-              e,
-              raycaster.intersectObjects(options.scene.children, true),
-              viewOptions.camera,
-            );
-          }
-          invalidate();
-        };
-        for (const event of eventNames) {
-          input.addEventListener(event, handle);
-          cleanups.push(() => input.removeEventListener(event, handle));
         }
-        // Controls commonly prevent contextmenu even when Quilt owns the menu.
-        // Route it through the pane host before controls consume it, preserving
-        // ordinary Quilt bubbling and application onPointer cancellation.
-        const contextMenu = (event: MouseEvent) => {
-          event.stopImmediatePropagation();
-          handle(event);
-          if (event.defaultPrevented) return;
-          const forwarded = new realm.MouseEvent('contextmenu', {
-            bubbles: true,
-            cancelable: true,
-            clientX: event.clientX,
-            clientY: event.clientY,
-            screenX: event.screenX,
-            screenY: event.screenY,
-            button: event.button,
-            buttons: event.buttons,
-            ctrlKey: event.ctrlKey,
-            shiftKey: event.shiftKey,
-            altKey: event.altKey,
-            metaKey: event.metaKey,
-          });
-          if (!element.dispatchEvent(forwarded)) event.preventDefault();
-        };
-        input.addEventListener('contextmenu', contextMenu, true);
-        cleanups.push(() => input.removeEventListener('contextmenu', contextMenu, true));
-        const realm = context.window as Window & typeof globalThis;
-        const observer = new realm.ResizeObserver(invalidate);
-        observer.observe(element);
-        cleanups.push(() => observer.disconnect());
-        context.onCleanup(view.cleanup);
-        stats.views = views.size;
-        // Exercise graphics initialization synchronously so Quilt can roll back failed mounts.
-        surface.renderer.setSize(1, 1, false);
-        surface.renderer.setScissorTest(false);
+        if (e.type === 'pointerdown') {
+          input.setPointerCapture?.(e.pointerId);
+        }
+        if (
+          (e.type === 'pointerup' || e.type === 'pointercancel') &&
+          input.hasPointerCapture?.(e.pointerId)
+        )
+          input.releasePointerCapture(e.pointerId);
+        resizeCamera(viewOptions.camera, rect.full.width, rect.full.height);
+        pointer.set(
+          ((e.clientX - rect.full.left) / rect.full.width) * 2 - 1,
+          (-(e.clientY - rect.full.top) / rect.full.height) * 2 + 1,
+        );
+        if (['pointermove', 'pointerenter', 'pointerdown'].includes(e.type)) {
+          view.pointer =
+            Math.abs(pointer.x) <= 1 && Math.abs(pointer.y) <= 1 ? pointer.clone() : null;
+        }
+        viewOptions.camera.updateMatrixWorld();
+        this.options.scene.updateMatrixWorld();
+        if (viewOptions.onPointer) {
+          raycaster.setFromCamera(pointer, viewOptions.camera);
+          raycaster.layers.mask = viewOptions.camera.layers.mask;
+          viewOptions.onPointer(
+            e,
+            raycaster.intersectObjects(this.options.scene.children, true),
+            viewOptions.camera,
+          );
+        }
+        this.invalidate();
+      };
+      for (const event of eventNames) {
+        input.addEventListener(event, handle);
+        cleanups.push(() => input.removeEventListener(event, handle));
+      }
+      // Controls commonly prevent contextmenu even when Quilt owns the menu.
+      // Route it through the pane host before controls consume it, preserving
+      // ordinary Quilt bubbling and application onPointer cancellation.
+      const contextMenu = (event: MouseEvent) => {
+        event.stopImmediatePropagation();
+        handle(event);
+        if (event.defaultPrevented) return;
+        const forwarded = new realm.MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          screenX: event.screenX,
+          screenY: event.screenY,
+          button: event.button,
+          buttons: event.buttons,
+          ctrlKey: event.ctrlKey,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey,
+          metaKey: event.metaKey,
+        });
+        if (!element.dispatchEvent(forwarded)) event.preventDefault();
+      };
+      input.addEventListener('contextmenu', contextMenu, true);
+      cleanups.push(() => input.removeEventListener('contextmenu', contextMenu, true));
+      const realm = context.window as Window & typeof globalThis;
+      const observer = new realm.ResizeObserver(this.invalidate);
+      observer.observe(element);
+      cleanups.push(() => observer.disconnect());
+      context.onCleanup(view.dispose);
+      this.metrics.views = this.views.size;
+      // Exercise graphics initialization synchronously so Quilt can roll back failed mounts.
+      surface.renderer.setSize(1, 1, false);
+      surface.renderer.setScissorTest(false);
+      this.draw(view, () => {
         if (view.pipeline) {
           view.pipeline.resize(1, 1, surface.renderer.getPixelRatio());
           view.pipeline.render({
             renderer: surface.renderer,
-            scene: options.scene,
+            scene: this.options.scene,
             camera: viewOptions.camera,
             width: 1,
             height: 1,
             delta: 0,
             pixelRatio: surface.renderer.getPixelRatio(),
           });
-        } else surface.renderer.render(options.scene, viewOptions.camera);
-        invalidate();
-        return { camera: viewOptions.camera, element, dispose: view.cleanup, resize: invalidate };
-      } catch (error) {
-        view.cleanup();
-        throw error;
-      }
-    },
-    render(timestamp) {
-      if (disposed || rendering) return;
-      rendering = true;
-      const start = options.window.performance.now();
-      const delta =
-        lastTime === undefined ? 0 : Math.max(0, Math.min((timestamp - lastTime) / 1000, 0.1));
-      lastTime = timestamp;
-      let moving = false;
-      try {
-        options.update?.(delta);
-        stats.drawCalls = stats.triangles = stats.geometries = stats.textures = 0;
-        for (const surface of surfaces.values()) {
-          if (surface.lost || surface.document.hidden) continue;
-          const attached = [...surface.views].find((view) => view.context.element.isConnected);
-          const destination =
-            options.container?.(surface.document) ??
-            attached?.context.element.closest<HTMLElement>('.layouts, .layouts-companion');
-          if (destination && destination !== surface.host) {
-            surface.host = destination;
-            destination.append(surface.canvas);
+        } else surface.renderer.render(this.options.scene, viewOptions.camera);
+      });
+      this.invalidate();
+      this.notifyViews();
+      return view;
+    } catch (error) {
+      view.dispose();
+      throw error;
+    }
+  }
+  render(timestamp: number) {
+    if (this.disposed || this.rendering) return;
+    this.rendering = true;
+    const start = this.options.window.performance.now();
+    const delta =
+      this.lastTime === undefined
+        ? 0
+        : Math.max(0, Math.min((timestamp - this.lastTime) / 1000, 0.1));
+    this.lastTime = timestamp;
+    let moving = false;
+    try {
+      this.options.update?.(delta);
+      this.metrics.drawCalls =
+        this.metrics.triangles =
+        this.metrics.geometries =
+        this.metrics.textures =
+          0;
+      for (const surface of this.surfaces.values()) {
+        if (surface.lost || surface.document.hidden) continue;
+        const attached = [...surface.views].find((view) => view.context.element.isConnected);
+        const destination =
+          this.options.container?.(surface.document) ??
+          attached?.context.element.closest<HTMLElement>('.layouts, .layouts-companion');
+        if (destination && destination !== surface.host) {
+          surface.host = destination;
+          destination.append(surface.canvas);
+        }
+        const { renderer, host, canvas, window: win } = surface;
+        const hostRect = host.getBoundingClientRect();
+        if (!hostRect.width || !hostRect.height) continue;
+        const dpr = Math.min(win.devicePixelRatio || 1, this.maxDpr);
+        if (renderer.getPixelRatio() !== dpr) renderer.setPixelRatio(dpr);
+        const size = renderer.getSize(new Vector2());
+        if (size.x !== hostRect.width || size.y !== hostRect.height)
+          renderer.setSize(hostRect.width, hostRect.height, false);
+        renderer.setRenderTarget(null);
+        renderer.setScissorTest(false);
+        renderer.setClearColor(0, 0);
+        renderer.clear();
+        renderer.info.reset();
+        renderer.setScissorTest(true);
+        for (const view of surface.views) {
+          const rect = bounds(view.context.element, win);
+          if (view.controls) view.controls.enabled = this.active(view) === view && !!rect;
+          if (!rect) {
+            view.pointer = null;
+            continue;
           }
-          const { renderer, host, canvas, window: win } = surface;
-          const hostRect = host.getBoundingClientRect();
-          if (!hostRect.width || !hostRect.height) continue;
-          const dpr = Math.min(win.devicePixelRatio || 1, maxDpr);
-          if (renderer.getPixelRatio() !== dpr) renderer.setPixelRatio(dpr);
-          const size = renderer.getSize(new Vector2());
-          if (size.x !== hostRect.width || size.y !== hostRect.height)
-            renderer.setSize(hostRect.width, hostRect.height, false);
-          renderer.setRenderTarget(null);
-          renderer.setScissorTest(false);
-          renderer.setClearColor(0, 0);
-          renderer.clear();
-          renderer.info.reset();
-          renderer.setScissorTest(true);
-          for (const view of surface.views) {
-            const rect = bounds(view.context.element, win);
-            if (view.controls) view.controls.enabled = active(view) === view && !!rect;
-            if (!rect) continue;
-            const { full } = rect;
-            const clip = intersectRects(rect.clip, hostRect);
-            if (!clip.width || !clip.height) continue;
-            const camera = view.options.camera;
-            if (view.controls?.enabled) moving = view.controls.update(delta) === true || moving;
-            resizeCamera(camera, full.width, full.height);
-            camera.updateMatrixWorld();
-            renderer.setViewport(
-              full.left - hostRect.left,
-              hostRect.height - (full.top - hostRect.top) - full.height,
-              full.width,
-              full.height,
-            );
-            renderer.setScissor(
-              clip.left - hostRect.left,
-              hostRect.height - (clip.top - hostRect.top) - clip.height,
-              clip.width,
-              clip.height,
-            );
-            const key = `${full.width}:${full.height}:${dpr}`;
-            if (view.size !== key) {
-              view.pipeline?.resize(full.width, full.height, dpr);
-              view.size = key;
-            }
-            try {
+          const { full } = rect;
+          const clip = intersectRects(rect.clip, hostRect);
+          if (!clip.width || !clip.height) continue;
+          const camera = view.options.camera;
+          if (view.controls?.enabled) moving = view.controls.update(delta) === true || moving;
+          resizeCamera(camera, full.width, full.height);
+          camera.updateMatrixWorld();
+          renderer.setViewport(
+            full.left - hostRect.left,
+            hostRect.height - (full.top - hostRect.top) - full.height,
+            full.width,
+            full.height,
+          );
+          renderer.setScissor(
+            clip.left - hostRect.left,
+            hostRect.height - (clip.top - hostRect.top) - clip.height,
+            clip.width,
+            clip.height,
+          );
+          const key = `${full.width}:${full.height}:${dpr}`;
+          if (view.size !== key) {
+            view.pipeline?.resize(full.width, full.height, dpr);
+            view.size = key;
+          }
+          try {
+            this.draw(view, () => {
               if (view.pipeline)
                 view.pipeline.render({
                   renderer,
-                  scene: options.scene,
+                  scene: this.options.scene,
                   camera,
                   width: full.width,
                   height: full.height,
                   delta,
                   pixelRatio: dpr,
                 });
-              else renderer.render(options.scene, camera);
-            } catch (error) {
-              view.context.reportError(error);
-            } finally {
-              renderer.setRenderTarget(null);
-              renderer.setScissorTest(true);
-            }
+              else renderer.render(this.options.scene, camera);
+            });
+          } catch (error) {
+            view.context.reportError(error);
+          } finally {
+            renderer.setRenderTarget(null);
+            renderer.setScissorTest(true);
           }
-          renderer.setScissorTest(false);
-          // Transparent cleared regions leave all non-3D content and chrome visible.
-          canvas.style.width = `${hostRect.width}px`;
-          canvas.style.height = `${hostRect.height}px`;
-          stats.drawCalls += renderer.info.render.calls;
-          stats.triangles += renderer.info.render.triangles;
-          stats.geometries += renderer.info.memory.geometries;
-          stats.textures += renderer.info.memory.textures;
         }
-        stats.frames++;
-      } catch (error) {
-        report(error);
-      } finally {
-        rendering = false;
-        stats.lastFrameMs = options.window.performance.now() - start;
+        renderer.setScissorTest(false);
+        // Transparent cleared regions leave all non-3D content and chrome visible.
+        canvas.style.width = `${hostRect.width}px`;
+        canvas.style.height = `${hostRect.height}px`;
+        this.metrics.drawCalls += renderer.info.render.calls;
+        this.metrics.triangles += renderer.info.render.triangles;
+        this.metrics.geometries += renderer.info.memory.geometries;
+        this.metrics.textures += renderer.info.memory.textures;
       }
-      if (moving || options.frameloop === 'always') invalidate();
-    },
-    dispose() {
-      if (disposed) return;
-      disposed = true;
-      if (frame) frameWindow.cancelAnimationFrame(frame);
-      for (const view of [...views]) view.cleanup();
-      for (const surface of surfaces.values()) surface.cleanup();
-      surfaces.clear();
-      stats.documents = 0;
-      lastTime = undefined;
-    },
-  };
-  return session;
+      this.metrics.frames++;
+    } catch (error) {
+      this.report(error);
+    } finally {
+      this.rendering = false;
+      this.metrics.lastFrameMs = this.options.window.performance.now() - start;
+    }
+    if (moving || this.options.frameloop === 'always') this.invalidate();
+  }
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    if (this.frame) this.frameWindow.cancelAnimationFrame(this.frame);
+    for (const observer of [...this.observers]) {
+      try {
+        observer.dispose?.();
+      } catch (error) {
+        this.report(error);
+      }
+    }
+    this.observers.clear();
+    for (const view of [...this.views]) view.dispose();
+    for (const surface of this.surfaces.values()) surface.cleanup();
+    this.surfaces.clear();
+    this.metrics.documents = 0;
+    this.lastTime = undefined;
+  }
 }
+
+/** Convenience factory; equivalent to new ThreeSession(options). */
+export function createThreeSession(options: SessionOptions): ThreeSession {
+  return new ThreeSession(options);
+}
+
+export { CameraHelpers } from './camera-helpers.js';
+export type { CameraHelpersOptions } from './camera-helpers.js';

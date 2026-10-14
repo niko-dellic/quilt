@@ -477,6 +477,13 @@ dialog.layouts-picker > .layouts-picker-list {
   border-width: 3px;
 }
 .layouts-corner-label {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  max-width: calc(100% - 8px);
+  max-height: calc(100% - 8px);
+  overflow: hidden;
+  overflow-wrap: anywhere;
   background: var(--layouts-panel);
   color: var(--layouts-text);
   padding: 6px 10px;
@@ -1022,4 +1029,20 @@ dialog.layouts-picker > .layouts-picker-list {
 [data-quilt-scrollbars][data-scrollbars-visible='false'] > .layouts-scrollbar,
 [data-quilt-scrollbars][data-scrollbars-visible='false'] > .layouts-scrollbar * {
   pointer-events: none;
+}
+
+.layouts-corner-preview[data-corner-preview='join-invalid'] {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--layouts-bg) 65%, transparent);
+}
+
+.layouts-resize-snap-guide {
+  position: fixed;
+  pointer-events: none;
+  background: var(--layouts-accent);
+  box-shadow: 0 0 4px var(--layouts-accent);
+  z-index: 101;
+}
+.layouts-resize-snap-guide[hidden] {
+  display: none;
 }

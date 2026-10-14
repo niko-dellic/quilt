@@ -15,7 +15,7 @@ reset, and press Escape during a drag to cancel. Shift-drag or middle-drag pans,
 After `npm run build` and `npm run dev`, open `/vanilla.html?workspace=three` or `/react.html?workspace=three`.
 Choose **4 view** in either demo’s workspace switcher. Camera poses and the shared
 scene survive switching to another workspace and back. Each view displays a single center ray for each of the other three cameras. Rays
-stop at the first scene surface or 10 world units; Custom views hides them.
+stop at the first scene surface or 10 world units. Hovering a viewport aims its ray at the cursor using that camera's picking ray; leaving restores the center ray. A compact wireframe camera at each ray's origin follows its orientation, with a triangle marking its up direction. Each 4 view pane has a **Camera helper** toggle to show or hide its camera in the other panes. Custom views starts with helpers hidden; the **Camera helpers** toggle beside Apply grid enables them globally. These settings persist across workspace switches and grid changes.
 The four views reuse the architectural study and surface colors across every workspace, with the Theming / Inspector / Activity sidebar alongside them.
 Both examples have picking, independent controls, and companion windows.
 Add `&effects` to exercise a grayscale pipeline on one view while the other views

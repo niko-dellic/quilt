@@ -1,3 +1,4 @@
+import { mountHelperToggle } from './camera-helper-controls.js';
 import { customViews } from './model.js';
 import { settings } from './settings.js';
 import { formatShortcut } from 'quilt-vanilla';
@@ -254,7 +255,9 @@ const viewControls: PaneRenderer = ({ element, document: doc, signal }) => {
   apply.textContent = 'Apply grid';
   const status = doc.createElement('span');
   status.setAttribute('aria-live', 'polite');
-  form.append(apply, status);
+  form.append(apply);
+  const disposeToggle = mountHelperToggle(form, 'custom');
+  form.append(status);
   const sync = () => {
     const { rows, columns } = customViews.get();
     inputs[0]!.value = String(rows);
@@ -273,7 +276,12 @@ const viewControls: PaneRenderer = ({ element, document: doc, signal }) => {
     { signal },
   );
   element.append(form);
-  return { dispose: unsubscribe };
+  return {
+    dispose() {
+      unsubscribe();
+      disposeToggle();
+    },
+  };
 };
 export const renderers = {
   'view-controls': viewControls,

@@ -68,6 +68,8 @@ export interface WorkspaceSettings<State = unknown> {
   capabilities?: import('quilt-core').CapabilityPolicy;
   /** Gutter reserves space; border overlays a resize target on one shared line. */
   resizeMode?: 'gutter' | 'border';
+  /** Align pointer resizing to neighboring dividers within 8 CSS pixels. Defaults to true. */
+  resizeSnapping?: boolean;
   /** Global pane-menu entry points. Defaults to both; not serialized in Layout JSON. */
   contextMenu?: 'button' | 'right-click' | 'both' | 'none';
   /** Global integrated menu button appearance. Defaults to three-dots; session-only. */

@@ -28,14 +28,14 @@ R3F. Existing `quilt-react` React 18 support is unchanged.
 ```ts
 import { Scene, PerspectiveCamera } from 'three';
 import { Workspace, createLayout } from 'quilt-vanilla';
-import { createThreeSession } from 'quilt-three';
+import { ThreeSession } from 'quilt-three';
 import 'quilt-vanilla/styles.css';
 
 const scene = new Scene(); // Populate and own assets in your application.
 const camera = new PerspectiveCamera(50, 1, 0.1, 100);
 camera.position.set(5, 5, 5);
 camera.lookAt(0, 0, 0);
-const session = createThreeSession({ scene, window });
+const session = new ThreeSession({ scene, window });
 const workspace = new Workspace({
   container: document.querySelector<HTMLElement>('#workspace')!,
   initialLayout: createLayout({ pane: { id: 'perspective', type: 'three', title: 'Perspective' } }),
@@ -61,10 +61,49 @@ Keep cameras in an application map keyed by pane ID for multiple views. Do not
 put Three.js objects in layout params. Perspective aspect follows each pane;
 orthographic resizing preserves its vertical extent, horizontal center, and zoom.
 
-`register()` returns a disposable pane view and registers cleanup with Quilt.
+`register()` returns a `ThreeView` class instance and registers cleanup with Quilt.
 The session retains its main renderer until session disposal, even if all panes
 are hidden, closed, or popped out. Companion renderers are released when unused.
 The main application must dispose the session explicitly.
+
+## Classes and camera helpers
+
+`ThreeSession` owns renderers and scheduling. `ThreeView` owns each mounted viewport's
+controls, input, pipeline, and cleanup; obtain it through `session.register()`.
+`createThreeSession(options)` remains a convenience wrapper for `new ThreeSession(options)`.
+Pure geometry utilities remain functions, and controls/pipelines implement interfaces without
+requiring inheritance. React components wrap these same instances.
+
+```ts
+import { CameraHelpers } from 'quilt-three';
+
+const helpers = new CameraHelpers(session, {
+  visible: true,
+  ray: 'pointer', // 'center' (default), 'pointer', or false for markers only
+  maxDistance: 10,
+});
+helpers.setVisible(false); // Hide all markers and rays.
+helpers.setCameraVisible(camera, false); // Hide one source camera's visualization.
+helpers.dispose();
+```
+
+Helpers follow registered cameras, omit a camera's own visualization in its viewport,
+and never change camera layers. Markers show position, orientation, and up direction.
+Pointer rays use pane-local coordinates (including companion windows), hit the first
+visible scene surface, and revert to the center on leave. Orthographic picking uses an
+offset parallel ray, with the displayed line connecting the camera marker to its endpoint.
+Helpers do not participate in picking. `ray: false` leaves camera markers visible.
+
+Optional `cameras` retains an explicit set of source cameras, even without mounted views;
+`visibleIn(camera)` filters the viewing cameras that display helpers. `color` and `size`
+customize the wireframe. There is no helper count limit or reserved camera layer.
+Disposal is idempotent and releases only helper-owned graphics. Session disposal also
+disposes attached helpers, without disposing application scene assets.
+
+In React, place `<CameraHelpers visible={showCameras} ray="pointer" />` from
+`quilt-three/react` inside `ThreeSessionProvider`, alongside `SharedScene` and the workspace.
+`visible` updates reactively; other helper options are mount-only. Unmounting cleans up
+the helper instance, including React Strict Mode effect replays.
 
 ## React Three Fiber
 
