@@ -24,8 +24,10 @@ export interface LayoutTheme {
   disabledResizeHandleWidth?: string;
   /** Border color at disabled, gapless boundaries; defaults to line. Use transparent to hide. */
   frozenPaneBorder?: string;
-  /** 8px target size. */
+  /** 16px target size. */
   cornerHandleSize?: string;
+  /** CSS cursor over corner handles (default crosshair). */
+  cornerHandleCursor?: string;
   /** 0px offset from pane edges. */
   cornerHandleInset?: string;
   /** muted color. */
@@ -34,7 +36,7 @@ export interface LayoutTheme {
   cornerHandleOpacity?: string;
   /** block; none disables corner targets. */
   cornerHandleDisplay?: string;
-  /** 2px 0 0 2px bracket stroke. */
+  /** 1px 0 0 1px bracket stroke. */
   cornerHandleBorderWidth?: string;
   /** 0px. */
   cornerHandleRadius?: string;
@@ -66,6 +68,7 @@ export const themeProperties = {
   disabledResizeHandleWidth: '--layouts-disabled-resize-handle-width',
   frozenPaneBorder: '--layouts-frozen-pane-border',
   cornerHandleSize: '--layouts-corner-handle-size',
+  cornerHandleCursor: '--layouts-corner-handle-cursor',
   cornerHandleInset: '--layouts-corner-handle-inset',
   cornerHandleColor: '--layouts-corner-handle-color',
   cornerHandleOpacity: '--layouts-corner-handle-opacity',

@@ -136,6 +136,8 @@ export type LayoutOptionUpdates<State = unknown> = {
 export type WorkspaceAction =
   | 'maximize'
   | 'addTab'
+  | 'dedicatePane'
+  | 'releasePane'
   | 'restoreClosedTab'
   | 'closeActiveTab'
   | 'closePane'
@@ -218,7 +220,7 @@ export interface MountedLayout<State = unknown> {
   loadWorkspace(input: unknown): void;
   refreshTheme(): void;
   retryPane(id: string): void;
-  requestClose(id: string, kind?: 'pane' | 'group'): Promise<boolean>;
+  requestClose(id: string, kind?: 'pane' | 'group' | 'dedicate'): Promise<boolean>;
   setTabBar(options: TabBarOptions): void;
   setTheme(theme: LayoutTheme): void;
   popout(paneId: string, placement?: WindowPlacement): Promise<boolean>;

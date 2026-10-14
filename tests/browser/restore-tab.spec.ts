@@ -1,9 +1,11 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 for (const demo of ['vanilla', 'react']) {
   test(`${demo}: menu and R restore closed tabs without intercepting text input`, async ({
     page,
   }) => {
     await page.goto(`/${demo}.html`);
+    await allowCanvasTabs(page);
     const scene = page.locator('[data-node-id="scene-group"]');
     const theming = page.locator('[data-node-id="inspector-group"]');
     const sceneTab = scene.getByRole('tab', { name: 'Scene', exact: true });
@@ -37,6 +39,7 @@ for (const demo of ['vanilla', 'react']) {
     page,
   }) => {
     await page.goto(`/${demo}.html`);
+    await allowCanvasTabs(page);
     await page.getByRole('tab', { name: 'Hotkeys', exact: true }).click();
     const tools = page.locator('[data-node-id="tools-group"]');
     await tools.getByRole('button', { name: 'Hotkeys actions', exact: true }).click();

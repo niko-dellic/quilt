@@ -312,14 +312,15 @@
 .layouts-picker {
   width: min(340px, calc(100vw - 16px));
 }
-dialog.layouts-picker[open] {
+dialog.layouts-picker[open],
+.layouts-picker-persistent:popover-open {
   display: flex;
   flex-direction: column;
 }
-dialog.layouts-picker > :not(.layouts-picker-list) {
+.layouts-picker > :not(.layouts-picker-list) {
   flex-shrink: 0;
 }
-dialog.layouts-picker > .layouts-picker-list {
+.layouts-picker > .layouts-picker-list {
   min-height: 0;
   flex-shrink: 1;
 }
@@ -393,21 +394,23 @@ dialog.layouts-picker > .layouts-picker-list {
 .layouts-corner {
   position: absolute;
   display: var(--layouts-corner-handle-display, block);
-  width: var(--layouts-corner-handle-size, 8px);
-  height: var(--layouts-corner-handle-size, 8px);
+  width: var(--layouts-corner-handle-size, 16px);
+  height: var(--layouts-corner-handle-size, 16px);
   padding: 0;
   border: 0;
   background: transparent;
   z-index: 3;
   touch-action: none;
-  cursor: crosshair;
+}
+.layouts .layouts-corner {
+  cursor: var(--layouts-corner-handle-cursor, crosshair);
 }
 .layouts-corner::after {
   content: '';
   position: absolute;
   inset: 2px;
   border-style: solid;
-  border-width: var(--layouts-corner-handle-border-width, 2px 0 0 2px);
+  border-width: var(--layouts-corner-handle-border-width, 1px 0 0 1px);
   border-color: var(--layouts-corner-handle-color, var(--layouts-muted));
   border-radius: var(--layouts-corner-handle-radius, 0px);
   background: var(--layouts-corner-handle-fill, transparent);
@@ -667,13 +670,7 @@ dialog.layouts-picker > .layouts-picker-list {
 }
 
 .layouts-picker-persistent {
-  position: absolute;
-  z-index: 3;
-  left: 50%;
-  top: calc(50% + var(--layouts-header-height, 32px) / 2);
-  transform: translate(-50%, -50%);
-  width: min(340px, calc(100% - 16px));
-  max-height: calc(100% - var(--layouts-header-height, 32px) - 16px);
+  inset: auto;
   box-sizing: border-box;
 }
 
@@ -1045,4 +1042,31 @@ dialog.layouts-picker > .layouts-picker-list {
 }
 .layouts-resize-snap-guide[hidden] {
   display: none;
+}
+
+/* Dedicated regions reserve no tab strip; their actions remain discoverable. */
+.layouts-group[data-dedicated] > .layouts-header {
+  position: absolute;
+  inset: var(--layouts-panel-padding, 8px) auto auto var(--layouts-panel-padding, 8px);
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--layouts-radius, 5px);
+  z-index: 5;
+  flex: none;
+}
+.layouts-group[data-dedicated] > .layouts-header > .layouts-tabs {
+  display: none;
+}
+.layouts-group[data-dedicated] > .layouts-header > .layouts-button {
+  height: var(--layouts-header-height, 34px);
+  min-height: calc(var(--layouts-icon-size, 16px) + 12px);
+  min-width: var(--layouts-header-height, 34px);
+  padding: 6px 7px;
+}
+.layouts-group[data-dedicated] > .layouts-body {
+  margin: 0;
 }

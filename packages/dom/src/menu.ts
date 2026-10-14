@@ -47,6 +47,32 @@ export function createPaneMenu(
     b.onclick = () => act(action);
     return b;
   }
+  function positionPicker(picker: HTMLElement, region: HTMLElement, scope: Scope) {
+    const position = () => {
+      const bounds = region.getBoundingClientRect();
+      const viewport = win.visualViewport;
+      const left = (viewport?.offsetLeft ?? 0) + 8;
+      const top = (viewport?.offsetTop ?? 0) + 8;
+      const width = Math.max(0, (viewport?.width ?? doc.documentElement.clientWidth) - 16);
+      const height = Math.max(0, (viewport?.height ?? doc.documentElement.clientHeight) - 16);
+      picker.style.width = `${Math.min(340, width)}px`;
+      picker.style.maxHeight = `${Math.min(520, height)}px`;
+      const box = picker.getBoundingClientRect();
+      picker.style.left = `${Math.max(left, Math.min(bounds.left + (bounds.width - box.width) / 2, left + width - box.width))}px`;
+      picker.style.top = `${Math.max(top, Math.min(bounds.top + (bounds.height - box.height) / 2, top + height - box.height))}px`;
+    };
+    position();
+    const observer = new win.ResizeObserver(position);
+    observer.observe(region);
+    observer.observe(picker);
+    scope.add(() => observer.disconnect());
+    scope.listen(win, 'resize', position);
+    scope.listen(doc, 'scroll', position, { capture: true });
+    if (win.visualViewport) {
+      scope.listen(win.visualViewport, 'resize', position);
+      scope.listen(win.visualViewport, 'scroll', position);
+    }
+  }
   function open(
     anchor: HTMLElement,
     pane: Pane | undefined,
@@ -137,7 +163,9 @@ export function createPaneMenu(
           persistentPickers.set(destination.id, pickerScope);
           const picker = el(doc, 'div', 'layouts-menu layouts-picker layouts-picker-persistent');
           picker.setAttribute('role', 'dialog');
+          picker.popover = 'manual';
           region.append(picker);
+          picker.showPopover();
           pickerScope.listen(
             doc,
             'pointerdown',
@@ -157,6 +185,7 @@ export function createPaneMenu(
             }),
           );
           fillTabPicker(picker, pickerScope, options, pane, destination, commit, report, true);
+          positionPicker(picker, region, pickerScope);
           return;
         }
         const pickerScope = new Scope();
@@ -169,32 +198,6 @@ export function createPaneMenu(
           });
         pickerScope.add(() => picker.remove());
         pickerScope.listen(picker, 'close', () => pickerScope.dispose());
-        // Modal pickers receive backdrop events instead of the underlying tab bar.
-        // Return to the source pane's actions, cancelling any pending split first.
-        const openPickerContext = (event: Event) => {
-          const mode = options.contextMenu ?? 'both';
-          if (mode !== 'both' && mode !== 'right-click') return;
-          const pointer = event as MouseEvent;
-          if (event.type === 'pointerdown' && pointer.button !== 2) return;
-          event.preventDefault();
-          event.stopPropagation();
-          pickerScope.dispose();
-          const layout = options.store.getSnapshot();
-          const source = findNode(layout.root, group.id);
-          if (source?.kind !== 'group') return;
-          open(
-            anchor,
-            source.active ? layout.panes[source.active] : undefined,
-            source,
-            undefined,
-            0.5,
-            !source.panes.length,
-            false,
-            { x: pointer.clientX, y: pointer.clientY },
-          );
-        };
-        pickerScope.listen(picker, 'contextmenu', openPickerContext, { capture: true });
-        pickerScope.listen(picker, 'pointerdown', openPickerContext, { capture: true });
         root.append(picker);
         pickerScope.listen(picker, 'click', (event) => {
           const e = event as MouseEvent;
@@ -214,30 +217,7 @@ export function createPaneMenu(
           (element) => element.dataset.nodeId === destination.id,
         );
         if (region) {
-          const position = () => {
-            const bounds = region.getBoundingClientRect();
-            const viewport = win.visualViewport;
-            const left = (viewport?.offsetLeft ?? 0) + 8;
-            const top = (viewport?.offsetTop ?? 0) + 8;
-            const width = Math.max(0, (viewport?.width ?? doc.documentElement.clientWidth) - 16);
-            const height = Math.max(0, (viewport?.height ?? doc.documentElement.clientHeight) - 16);
-            picker.style.width = `${Math.min(340, width)}px`;
-            picker.style.maxHeight = `${Math.min(520, height)}px`;
-            const box = picker.getBoundingClientRect();
-            picker.style.left = `${Math.max(left, Math.min(bounds.left + (bounds.width - box.width) / 2, left + width - box.width))}px`;
-            picker.style.top = `${Math.max(top, Math.min(bounds.top + (bounds.height - box.height) / 2, top + height - box.height))}px`;
-          };
-          position();
-          const observer = new win.ResizeObserver(position);
-          observer.observe(region);
-          observer.observe(picker);
-          pickerScope.add(() => observer.disconnect());
-          pickerScope.listen(win, 'resize', position);
-          pickerScope.listen(doc, 'scroll', position, { capture: true });
-          if (win.visualViewport) {
-            pickerScope.listen(win.visualViewport, 'resize', position);
-            pickerScope.listen(win.visualViewport, 'scroll', position);
-          }
+          positionPicker(picker, region, pickerScope);
           pickerScope.add(
             options.store.subscribe(() => {
               if (!findNode(options.store.getSnapshot().root, destination.id))
@@ -439,6 +419,15 @@ export function createPaneMenu(
         'popout',
       );
     }
+    if (group.active) {
+      const label = group.dedicatedPaneId ? 'Unpin tab' : 'Pin active tab';
+      add(
+        group.dedicatedPaneId ? 'allow-tabs' : 'dedicate',
+        message(options, label),
+        true,
+        group.dedicatedPaneId ? 'releasePane' : 'dedicatePane',
+      );
+    }
     const orientation = submenu(message(options, 'Tab orientation'), 'tab-orientation');
     for (const [value, label] of [
       [undefined, message(options, 'Workspace default')],
@@ -487,13 +476,14 @@ export function createPaneMenu(
     }
     if (group.panes.length && pane) {
       const close = submenu(message(options, 'Close'), 'close');
-      add(
-        'close',
-        message(options, 'Close active tab'),
-        options.store.can(pane.id, 'close'),
-        'closeActiveTab',
-        close,
-      );
+      if (!group.dedicatedPaneId)
+        add(
+          'close',
+          message(options, 'Close active tab'),
+          options.store.can(pane.id, 'close'),
+          'closeActiveTab',
+          close,
+        );
       add(
         'close',
         message(options, 'Close pane'),
@@ -555,34 +545,6 @@ export function createPaneMenu(
         place(flyout, x, row.top);
       }
     };
-    // Modal backdrops retarget pointer events to the dialog instead of the tab bar.
-    // Keep the current action context and move the existing menu on repeated right-clicks.
-    local.listen(
-      dialog,
-      'contextmenu',
-      (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const pointer = event as MouseEvent;
-        position = { x: pointer.clientX, y: pointer.clientY };
-        positionMenus();
-      },
-      { capture: true },
-    );
-    // Firefox suppresses contextmenu on disabled buttons but still emits pointer events.
-    local.listen(
-      dialog,
-      'pointerdown',
-      (event) => {
-        const pointer = event as PointerEvent;
-        if (pointer.button !== 2) return;
-        event.preventDefault();
-        event.stopPropagation();
-        position = { x: pointer.clientX, y: pointer.clientY };
-        positionMenus();
-      },
-      { capture: true },
-    );
     local.listen(dialog, 'close', () => local.dispose());
     local.listen(dialog, 'click', (event) => {
       if (event.target === dialog) {

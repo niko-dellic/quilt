@@ -1,8 +1,10 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 for (const framework of ['vanilla', 'react']) {
   test.describe(framework, () => {
     test.beforeEach(async ({ page }) => {
       await page.goto(`/${framework}.html`);
+      await allowCanvasTabs(page);
       await expect(page.getByRole('tab', { name: 'Scene', exact: true })).toBeVisible();
       await page.getByRole('tab', { name: 'Inspector', exact: true }).click();
     });

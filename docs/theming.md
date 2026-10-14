@@ -223,7 +223,8 @@ or adding tabs does not move the pane content.
 The area beside the short bar remains interactive. Applications should keep
 essential content clear of the painted bar. Each region exposes
 `--layouts-tab-bar-width` (including the cap) and `--layouts-tab-bar-height`,
-both in pixels, for positioning content. Hidden headers expose zero values.
+both in pixels, for positioning content. Pinned regions hide their header and expose zero values, as do other hidden
+headers. Use a corner handle to access a pinned region’s actions.
 The demos show using the height to inset inspector and help content while
 allowing the scene to fill the region.
 
@@ -353,16 +354,20 @@ Applications can use these `LayoutTheme` values (or their corresponding
 
 | Theme key                 | Default                        |
 | ------------------------- | ------------------------------ |
-| `cornerHandleSize`        | `8px`                          |
+| `cornerHandleSize`        | `16px`                         |
+| `cornerHandleCursor`      | `crosshair`                    |
 | `cornerHandleInset`       | `0px`                          |
 | `cornerHandleColor`       | muted theme color              |
 | `cornerHandleOpacity`     | `0.35`                         |
 | `cornerHandleDisplay`     | `block` (`none` hides targets) |
-| `cornerHandleBorderWidth` | `2px 0 0 2px`                  |
+| `cornerHandleBorderWidth` | `1px 0 0 1px`                  |
 | `cornerHandleRadius`      | `0px`                          |
 | `cornerHandleFill`        | `transparent`                  |
 
 For example, a dot uses border width `0`, radius `50%`, and a theme color as fill.
+Set `theme: { cornerHandleCursor: 'grab' }` in Vanilla or React to override the
+corner cursor, or update it live with `workspace.setTheme(...)`. The corresponding
+CSS property is `--layouts-corner-handle-cursor`.
 These settings update chrome without remounting pane content or changing JSON.
 
 Tab tooltips depend only on actual label visibility: icon-only tabs show their
@@ -402,12 +407,13 @@ shorthand. Family accepts a CSS font-family list. Font files stay app-owned.
 | `resizeHandleWidth`         | `4px`                   | Length           |
 | `disabledResizeHandleWidth` | `0px`                   | Length           |
 | `frozenPaneBorder`          | `line`                  | Color            |
-| `cornerHandleSize`          | `8px`                   | Length           |
+| `cornerHandleSize`          | `16px`                  | Length           |
+| `cornerHandleCursor`        | `crosshair`             | CSS cursor       |
 | `cornerHandleInset`         | `0px`                   | Length           |
 | `cornerHandleColor`         | `muted`                 | Color            |
 | `cornerHandleOpacity`       | `0.35`                  | Number           |
 | `cornerHandleDisplay`       | `block`                 | Display          |
-| `cornerHandleBorderWidth`   | `2px 0 0 2px`           | Stroke shorthand |
+| `cornerHandleBorderWidth`   | `1px 0 0 1px`           | Stroke shorthand |
 | `cornerHandleRadius`        | `0px`                   | Length           |
 | `cornerHandleFill`          | `transparent`           | Color            |
 | `scrollbarThumb`            | `line`                  | Color            |

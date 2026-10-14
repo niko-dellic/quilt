@@ -1,6 +1,8 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 test('corner split, escape cancellation and sibling join preserve panes', async ({ page }) => {
   await page.goto('/vanilla.html');
+  await allowCanvasTabs(page);
   const source = page.locator('[data-node-id="scene-group"]');
   await expect(source).toBeVisible();
   const box = (await source.boundingBox())!;

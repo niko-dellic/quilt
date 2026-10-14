@@ -1,9 +1,11 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: icon tabs reorder in both directions and close without losing content`, async ({
     page,
   }) => {
     await page.goto(`/${framework}.html`);
+    await allowCanvasTabs(page);
     const inspector = page.getByRole('tab', { name: 'Inspector', exact: true });
     const activity = page.getByRole('tab', { name: 'Activity', exact: true });
     await expect(inspector.locator('svg')).toHaveCount(1);
@@ -34,6 +36,7 @@ for (const framework of ['vanilla', 'react']) {
       page,
     }) => {
       await page.goto(`/${framework}.html`);
+      await allowCanvasTabs(page);
       const scene = page.getByRole('tab', { name: 'Scene', exact: true });
       await scene.hover();
       await page.keyboard.press(shortcut);

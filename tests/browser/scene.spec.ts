@@ -54,7 +54,9 @@ for (const framework of ['vanilla', 'react']) {
     await page.keyboard.up('Shift');
     await expect.poll(cameraState).not.toEqual(zoomed);
     const panned = await cameraState();
-    await page.getByRole('button', { name: 'Scene actions', exact: true }).click();
+    await page
+      .locator('[data-node-id="scene-group"] [data-corner="tl"]')
+      .click({ button: 'right' });
     const popupEvent = page.waitForEvent('popup');
     await page.getByRole('button', { name: 'Open in window', exact: true }).click();
     const popup = await popupEvent;
@@ -116,6 +118,154 @@ for (const framework of ['vanilla', 'react']) {
       await expect.poll(pose).not.toEqual(before);
       await expect(page.locator('[data-quilt-three-canvas]')).toHaveCount(1);
       await expect(page.locator('canvas:not([data-quilt-three-canvas])')).toHaveCount(0);
+    }
+  });
+}
+
+for (const framework of ['vanilla', 'react']) {
+  test(`${framework}: right-drag pans without opening the pane menu`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'Requires WebGL');
+    await page.goto(`/${framework}.html?workspace=three`);
+    await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
+    const input = page.locator('[data-pane-id="perspective"] [data-quilt-three-input]');
+    const box = (await input.boundingBox())!;
+    // Native browser menus are outside the DOM: assert cancellation of the actual
+    // event, rather than only checking that Quilt's menu is absent.
+    expect(
+      await input.evaluate((element) => {
+        const event = new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          button: 2,
+          clientX: 100,
+          clientY: 100,
+        });
+        return { dispatched: element.dispatchEvent(event), prevented: event.defaultPrevented };
+      }),
+    ).toEqual({ dispatched: false, prevented: true });
+
+    const pose = () =>
+      page.evaluate(() => {
+        for (let i = 0; i < 160; i++) window.threeDemo.session.render(performance.now());
+        const camera = window.threeDemo.cameras.get('perspective')!;
+        return { position: camera.position.toArray(), rotation: camera.quaternion.toArray() };
+      });
+    const before = await pose();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.6);
+    await page.mouse.down({ button: 'right' });
+    await expect(page.getByRole('button', { name: 'Open in window', exact: true })).toBeHidden();
+    await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.7, { steps: 8 });
+    await page.mouse.up({ button: 'right' });
+    await expect(page.getByRole('button', { name: 'Open in window', exact: true })).toBeHidden();
+    const after = await pose();
+    expect(after.position).not.toEqual(before.position);
+    after.rotation.forEach((value, index) => expect(value).toBeCloseTo(before.rotation[index]!, 8));
+    await input.click({ button: 'right', position: { x: box.width * 0.5, y: box.height * 0.6 } });
+    await expect(page.getByRole('button', { name: 'Open in window', exact: true })).toBeHidden();
+  });
+}
+
+for (const framework of ['vanilla', 'react']) {
+  test(`${framework}: synchronized camera positions preserve independent orientation and zoom`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'Requires WebGL');
+    await page.goto(`/${framework}.html?workspace=three`);
+    await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
+    const poses = () =>
+      page.evaluate(() => {
+        for (let i = 0; i < 160; i++) window.threeDemo.session.render(performance.now());
+        return window.threeDemo.session.getViews().map((view) => ({
+          id: view.camera.name,
+          position: view.camera.position.toArray(),
+          rotation: view.camera.quaternion.toArray(),
+          zoom: (view.camera as import('three').PerspectiveCamera).zoom,
+        }));
+      });
+    for (const mode of ['four', 'custom']) {
+      if (mode === 'custom')
+        await page.getByRole('button', { name: 'Custom views', exact: true }).click();
+      const id = mode === 'four' ? 'perspective' : 'custom-view-0-0';
+      const toggle =
+        mode === 'four'
+          ? page
+              .locator(`[data-pane-id="${id}"]`)
+              .getByRole('button', { name: 'Sync camera positions', exact: true })
+          : page
+              .locator('.demo-view-controls')
+              .getByRole('button', { name: 'Sync camera positions', exact: true });
+      const helperButtons = page.getByRole('button', {
+        name: mode === 'four' ? 'Camera helper' : 'Camera helpers',
+        exact: true,
+      });
+      if (mode === 'custom') await helperButtons.click();
+      const before = await poses();
+      const source = before.find((pose) => pose.id === id)!;
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      for (const button of await helperButtons.all()) {
+        await expect(button).toBeDisabled();
+        await expect(button).toHaveAttribute('aria-pressed', 'false');
+      }
+      expect(
+        await page.evaluate(() => {
+          const { session } = window.threeDemo;
+          let draws = 0;
+          const restore: (() => void)[] = [];
+          session.scene.traverse((object) => {
+            if (!object.userData.cameraRay) return;
+            const original = object.onBeforeRender;
+            object.onBeforeRender = () => {
+              draws++;
+            };
+            restore.push(() => {
+              object.onBeforeRender = original;
+            });
+          });
+          session.render(performance.now());
+          restore.forEach((fn) => fn());
+          return draws;
+        }),
+      ).toBe(0);
+
+      for (const pose of await poses()) {
+        pose.position.forEach((value, i) => expect(value).toBeCloseTo(source.position[i]!, 8));
+        const original = before.find((item) => item.id === pose.id)!;
+        pose.rotation.forEach((value, i) => expect(value).toBeCloseTo(original.rotation[i]!, 8));
+        expect(pose.zoom).toBe(original.zoom);
+      }
+      const input = page.locator(`[data-pane-id="${id}"] [data-quilt-three-input]`);
+      const box = (await input.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down({ button: 'right' });
+      await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.6, { steps: 6 });
+      await page.mouse.up({ button: 'right' });
+      const moved = await poses();
+      const leader = moved.find((pose) => pose.id === id)!;
+      expect(leader.position).not.toEqual(source.position);
+      for (const pose of moved) {
+        pose.position.forEach((value, i) => expect(value).toBeCloseTo(leader.position[i]!, 8));
+        const original = before.find((item) => item.id === pose.id)!;
+        pose.rotation.forEach((value, i) => expect(value).toBeCloseTo(original.rotation[i]!, 8));
+      }
+      await toggle.click();
+      for (const button of await helperButtons.all()) {
+        await expect(button).toBeEnabled();
+        await expect(button).toHaveAttribute('aria-pressed', 'true');
+      }
+
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down({ button: 'right' });
+      await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.6, { steps: 6 });
+      await page.mouse.up({ button: 'right' });
+      for (const pose of (await poses()).filter((item) => item.id !== id)) {
+        const original = moved.find((item) => item.id === pose.id)!;
+        pose.position.forEach((value, i) => expect(value).toBeCloseTo(original.position[i]!, 8));
+      }
     }
   });
 }

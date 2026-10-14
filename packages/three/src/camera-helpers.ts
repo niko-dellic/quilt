@@ -4,10 +4,12 @@ import {
   Line,
   LineBasicMaterial,
   LineSegments,
+  Points,
+  PointsMaterial,
   Raycaster,
   Vector3,
 } from 'three';
-import type { Camera, ColorRepresentation, Intersection } from 'three';
+import type { Camera, ColorRepresentation, Intersection, OrthographicCamera } from 'three';
 import type { ThreeSession, ThreeView } from './index.js';
 
 export interface CameraHelpersOptions {
@@ -117,6 +119,7 @@ export class CameraHelpers {
 class CameraVisualization {
   readonly line: Line<BufferGeometry, LineBasicMaterial>;
   private readonly marker: LineSegments<BufferGeometry, LineBasicMaterial>;
+  private readonly hitPoint: Points<BufferGeometry, PointsMaterial>;
   private readonly positions = new Float32BufferAttribute(6, 3);
   private readonly raycaster = new Raycaster();
   private readonly origin = new Vector3();
@@ -148,7 +151,23 @@ class CameraVisualization {
     const outline: number[] = [];
     for (let i = 0; i < 4; i++)
       outline.push(0, 0, 0, ...corners[i]!, ...corners[i]!, ...corners[(i + 1) % 4]!);
-    outline.push(-0.09, 0.15, -0.35, 0, 0.27, -0.35, 0, 0.27, -0.35, 0.09, 0.15, -0.35);
+    if ((camera as OrthographicCamera).isOrthographicCamera) {
+      // A detached ring distinguishes orthographic cameras while retaining local +Y.
+      for (let i = 0; i < 32; i++) {
+        const start = (i / 32) * Math.PI * 2;
+        const end = ((i + 1) / 32) * Math.PI * 2;
+        outline.push(
+          Math.cos(start) * 0.04,
+          0.23 + Math.sin(start) * 0.04,
+          -0.35,
+          Math.cos(end) * 0.04,
+          0.23 + Math.sin(end) * 0.04,
+          -0.35,
+        );
+      }
+    } else {
+      outline.push(-0.09, 0.15, -0.35, 0, 0.27, -0.35, 0, 0.27, -0.35, 0.09, 0.15, -0.35);
+    }
     this.marker = new LineSegments(
       new BufferGeometry().setAttribute(
         'position',
@@ -161,12 +180,33 @@ class CameraVisualization {
     );
     this.marker.name = `camera-marker-${camera.name || camera.uuid}`;
     this.marker.userData.cameraMarker = true;
-    for (const object of [this.line, this.marker]) {
+    const pointMaterial = new PointsMaterial({
+      color,
+      size: 7,
+      sizeAttenuation: false,
+      depthTest: false,
+      depthWrite: false,
+    });
+    pointMaterial.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'void main() {',
+        'void main() { if (length(gl_PointCoord - vec2(0.5)) > 0.5) discard;',
+      );
+    };
+    this.hitPoint = new Points(
+      new BufferGeometry().setAttribute('position', new Float32BufferAttribute([0, 0, 0], 3)),
+      pointMaterial,
+    );
+    this.hitPoint.name = `camera-hit-${camera.name || camera.uuid}`;
+    this.hitPoint.userData.cameraHit = true;
+    this.hitPoint.visible = false;
+    this.hitPoint.renderOrder = 1;
+    for (const object of [this.line, this.marker, this.hitPoint]) {
       object.layers.enableAll();
       object.raycast = () => {};
       object.frustumCulled = false;
     }
-    this.line.add(this.marker);
+    this.line.add(this.marker, this.hitPoint);
   }
   update(
     session: ThreeSession,
@@ -182,6 +222,7 @@ class CameraVisualization {
     // Cancel any scene transform: cameras and ray intersections are in world space.
     this.line.matrix.copy(session.scene.matrixWorld).invert();
     this.line.geometry.setDrawRange(0, mode === false ? 0 : 2);
+    this.hitPoint.visible = false;
     if (mode !== false) {
       this.raycaster.far = distance;
       this.raycaster.layers.mask = this.camera.layers.mask;
@@ -201,6 +242,8 @@ class CameraVisualization {
         return true;
       });
       this.raycaster.ray.at(hit?.distance ?? distance, this.end);
+      this.hitPoint.visible = !!hit;
+      if (hit) this.hitPoint.position.copy(hit.point);
       this.positions.setXYZ(0, this.origin.x, this.origin.y, this.origin.z);
       this.positions.setXYZ(1, this.end.x, this.end.y, this.end.z);
       this.positions.needsUpdate = true;
@@ -211,6 +254,8 @@ class CameraVisualization {
     this.line.removeFromParent();
     this.line.geometry.dispose();
     this.marker.geometry.dispose();
+    this.hitPoint.geometry.dispose();
+    this.hitPoint.material.dispose();
     this.line.material.dispose();
   }
 }

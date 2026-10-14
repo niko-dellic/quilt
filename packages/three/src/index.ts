@@ -498,28 +498,15 @@ export class ThreeSession {
         input.addEventListener(event, handle);
         cleanups.push(() => input.removeEventListener(event, handle));
       }
-      // Controls commonly prevent contextmenu even when Quilt owns the menu.
-      // Route it through the pane host before controls consume it, preserving
-      // ordinary Quilt bubbling and application onPointer cancellation.
+      // The viewport owns right-button gestures. Suppress the native menu even
+      // when no application handler cancels it; Quilt menus belong to pane chrome.
       const contextMenu = (event: MouseEvent) => {
         event.stopImmediatePropagation();
-        handle(event);
-        if (event.defaultPrevented) return;
-        const forwarded = new realm.MouseEvent('contextmenu', {
-          bubbles: true,
-          cancelable: true,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          screenX: event.screenX,
-          screenY: event.screenY,
-          button: event.button,
-          buttons: event.buttons,
-          ctrlKey: event.ctrlKey,
-          shiftKey: event.shiftKey,
-          altKey: event.altKey,
-          metaKey: event.metaKey,
-        });
-        if (!element.dispatchEvent(forwarded)) event.preventDefault();
+        try {
+          handle(event);
+        } finally {
+          event.preventDefault();
+        }
       };
       input.addEventListener('contextmenu', contextMenu, true);
       cleanups.push(() => input.removeEventListener('contextmenu', contextMenu, true));

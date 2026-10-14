@@ -80,6 +80,7 @@ export function joinRectangle(
   }
   const selectedIds = new Set(selected.map((g) => g.id));
   const merged: Group = { ...receiver, panes: selected.flatMap((g) => g.panes) };
+  if (merged.panes.some((id) => id !== merged.dedicatedPaneId)) delete merged.dedicatedPaneId;
   merged.active ??= merged.panes[0] ?? null;
   // Rebuild only the smallest subtree containing the selection.
   const counts = new Map<Node, number>();

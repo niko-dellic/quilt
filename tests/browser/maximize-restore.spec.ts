@@ -21,7 +21,9 @@ for (const framework of ['vanilla', 'react']) {
       );
     const before = await rectangles();
     for (const name of ['Hotkeys', 'Scene', 'Theming', 'Timeline', 'Scene']) {
-      await page.getByRole('tab', { name, exact: true }).hover();
+      if (name === 'Scene')
+        await page.locator('[data-node-id="scene-group"] [data-corner="tl"]').hover();
+      else await page.getByRole('tab', { name, exact: true }).hover();
       await page.keyboard.press('`');
       await expect(page.locator('.layouts-stage > .layouts-group')).toHaveCount(1);
       await page.evaluate(

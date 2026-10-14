@@ -1,5 +1,7 @@
 import {
   Activity,
+  Video,
+  Link2,
   Square,
   PanelTop,
   PanelLeft,
@@ -15,6 +17,8 @@ import {
 } from 'lucide';
 import type { IconNode } from 'lucide';
 const icons: Record<string, IconNode> = {
+  'camera-helper': Video,
+  'camera-sync': Link2,
   'camera-perspective': Box,
   'camera-top': PanelTop,
   'camera-front': Square,

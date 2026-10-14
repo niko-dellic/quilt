@@ -188,6 +188,8 @@ export interface WorkspaceHandle<State = unknown> {
   can(paneId: string, capability: Capability): boolean;
   canNode(nodeId: string, capability: Capability): boolean;
   canRestoreClosedPane(): boolean;
+  dedicateGroup(id: string): Promise<boolean>;
+  releaseGroup(id: string): void;
   restoreClosedPane(): void;
   /** Confirm and check permissions unless force is explicitly supplied. */
   closePane(id: string, options?: CloseOptions): Promise<boolean>;
@@ -623,6 +625,14 @@ export class Workspace<State = unknown> implements WorkspaceHandle<State> {
   canRestoreClosedPane() {
     this.#alive();
     return this.#model.canRestoreClosedTab();
+  }
+  dedicateGroup(id: string): Promise<boolean> {
+    this.#alive();
+    return this.#mounted.requestClose(id, 'dedicate');
+  }
+  releaseGroup(id: string): void {
+    this.#alive();
+    this.#model.releaseGroup(id);
   }
   restoreClosedPane() {
     this.#alive();

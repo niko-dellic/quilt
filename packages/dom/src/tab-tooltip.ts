@@ -59,7 +59,7 @@ export function bindTabTooltip(
     }
     const empty = anchor.matches('.layouts-empty');
     tooltip.textContent = empty
-      ? message({ messages: getMessages() }, 'Click to add a pane')
+      ? message({ messages: getMessages() }, 'Click to add a tab')
       : (anchor.getAttribute('aria-label') ?? '');
     const rect = (empty ? region : anchor).getBoundingClientRect();
     const size = tooltip.getBoundingClientRect();

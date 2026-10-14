@@ -281,7 +281,12 @@ test('Three high-DPI cap, zero size, pointer capture, and application resource o
       window.threeDemo.session.scene.traverse((object) => {
         const mesh = object as import('three').Mesh;
         mesh.geometry?.addEventListener('dispose', () => {
-          if (object.userData.cameraRay || object.userData.cameraMarker) helpers++;
+          if (
+            object.userData.cameraRay ||
+            object.userData.cameraMarker ||
+            object.userData.cameraHit
+          )
+            helpers++;
           else shared++;
         });
       });
@@ -289,7 +294,7 @@ test('Three high-DPI cap, zero size, pointer capture, and application resource o
       window.threeDemo.session.dispose();
       return { shared, helpers };
     });
-    expect(disposedAssets).toEqual({ shared: 0, helpers: 8 });
+    expect(disposedAssets).toEqual({ shared: 0, helpers: 12 });
     await expect(page.locator('canvas')).toHaveCount(0);
   } finally {
     await context.close();
@@ -413,6 +418,8 @@ for (const framework of ['vanilla', 'react']) {
       await page
         .locator(`[data-pane-id="${id}"] [data-quilt-three-input]`)
         .click({ button: 'right' });
+      await expect(page.locator('dialog.layouts-menu')).toHaveCount(0);
+      await page.getByRole('tab', { name: title, exact: true }).click({ button: 'right' });
       await expect(page.getByRole('button', { name: 'Open in window', exact: true })).toBeVisible();
       await page.keyboard.press('Escape');
     }
@@ -497,6 +504,8 @@ for (const framework of ['vanilla', 'react']) {
     await page
       .locator('[data-pane-id="custom-view-0-0"] [data-quilt-three-input]')
       .click({ button: 'right' });
+    await expect(page.locator('dialog.layouts-menu')).toHaveCount(0);
+    await page.getByRole('tab', { name: 'View 1.1', exact: true }).click({ button: 'right' });
     await expect(page.getByRole('button', { name: 'Open in window', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await page.screenshot({ path: `artifacts/custom-views-${framework}.png` });
@@ -521,6 +530,8 @@ test('camera rays stop at the nearest mesh or their maximum length', async ({
         count: positions.count,
         start: [positions.getX(0), positions.getY(0), positions.getZ(0)],
         end: [positions.getX(1), positions.getY(1), positions.getZ(1)],
+        hitVisible: helper.children[1]!.visible,
+        hitPosition: helper.children[1]!.position.toArray(),
         markerPosition: marker.position.toArray(),
         markerOrientation: marker.quaternion.toArray(),
         cameraOrientation: cameras.get('front')!.quaternion.toArray(),
@@ -542,6 +553,9 @@ test('camera rays stop at the nearest mesh or their maximum length', async ({
   });
   expect(rays.helpers).toBe(0);
   expect(rays.hit.count).toBe(2);
+  expect(rays.hit.hitVisible).toBe(true);
+  expect(rays.miss.hitVisible).toBe(false);
+  rays.hit.hitPosition.forEach((value, i) => expect(value).toBeCloseTo(rays.hit.end[i]!, 5));
   rays.hit.start.forEach((value, i) => expect(value).toBeCloseTo(rays.origin[i]!, 5));
   expect(rays.hit.markerPosition).toEqual(rays.origin);
   expect(rays.hit.markerOrientation).toEqual(rays.hit.cameraOrientation);

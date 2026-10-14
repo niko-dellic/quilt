@@ -154,3 +154,30 @@ change it with `setResizeSnapping`, and inspect it with `getResizeSnapping`.
 `store.snapResize(position, edges, threshold = 8)` resolves coordinates without
 browser dependencies. Hosts supply measurements in a common coordinate space.
 Direct resize commands and keyboard resize steps remain exact.
+
+## Dedicated regions
+
+**Pin active tab** closes inactive docked tabs and reserves the region
+for its active view. The operation preserves the region's geometry and IDs and
+does not remount the retained view. Inactive tabs follow existing close permissions
+and confirmation rules; cancellation, denied permission, or changed membership or
+active tab during confirmation leaves the layout unchanged. Closed views enter
+normal restore history; their application data remains application-owned.
+
+Pinned regions hide the tab bar and its actions button, reserving no content
+clearance for them. Right-click a corner split/join handle to open pane actions.
+Explicit `contextMenu` settings still control right-click availability.
+**Unpin tab** releases the restriction without reopening closed tabs.
+This is distinct from `header: false`, which hides a single-tab header without
+restricting the group's contents. Releasing dedication restores ordinary header
+rules and the region's saved tab styling.
+
+Adding tabs and center drops into pinned regions are rejected, including direct
+core API commands. Joins are allowed and preserve all views. A pinned receiver
+becomes tabbed when it receives other views; joining only empty regions preserves
+its pin. Ordinary join permissions still apply. Splitting alongside a pinned
+region remains available. Moving or closing the designated view clears dedication on its emptied
+region. Popping it out reserves a retained source region for its return; normal
+auto-collapse still applies. If the source region is removed, the existing return
+fallback applies. Restoring other closed tabs skips dedicated regions and creates
+an ordinary region if no compatible target exists.

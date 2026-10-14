@@ -12,7 +12,7 @@ for (const placement of ['top', 'left'] as const) {
     const surface = group.locator('.layouts-empty');
     const tip = page.getByRole('tooltip');
     await surface.hover();
-    await expect(tip).toHaveText('Click to add a pane');
+    await expect(tip).toHaveText('Click to add a tab');
     await expect(tip).toHaveClass('layouts-tab-tooltip');
     await expect(surface).not.toHaveAttribute('title');
     const pane = (await group.boundingBox())!;

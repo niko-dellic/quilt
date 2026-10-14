@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { grayscale } from './three-effect.js';
 import { CameraHelpers } from 'quilt-three';
 import type { ControlsContext, ThreeSession } from 'quilt-three';
-import { helperDisplay } from './camera-helper-controls.js';
+import { helperDisplay, cameraSync, cameraSyncScope } from './camera-helper-controls.js';
 export { layout } from './three-layout.js';
 
 export const cameras = new Map<string, THREE.PerspectiveCamera | THREE.OrthographicCamera>();
@@ -41,6 +41,90 @@ export function getCamera(id: string) {
 type CameraPose = { position: THREE.Vector3; target: THREE.Vector3; zoom: number };
 const cameraTargets = new WeakMap<THREE.Camera, THREE.Vector3>();
 const initialPoses = new WeakMap<THREE.Camera, CameraPose>();
+const orbitInstances = new Set<OrbitControls>();
+const positionListeners = new Set<(camera: THREE.Camera) => void>();
+const positionBaselines = new WeakMap<THREE.Camera, THREE.Vector3>();
+
+/** Demo policy shared by vanilla and React; targets translate with positions to preserve rotation. */
+class CameraPositionSync {
+  private syncing = false;
+  private readonly leaders = new Map<string, THREE.Camera>();
+  private readonly cleanup: (() => void)[];
+  constructor(private readonly session: ThreeSession) {
+    const changed = (camera: THREE.Camera) => this.sync(camera);
+    positionListeners.add(changed);
+    const reconcile = () => {
+      for (const scope of ['four', 'custom']) {
+        const views = session
+          .getViews()
+          .filter((view) => cameraSyncScope(view.camera.name) === scope);
+        const leader = this.leaders.get(scope);
+        const source = views.find((view) => view.camera === leader)?.camera ?? views[0]?.camera;
+        if (source) this.sync(source);
+      }
+    };
+    this.cleanup = [
+      () => {
+        positionListeners.delete(changed);
+      },
+      cameraSync.subscribe(() => {
+        const scope = cameraSyncScope(cameraSync.source);
+        const source =
+          session.getViews().find((view) => view.camera.name === cameraSync.source)?.camera ??
+          session.getViews().find((view) => cameraSyncScope(view.camera.name) === scope)?.camera;
+        if (source) this.sync(source);
+      }),
+      session.subscribe({ viewsChanged: reconcile, dispose: () => this.dispose() }),
+    ];
+    reconcile();
+  }
+  private sync(source: THREE.Camera): void {
+    const scope = cameraSyncScope(source.name);
+    if (this.syncing || !scope || !cameraSync.enabled(source.name)) return;
+    const views = this.session.getViews();
+    if (!views.some((view) => view.camera === source)) return;
+    this.leaders.set(scope, source);
+    this.syncing = true;
+    try {
+      for (const camera of new Set(views.map((view) => view.camera))) {
+        if (camera === source || cameraSyncScope(camera.name) !== scope) continue;
+        const position = source.position.clone();
+        const rotation = camera.quaternion.clone();
+        const projection = camera as THREE.PerspectiveCamera | THREE.OrthographicCamera;
+        const zoom = projection.zoom;
+        const target = (cameraTargets.get(camera) ?? new THREE.Vector3())
+          .clone()
+          .add(position.clone().sub(camera.position));
+        const controls =
+          [...orbitInstances].find((instance) => instance.object === camera && instance.enabled) ??
+          [...orbitInstances].find((instance) => instance.object === camera);
+        if (controls) {
+          const damping = controls.enableDamping;
+          controls.enableDamping = false;
+          controls.update(); // Drain residual motion before assigning the synchronized pose.
+          controls.target.copy(target);
+          camera.position.copy(position);
+          projection.zoom = zoom;
+          projection.updateProjectionMatrix();
+          controls.update();
+          controls.enableDamping = damping;
+        } else {
+          camera.position.copy(position);
+          cameraTargets.set(camera, target);
+        }
+        camera.quaternion.copy(rotation);
+        positionBaselines.get(camera)?.copy(camera.position);
+        camera.updateMatrixWorld();
+      }
+      this.session.invalidate();
+    } finally {
+      this.syncing = false;
+    }
+  }
+  dispose(): void {
+    for (const cleanup of this.cleanup.splice(0)) cleanup();
+  }
+}
 export function orbit({ camera, element, invalidate }: ControlsContext) {
   const viewCamera = camera as THREE.PerspectiveCamera | THREE.OrthographicCamera;
   const target = cameraTargets.get(camera) ?? new THREE.Vector3();
@@ -56,13 +140,13 @@ export function orbit({ camera, element, invalidate }: ControlsContext) {
   controls.enablePan = true;
   controls.enableDamping = true;
   controls.dampingFactor = 0.12;
-  // Reserve right-click for Quilt's pane menu; Shift+drag and two-finger touch pan.
-  controls.mouseButtons.RIGHT = null;
+  // Right-drag pans with damping; Quilt menus belong to pane chrome.
+  controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
   controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
   element.tabIndex = 0;
   element.setAttribute(
     'aria-label',
-    'Scene viewport. Drag to orbit, Shift-drag or middle-drag to pan, scroll to zoom, double-click to reset.',
+    'Scene viewport. Drag to orbit, right-drag, Shift-drag or middle-drag to pan, scroll to zoom, double-click to reset.',
   );
   let drag: { id: number; pose: CameraPose } | undefined;
   const restore = (pose: CameraPose) => {
@@ -82,7 +166,8 @@ export function orbit({ camera, element, invalidate }: ControlsContext) {
     invalidate();
   };
   const start = (event: PointerEvent) => {
-    if (!controls.enabled || (event.button !== 0 && event.button !== 1)) return;
+    if (!controls.enabled || (event.button !== 0 && event.button !== 1 && event.button !== 2))
+      return;
     element.focus({ preventScroll: true });
     drag = { id: event.pointerId, pose: snapshot() };
   };
@@ -106,7 +191,20 @@ export function orbit({ camera, element, invalidate }: ControlsContext) {
   element.addEventListener('pointercancel', cancel);
   element.ownerDocument.addEventListener('keydown', key);
   element.addEventListener('dblclick', reset);
-  controls.addEventListener('change', invalidate);
+  const previousPosition = positionBaselines.get(camera) ?? camera.position.clone();
+  positionBaselines.set(camera, previousPosition);
+  const syncPosition = () => {
+    if (previousPosition.distanceToSquared(camera.position) > 1e-18) {
+      previousPosition.copy(camera.position);
+      for (const listener of positionListeners) listener(camera);
+    }
+  };
+  const change = () => {
+    syncPosition();
+    invalidate();
+  };
+  orbitInstances.add(controls);
+  controls.addEventListener('change', change);
   return {
     get enabled() {
       return controls.enabled;
@@ -114,14 +212,21 @@ export function orbit({ camera, element, invalidate }: ControlsContext) {
     set enabled(value: boolean) {
       controls.enabled = value;
     },
-    update: () => controls.update(),
+    update: () => {
+      const moving = controls.update();
+      // OrbitControls suppresses change events below its own epsilon; still copy
+      // the final damping steps so synchronized XYZ coordinates do not drift apart.
+      syncPosition();
+      return moving;
+    },
     dispose() {
       element.removeEventListener('pointerdown', start, true);
       element.ownerDocument.removeEventListener('pointerup', end);
       element.removeEventListener('pointercancel', cancel);
       element.ownerDocument.removeEventListener('keydown', key);
       element.removeEventListener('dblclick', reset);
-      controls.removeEventListener('change', invalidate);
+      orbitInstances.delete(controls);
+      controls.removeEventListener('change', change);
       controls.dispose();
     },
   };
@@ -140,11 +245,13 @@ export { populate } from './three-scene.js';
 
 // Display policy belongs to the demo; graphics and pointer tracking belong to quilt-three.
 export function createDemoHelpers(session: ThreeSession) {
+  const positionSync = new CameraPositionSync(session);
   const helpers = new CameraHelpers(session, {
     visibleIn: (camera) =>
-      camera.name.startsWith('custom-view-')
+      !cameraSync.enabled(camera.name) &&
+      (camera.name.startsWith('custom-view-')
         ? helperDisplay.customVisible()
-        : cameraKinds.includes(camera.name as (typeof cameraKinds)[number]),
+        : cameraKinds.includes(camera.name as (typeof cameraKinds)[number])),
     ray: 'pointer',
   });
   const sync = () => {
@@ -154,6 +261,7 @@ export function createDemoHelpers(session: ThreeSession) {
   };
   const unsubscribe = helperDisplay.subscribe(sync);
   const dispose = () => {
+    positionSync.dispose();
     unsubscribe();
     unsubscribeSession();
     helpers.dispose();

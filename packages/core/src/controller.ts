@@ -90,7 +90,7 @@ export class LayoutStore {
     }
     // Update session history only after validation, before notifying subscribers.
     if (action === 'load') this.closedTabs = [];
-    if (action === 'close' || action === 'closeGroup') {
+    if (action === 'close' || action === 'closeGroup' || action === 'dedicateGroup') {
       for (const pane of Object.values(this.state.panes)) {
         if (Object.hasOwn(next.panes, pane.id)) continue;
         const group = groups(this.state.root).find((g) => g.panes.includes(pane.id));
@@ -214,6 +214,14 @@ export class LayoutStore {
       if (parent)
         this.replace(draft, parent, parent.children[parent.children[0].id === source.id ? 1 : 0]);
     }
+    for (const g of groups(draft.root)) {
+      if (
+        g.dedicatedPaneId &&
+        !g.panes.includes(g.dedicatedPaneId) &&
+        !draft.popouts.some((p) => p.paneId === g.dedicatedPaneId && p.groupId === g.id)
+      )
+        delete g.dedicatedPaneId;
+    }
     if (draft.maximized && !findNode(draft.root, draft.maximized)) draft.maximized = null;
   }
   /** Replace session policy; layout export/load never serializes or resets it. */
@@ -274,6 +282,7 @@ export class LayoutStore {
   private canNodeIn(layout: Layout, node: Node, capability: Capability): boolean {
     if (node.kind === 'split')
       return node.children.every((child) => this.canNodeIn(layout, child, capability));
+    if (node.dedicatedPaneId && capability === 'addTab') return false;
     return node.panes.length
       ? node.panes.every((id) => this.canPane(layout, id, capability))
       : (this.capabilities.groups?.[node.id]?.[capability] ??
@@ -300,6 +309,22 @@ export class LayoutStore {
   }
   reset() {
     this.load(this.initial);
+  }
+  dedicateGroup(groupId: string, options: CommandOptions = {}) {
+    this.commit('dedicateGroup', (d) => {
+      const group = this.group(d, groupId);
+      if (!group.active) problem('Dedication requires an active tab');
+      const closing = group.panes.filter((id) => id !== group.active);
+      this.permit(d, closing, 'close', options);
+      for (const id of closing) delete d.panes[id];
+      group.panes = [group.active];
+      group.dedicatedPaneId = group.active;
+    });
+  }
+  releaseGroup(groupId: string) {
+    this.commit('releaseGroup', (d) => {
+      delete this.group(d, groupId).dedicatedPaneId;
+    });
   }
   setTabDisplay(groupId: string, display: Group['tabDisplay']) {
     this.commit('setTabDisplay', (draft) => {
@@ -469,6 +494,7 @@ export class LayoutStore {
       if (!parent) return;
       this.permitNode(d, parent, 'join', options);
       g.panes = paneIds(parent);
+      if (g.panes.some((id) => id !== g.dedicatedPaneId)) delete g.dedicatedPaneId;
       g.active ??= g.panes[0] ?? null;
       this.replace(d, parent, g);
       this.tidy(d);
@@ -480,6 +506,7 @@ export class LayoutStore {
       const group = this.group(d, groupId);
       this.permitNode(d, group, 'close', options);
       for (const id of group.panes) delete d.panes[id];
+      delete group.dedicatedPaneId;
       group.panes = [];
       group.active = null;
       if (d.maximized === groupId) d.maximized = null;
@@ -531,6 +558,7 @@ export class LayoutStore {
         });
       }
       receiver.panes = panes;
+      if (panes.some((id) => id !== receiver.dedicatedPaneId)) delete receiver.dedicatedPaneId;
       receiver.active ??= panes[0] ?? null;
       const combined =
         sizes.slice(start, end + 1).reduce((a, b) => a + b, 0) +

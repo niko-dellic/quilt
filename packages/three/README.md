@@ -88,10 +88,12 @@ helpers.dispose();
 ```
 
 Helpers follow registered cameras, omit a camera's own visualization in its viewport,
-and never change camera layers. Markers show position, orientation, and up direction.
+and never change camera layers. Markers show position, orientation, and up direction: perspective cameras use a
+triangle above the frame; orthographic cameras use a circular ring.
 Pointer rays use pane-local coordinates (including companion windows), hit the first
 visible scene surface, and revert to the center on leave. Orthographic picking uses an
 offset parallel ray, with the displayed line connecting the camera marker to its endpoint.
+A small circular dot marks actual ray intersections; rays that miss have no endpoint dot.
 Helpers do not participate in picking. `ray: false` leaves camera markers visible.
 
 Optional `cameras` retains an explicit set of source cameras, even without mounted views;
@@ -163,7 +165,7 @@ across different documents is not a supported interaction model in this release.
   `update(delta)` (true while another frame is needed), and `dispose()`.
 - Subscribe controls change events to `invalidate`, and unsubscribe in `dispose`.
   All demo workspaces share the same OrbitControls adapter with orbit, zoom, reset,
-  and drag cancellation. Orbit and pan use damping; no controls dependency is required by the package.
+  and drag cancellation. Right-drag, Shift-drag, and middle-drag pan; pane menus remain available from the tab bar. Orbit and pan use damping; no controls dependency is required by the package.
 - Only the first live view of a given camera accepts input during overlapping mounts.
   Use independent cameras for independently interactive docked views.
 - A renderer factory receives a canvas created in the correct document. Return a
@@ -212,6 +214,26 @@ third-party R3F components, and production workload performance as experimental.
 Material overrides, WebGPU, XR, workers, and effect collections are deferred.
 
 Select **4 view** in the existing workspace switcher. Switching presets preserves
-the scene and camera poses. Camera rays show the other three cameras in each
-4 view pane, ending at the nearest scene surface or 10 world units. Custom views
-hides the rays; camera layers exclude each camera’s own ray without material overrides.
+the scene and camera poses. Each camera has a compact oriented marker and a ray
+ending at the nearest visible scene surface or the maximum picking distance (10 world
+units by default). Hovering a viewport aims its ray through the cursor; leaving restores
+the center ray. Each pane's **Camera helper** button toggles that camera's marker and
+ray in the other panes. A camera never displays its own helper; camera layers are unchanged.
+
+Select **Custom views** to configure rows and columns. Helpers start hidden. The
+**Camera helpers** button beside **Apply grid** toggles them globally, including
+new viewports added by changing the grid. Both per-camera and global preferences
+persist across workspace switches and grid changes for the current demo session.
+These controls are shared by the vanilla and React demos and use `CameraHelpers`.
+
+### Synchronizing demo cameras
+
+The link icon toggles **Sync camera positions**. In **4 view**, use the button in
+any pane to align the other cameras to that pane's exact XYZ position. In **Custom
+views**, the button beside the grid controls starts from the first viewport.
+While enabled, moving a camera updates the other cameras in that workspace to the
+same position. Each camera keeps its own orientation and zoom; its controls target
+moves with its position so subsequent input preserves its viewing direction.
+While sync is enabled, camera helpers are hidden and their buttons are disabled.
+Turning sync off restores the previous helper settings and independent movement without resetting camera poses.
+The two workspaces retain their own toggle settings for the current demo session.

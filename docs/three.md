@@ -10,12 +10,22 @@ Every demo preset—Default, Focus, Review, 4 view, and Custom views—uses the 
 Three.js scene and controls. The vanilla and React adapters share the scene builder
 and viewport options; React owns one persistent R3F scene tree. Preset changes only
 rearrange views and select cameras. Drag to orbit, scroll to zoom, double-click to
-reset, and press Escape during a drag to cancel. Shift-drag or middle-drag pans, with damping shared by orbit and pan. Right-click remains available for pane menus.
+reset, and press Escape during a drag to cancel. Right-drag, Shift-drag, or middle-drag pans, with damping shared by orbit and pan. Pane menus remain available from the tab bar; canvas drags do not open them.
 
 After `npm run build` and `npm run dev`, open `/vanilla.html?workspace=three` or `/react.html?workspace=three`.
 Choose **4 view** in either demo’s workspace switcher. Camera poses and the shared
-scene survive switching to another workspace and back. Each view displays a single center ray for each of the other three cameras. Rays
-stop at the first scene surface or 10 world units. Hovering a viewport aims its ray at the cursor using that camera's picking ray; leaving restores the center ray. A compact wireframe camera at each ray's origin follows its orientation, with a triangle marking its up direction. Each 4 view pane has a **Camera helper** toggle to show or hide its camera in the other panes. Custom views starts with helpers hidden; the **Camera helpers** toggle beside Apply grid enables them globally. These settings persist across workspace switches and grid changes.
+scene survive switching to another workspace and back. Each view displays a compact
+oriented marker and a ray for each of the other cameras. Rays stop at the first visible
+scene surface or the maximum picking distance (10 world units by default). Hovering
+a viewport aims its ray through the cursor; leaving restores the center ray. A small
+dot marks a surface intersection; no dot appears when the ray misses.
+
+Each **4 view** pane has a **Camera helper** button that toggles its camera's marker
+and ray in the other panes. **Custom views** starts with helpers hidden; the
+**Camera helpers** button beside **Apply grid** toggles them globally, including
+new viewports added by changing the grid. These settings persist across workspace
+switches and grid changes for the current demo session.
+
 The four views reuse the architectural study and surface colors across every workspace, with the Theming / Inspector / Activity sidebar alongside them.
 Both examples have picking, independent controls, and companion windows.
 Add `&effects` to exercise a grayscale pipeline on one view while the other views
@@ -28,6 +38,12 @@ associated with their grid cells when reducing and expanding the grid. Open
 `/vanilla.html?workspace=custom` or `/react.html?workspace=custom` directly.
 
 ## Ownership
+
+The stateful APIs are classes: `new ThreeSession(options)` owns rendering and
+scheduling, `session.register()` returns a `ThreeView` that owns viewport resources,
+and `new CameraHelpers(session, options)` owns the optional visualizations.
+`createThreeSession(options)` remains a convenience wrapper. React components wrap
+the same class instances; pure geometry utilities remain functions.
 
 The application owns scene data and camera poses. The session owns a renderer per
 document; individual mounted views own controls and effect resources. The React
@@ -50,3 +66,15 @@ comparative measurements, not frame-rate guarantees.
 
 Material overrides are intentionally absent from this baseline. Future display
 policies should remain separate from authored scene materials.
+
+### Synchronizing demo cameras
+
+The link icon toggles **Sync camera positions**. In **4 view**, use the button in
+any pane to align the other cameras to that pane's exact XYZ position. In **Custom
+views**, the button beside the grid controls starts from the first viewport.
+While enabled, moving a camera updates the other cameras in that workspace to the
+same position. Each camera keeps its own orientation and zoom; its controls target
+moves with its position so subsequent input preserves its viewing direction.
+While sync is enabled, camera helpers are hidden and their buttons are disabled.
+Turning sync off restores the previous helper settings and independent movement without resetting camera poses.
+The two workspaces retain their own toggle settings for the current demo session.

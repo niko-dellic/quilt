@@ -240,8 +240,13 @@ function mountLayoutInternal(
     if (node.kind === 'group') {
       r.header = el(doc, 'header', 'layouts-header');
       r.scope.listen(r.element, 'contextmenu', (event) => {
-        // Pane content keeps the same menu after a modal is dismissed. Let embedded
-        // workspaces and application-owned context menus handle their own events.
+        // Only this region's header and corner handles own the Quilt menu.
+        const target = event.target as Element;
+        if (
+          !r.header!.contains(target) &&
+          target.closest('.layouts-corner')?.parentElement !== r.element
+        )
+          return;
         if (event.defaultPrevented || (event.target as Element).closest('.layouts') !== root)
           return;
         const mode = options.contextMenu ?? 'both';
@@ -293,6 +298,10 @@ function mountLayoutInternal(
         const current = findNode(options.store.getSnapshot().root, node.id);
         if (current?.kind !== 'group') return;
         const position = dropPosition(e, r.element);
+        if (current.dedicatedPaneId && position === 'tab') {
+          delete r.element.dataset.drop;
+          return;
+        }
         const capability =
           current.panes.includes(dragId) && position === 'tab' ? 'reorder' : 'move';
         if (
@@ -418,17 +427,17 @@ function mountLayoutInternal(
             Math.max(0.001, Math.min(0.999, (snapped - origin - gap / 2) / available)),
           );
           const actual = origin + ratios[node.id]! * available + gap / 2;
-          const aligned = candidates.find(
+          const aligned = candidates.filter(
             (c) => Math.abs(c.position - actual) < 0.1 && Math.abs(c.position - desired) <= 8,
           );
           act(() => options.store.resizeMany(ratios, { source: 'user' }));
-          if (aligned) {
+          if (aligned.length) {
             const start = horizontal
-              ? Math.min(rect.top, aligned.rect.top)
-              : Math.min(rect.left, aligned.rect.left);
+              ? Math.min(rect.top, ...aligned.map((edge) => edge.rect.top))
+              : Math.min(rect.left, ...aligned.map((edge) => edge.rect.left));
             const end = horizontal
-              ? Math.max(rect.bottom, aligned.rect.bottom)
-              : Math.max(rect.right, aligned.rect.right);
+              ? Math.max(rect.bottom, ...aligned.map((edge) => edge.rect.bottom))
+              : Math.max(rect.right, ...aligned.map((edge) => edge.rect.right));
             Object.assign(
               guide.style,
               horizontal
@@ -583,38 +592,46 @@ function mountLayoutInternal(
     const signature = JSON.stringify([
       definitions,
       g.active,
+      g.dedicatedPaneId,
       layout.maximized,
       layout.root.id === g.id,
     ]);
     if (r.signature !== signature) {
       r.signature = signature;
       r.header!.replaceChildren();
-      r.header!.hidden = definitions.length === 1 && definitions[0]!.header === false;
+      r.element.toggleAttribute('data-dedicated', !!g.dedicatedPaneId);
+      r.header!.hidden =
+        !!g.dedicatedPaneId || (definitions.length === 1 && definitions[0]!.header === false);
       const tabs = el(doc, 'div', 'layouts-tabs');
       tabs.setAttribute('role', 'tablist');
       tabs.setAttribute('aria-label', message(options, 'Tabs in {id}', { id: g.id }));
-      fillTabs(tabs, g, definitions, {
-        options,
-        requestClose,
-        prefix,
-        act,
-        getDrag: () => dragId,
-        setDrag: (id) => {
-          dragId = id;
-        },
-        clearDrop: () => {
-          for (const region of regions.values()) delete region.element.dataset.drop;
-          for (const marker of root.querySelectorAll<HTMLElement>('[data-tab-drop]'))
-            delete marker.dataset.tabDrop;
-        },
-        focusActive: () =>
-          regions.get(g.id)?.header?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus(),
-      });
+      if (!g.dedicatedPaneId)
+        fillTabs(tabs, g, definitions, {
+          options,
+          requestClose,
+          prefix,
+          act,
+          getDrag: () => dragId,
+          setDrag: (id) => {
+            dragId = id;
+          },
+          clearDrop: () => {
+            for (const region of regions.values()) delete region.element.dataset.drop;
+            for (const marker of root.querySelectorAll<HTMLElement>('[data-tab-drop]'))
+              delete marker.dataset.tabDrop;
+          },
+          focusActive: () =>
+            regions
+              .get(g.id)
+              ?.header?.querySelector<HTMLElement>('[aria-selected="true"]')
+              ?.focus(),
+        });
       r.header!.append(tabs);
       const showMenuButton =
-        options.contextMenu === undefined ||
-        options.contextMenu === 'button' ||
-        options.contextMenu === 'both';
+        !g.dedicatedPaneId &&
+        (options.contextMenu === undefined ||
+          options.contextMenu === 'button' ||
+          options.contextMenu === 'both');
       if (!definitions.length) {
         const close = button('', message(options, 'Close empty pane'), () =>
           options.store.removeEmptyGroup(g.id, { source: 'user' }),
@@ -650,7 +667,7 @@ function mountLayoutInternal(
       p.element.hidden = pane.id !== g.active;
       p.element.id = `${prefix}-panel-${pane.id}`;
       p.element.setAttribute('role', 'tabpanel');
-      if (r.header!.hidden) {
+      if (r.header!.hidden || g.dedicatedPaneId) {
         p.element.setAttribute('aria-label', pane.title);
         p.element.removeAttribute('aria-labelledby');
       } else {

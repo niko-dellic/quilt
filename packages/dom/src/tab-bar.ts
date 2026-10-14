@@ -201,6 +201,35 @@ export function bindTabBar(
   const measure = () => {
     frame = 0;
     if (disposed || !region.isConnected) return;
+    if (region.hasAttribute('data-dedicated')) {
+      contentResize.disconnect();
+      observedContent.clear();
+      region.dataset.tabPlacement = 'top';
+      region.dataset.tabBar = 'tapered';
+      region.dataset.tabAttachment = 'floating';
+      header.removeAttribute('style');
+      const padding = Math.max(0, themePixels(region, '--layouts-panel-padding', 8));
+      header.style.setProperty('--layouts-floating-inset-x', `${padding}px`);
+      header.style.setProperty('--layouts-floating-inset-y', `${padding}px`);
+      refreshTooltip();
+      header.querySelector('.layouts-tab-cap')?.remove();
+      header.querySelector('.layouts-tab-outline')?.remove();
+      const visible =
+        !header.hidden &&
+        Array.from(header.querySelectorAll<HTMLElement>('.layouts-button')).some(
+          (button) => button.getClientRects().length > 0,
+        );
+      const footprint = header.getBoundingClientRect();
+      region.style.setProperty(
+        '--layouts-tab-bar-width',
+        `${visible ? footprint.width + padding : 0}px`,
+      );
+      region.style.setProperty(
+        '--layouts-tab-bar-height',
+        `${visible ? footprint.height + padding : 0}px`,
+      );
+      return;
+    }
     const style = getStyle();
     const left = style.placement === 'left';
     const compact = style.display === 'compact';

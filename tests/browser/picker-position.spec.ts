@@ -1,9 +1,11 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 
 for (const framework of ['vanilla', 'react']) {
   for (const entry of ['hotkey', 'menu']) {
     test(`${framework}: ${entry} add-tab picker stays centered in its pane`, async ({ page }) => {
       await page.goto(`/${framework}.html`);
+      await allowCanvasTabs(page);
       const region = page.locator('[data-node-id="scene-group"]');
       if (entry === 'hotkey') {
         await region.getByRole('tab', { name: 'Scene', exact: true }).hover();
@@ -37,66 +39,81 @@ for (const framework of ['vanilla', 'react']) {
   }
 }
 
-for (const edge of ['left', 'right'] as const) {
-  test(`picker escapes a short narrow pane at the bottom ${edge} and stays inside the viewport`, async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 800, height: 600 });
-    await page.goto('/tests/browser/harness.html');
-    await page.addStyleTag({
-      content: `#host { position: fixed; bottom: 0; ${edge}: 0; width: 240px !important; height: 100px !important; }`,
-    });
-    await page.evaluate(() => {
-      for (let index = 0; index < 20; index++)
-        window.harness.tabs.register({
-          id: `view-${index}`,
-          title: `View ${index}`,
-          description: 'A searchable pane type',
-          create: () => ({ id: `added-${index}`, type: 'test', title: `View ${index}` }),
+for (const entry of ['tab', 'empty'] as const) {
+  for (const edge of ['left', 'right'] as const) {
+    test(`${entry} picker escapes a short narrow pane at the bottom ${edge} and stays inside the viewport`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 800, height: 600 });
+      await page.goto('/tests/browser/harness.html');
+      await page.addStyleTag({
+        content: `#host { position: fixed; bottom: 0; ${edge}: 0; width: 240px !important; height: 100px !important; }`,
+      });
+      await page.evaluate(() => {
+        for (let index = 0; index < 20; index++)
+          window.harness.tabs.register({
+            id: `view-${index}`,
+            title: `View ${index}`,
+            description: 'A searchable pane type',
+            create: () => ({ id: `added-${index}`, type: 'test', title: `View ${index}` }),
+          });
+      });
+      if (entry === 'empty') {
+        await page.evaluate(() => {
+          window.harness.store.setAutoCollapse('disabled');
+          window.harness.store.closePane('b', { force: true });
         });
-    });
-    await page.getByRole('tab', { name: 'B', exact: true }).click({ button: 'right' });
-    await page.getByRole('button', { name: '+ Add tab', exact: true }).click();
-    const picker = page.getByRole('dialog', { name: 'Choose a tab' });
-    const search = picker.getByRole('combobox', { name: 'Search tabs' });
-    const check = async () => {
-      await expect
-        .poll(() =>
-          picker.evaluate((node) => {
-            const rect = node.getBoundingClientRect();
-            return (
-              rect.left >= 7 &&
-              rect.top >= 7 &&
-              rect.right <= innerWidth - 7 &&
-              rect.bottom <= innerHeight - 7
-            );
-          }),
-        )
-        .toBe(true);
-      for (const control of [search, picker.getByRole('button', { name: 'Cancel', exact: true })]) {
-        expect(
-          await control.evaluate((node) => {
-            const rect = node.getBoundingClientRect();
-            return node.contains(
-              document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2),
-            );
-          }),
-        ).toBe(true);
+        await page.locator('[data-node-id="right"] .layouts-empty').click();
+      } else {
+        await page.getByRole('tab', { name: 'B', exact: true }).click({ button: 'right' });
+        await page.getByRole('button', { name: '+ Add tab', exact: true }).click();
       }
-    };
-    await check();
-    expect((await picker.boundingBox())!.height).toBeGreaterThan(200);
-    await search.fill('View 19');
-    await expect(picker.getByRole('option')).toHaveCount(1);
-    await check();
-    await search.fill('');
-    await page.setViewportSize({ width: 240, height: 220 });
-    await check();
-    await search.press('End');
-    await search.press('ArrowUp');
-    await search.press('Enter');
-    await expect(picker).toHaveCount(0);
-    await expect(page.getByRole('tab', { name: 'View 19', exact: true })).toBeVisible();
-    expect(await page.evaluate(() => window.harness.stats.errors)).toEqual([]);
-  });
+      const picker = page.getByRole('dialog', { name: 'Choose a tab' });
+      const search = picker.getByRole('combobox', { name: 'Search tabs' });
+      const check = async () => {
+        await expect
+          .poll(() =>
+            picker.evaluate((node) => {
+              const rect = node.getBoundingClientRect();
+              return (
+                rect.left >= 7 &&
+                rect.top >= 7 &&
+                rect.right <= innerWidth - 7 &&
+                rect.bottom <= innerHeight - 7
+              );
+            }),
+          )
+          .toBe(true);
+        for (const control of [
+          search,
+          entry === 'tab'
+            ? picker.getByRole('button', { name: 'Cancel', exact: true })
+            : picker.getByRole('status'),
+        ]) {
+          expect(
+            await control.evaluate((node) => {
+              const rect = node.getBoundingClientRect();
+              return node.contains(
+                document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2),
+              );
+            }),
+          ).toBe(true);
+        }
+      };
+      await check();
+      expect((await picker.boundingBox())!.height).toBeGreaterThan(200);
+      await search.fill('View 19');
+      await expect(picker.getByRole('option')).toHaveCount(1);
+      await check();
+      await search.fill('');
+      await page.setViewportSize({ width: 240, height: 220 });
+      await check();
+      await search.press('End');
+      await search.press('ArrowUp');
+      await search.press('Enter');
+      await expect(picker).toHaveCount(0);
+      await expect(page.getByRole('tab', { name: 'View 19', exact: true })).toBeVisible();
+      expect(await page.evaluate(() => window.harness.stats.errors)).toEqual([]);
+    });
+  }
 }

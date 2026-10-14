@@ -131,3 +131,78 @@ for (const framework of ['vanilla', 'react']) {
     await expect(control).toHaveValue('true');
   });
 }
+
+for (const axis of ['horizontal', 'vertical'] as const) {
+  test(`${axis}: alignment guide spans matching edges on both sides`, async ({ page }) => {
+    await page.goto('/tests/browser/harness.html');
+    await page.evaluate((axis) => {
+      const group = (id: string): import('quilt-core').Group => ({
+        kind: 'group',
+        id,
+        panes: [id],
+        active: id,
+      });
+      const band = (id: string, ratio: number): import('quilt-core').Split => ({
+        kind: 'split',
+        id,
+        axis,
+        ratio,
+        children: [group(id + 'a'), group(id + 'b')],
+      });
+      const perpendicular = axis === 'horizontal' ? 'vertical' : 'horizontal';
+      window.harness.store.updateOptions({ resizeMode: 'border' });
+      window.harness.store.loadLayout({
+        version: 1,
+        maximized: null,
+        popouts: [],
+        panes: Object.fromEntries(
+          ['lefta', 'leftb', 'middlea', 'middleb', 'righta', 'rightb'].map((id) => [
+            id,
+            { id, title: id, type: 'test' },
+          ]),
+        ),
+        root: {
+          kind: 'split',
+          id: 'root',
+          axis: perpendicular,
+          ratio: 1 / 3,
+          children: [
+            band('left', 0.6),
+            {
+              kind: 'split',
+              id: 'tail',
+              axis: perpendicular,
+              ratio: 0.5,
+              children: [band('middle', 0.35), band('right', 0.6)],
+            },
+          ],
+        },
+      });
+    }, axis);
+    const middle = page.locator('[data-node-id="middle"] > .layouts-divider');
+    const left = (await page.locator('[data-node-id="left"]').boundingBox())!;
+    const right = (await page.locator('[data-node-id="right"]').boundingBox())!;
+    const reference = (await page
+      .locator('[data-node-id="left"] > .layouts-divider')
+      .boundingBox())!;
+    const start = (await middle.boundingBox())!;
+    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      axis === 'horizontal' ? reference.x + reference.width / 2 + 4 : start.x + start.width / 2,
+      axis === 'vertical' ? reference.y + reference.height / 2 + 4 : start.y + start.height / 2,
+    );
+    const guide = page.locator('.layouts-resize-snap-guide');
+    await expect(guide).toBeVisible();
+    const box = (await guide.boundingBox())!;
+    if (axis === 'horizontal') {
+      expect(box.y).toBeCloseTo(left.y, 0);
+      expect(box.y + box.height).toBeCloseTo(right.y + right.height, 0);
+    } else {
+      expect(box.x).toBeCloseTo(left.x, 0);
+      expect(box.x + box.width).toBeCloseTo(right.x + right.width, 0);
+    }
+    await page.mouse.up();
+    await expect(guide).toHaveCount(0);
+  });
+}

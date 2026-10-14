@@ -136,6 +136,7 @@ export const initial: Layout = {
                       {
                         kind: 'group',
                         id: 'scene-group',
+                        dedicatedPaneId: 'canvas',
                         tabPlacement: 'left',
                         tabDisplay: 'compact',
                         panes: ['canvas'],

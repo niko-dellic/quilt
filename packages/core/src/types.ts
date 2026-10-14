@@ -41,6 +41,8 @@ export interface Group {
   tabPlacement?: 'top' | 'left';
   /** Omitted inherits the workspace tab display setting. */
   tabDisplay?: 'automatic' | 'compact';
+  /** Region reserved for this single docked or detached pane. */
+  dedicatedPaneId?: string;
 }
 export interface Split {
   kind: 'split';

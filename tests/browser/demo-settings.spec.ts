@@ -1,7 +1,9 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { expect, test } from '@playwright/test';
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: settings are primary and interaction rules work live`, async ({ page }) => {
     await page.goto(`/${framework}.html`);
+    await allowCanvasTabs(page);
     await expect(page.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute(
       'aria-selected',
       'true',

@@ -97,7 +97,7 @@ for (const framework of ['vanilla', 'react']) {
       element.scrollTop = 180;
     });
     await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBe(180);
-    await page.getByRole('tab', { name: 'Scene', exact: true }).hover();
+    await page.locator('[data-node-id="scene-group"] [data-corner="tl"]').hover();
     await page.keyboard.press('Backquote');
     await expect(settings).toBeHidden();
     await page.keyboard.press('Backquote');

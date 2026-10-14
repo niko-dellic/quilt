@@ -1,9 +1,11 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: orientation submenu shows overrides and supports pointer and keyboard navigation`, async ({
     page,
   }) => {
     await page.goto(`/${framework}.html`);
+    await allowCanvasTabs(page);
     // Repainting chrome closes menus but must retain pointer tracking for future menus.
     await page.getByRole('combobox', { name: 'Resize style', exact: true }).selectOption('gutter');
     const scene = page.locator('[data-node-id="scene-group"]');
@@ -17,12 +19,11 @@ for (const framework of ['vanilla', 'react']) {
     const labels = await page
       .locator('dialog.layouts-menu > button, dialog.layouts-menu > .layouts-submenu > button')
       .evaluateAll((buttons) =>
-        buttons.map((button) =>
-          Array.from(button.childNodes)
-            .filter((node) => !(node instanceof Element && node.matches('.layouts-shortcut')))
-            .map((node) => node.textContent)
-            .join(''),
-        ),
+        buttons.map((button) => {
+          const copy = button.cloneNode(true) as HTMLElement;
+          copy.querySelectorAll('.layouts-shortcut').forEach((node) => node.remove());
+          return copy.textContent ?? '';
+        }),
       );
     expect(labels.map((label) => label.trim())).toEqual([
       'Add tab',
@@ -30,6 +31,7 @@ for (const framework of ['vanilla', 'react']) {
       'Join sibling region',
       'Maximize region',
       'Open in window',
+      'Pin active tab',
       'Tab orientation ▸',
       'Tab display ▸',
       'Close ▸',
@@ -73,6 +75,7 @@ for (const framework of ['vanilla', 'react']) {
 
   test(`${framework}: per-region orientation survives JSON loading`, async ({ page }) => {
     await page.goto(`/${framework}.html`);
+    await allowCanvasTabs(page);
     const scene = page.locator('[data-node-id="scene-group"]');
     const tools = page.locator('[data-node-id="tools-group"]');
     await scene.getByRole('button', { name: 'Scene actions', exact: true }).click();

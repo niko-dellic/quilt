@@ -993,14 +993,25 @@ html:has(.demo-main:fullscreen) {
 }
 
 .demo-helper-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
   color: var(--layouts-muted);
   background: var(--layouts-header);
   border: 1px solid var(--layouts-line);
   border-radius: 4px;
-  padding: 6px 8px;
+  padding: 6px;
   font: inherit;
   cursor: pointer;
   white-space: nowrap;
+}
+.demo-helper-toggle svg {
+  width: 16px;
+  height: 16px;
 }
 .demo-helper-toggle[aria-pressed='true'] {
   color: var(--layouts-text);
@@ -1011,4 +1022,16 @@ html:has(.demo-main:fullscreen) {
   right: 10px;
   bottom: 10px;
   z-index: 1;
+}
+
+.demo-camera-sync-toggle {
+  position: absolute;
+  right: 46px;
+  bottom: 10px;
+  z-index: 1;
+}
+
+.demo-helper-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

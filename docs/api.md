@@ -499,8 +499,9 @@ Set the global `contextMenu` option to `'button'` (integrated), `'right-click'`,
 the default. The Theming pane’s Tab section in the demos includes the same four choices.
 
 The integrated button mode shows the menu button in every pane header, including empty
-regions. Right-click opens the same menu at the pointer anywhere on a tab bar or
-in pane content, using that region's active tab. Application context menus that
+regions. Pinned regions hide the header and integrated button.
+Right-click opens the same menu at the pointer on a tab bar or corner split/join handle, using that region's active tab. Pane content and modal backdrops
+do not open Quilt menus; content right-click behavior belongs to the application. Application context menus that
 prevent the event's default behavior take priority, as do embedded workspaces.
 Disabling right-click leaves the browser's native context menu available.
 This is session configuration, like `resizeMode`, and is not saved in layout
@@ -512,3 +513,25 @@ The setting applies live to populated and empty pane headers in Vanilla and Reac
 without changing the button's hit area or accessible label. The demo exposes it
 as **Integrated button appearance** under **Theming → Tab**. Like `contextMenu`,
 this option is session configuration and is not saved in workspace presets.
+
+### Dedicated panes
+
+Groups can persist `dedicatedPaneId?: string` in Layout JSON v1. A dedicated group
+contains exactly that pane, or is empty while the designated pane has a popout
+record pointing to the group. Invalid combinations are rejected atomically.
+Older layouts omit the field and retain ordinary tab behavior.
+
+`workspace.dedicateGroup(groupId): Promise<boolean>` keeps the active pane and
+closes inactive docked tabs after checking their permissions and close confirmations.
+It resolves `false` on cancellation, stale confirmation, or failure.
+`workspace.releaseGroup(groupId): void` restores ordinary tab behavior without
+reopening closed tabs. Both methods are available through the shared Vanilla and
+React workspace handle. Built-in actions are `dedicatePane` and `releasePane`;
+neither has a default keyboard binding.
+
+Standalone core callers use `store.dedicateGroup(groupId, options)` and
+`store.releaseGroup(groupId)`. Core commands are synchronous and do not show
+confirmation UI; `{ source: 'user' }` enforces inactive-tab close permissions.
+Structural dedication restrictions apply to both API and user commands.
+See [dedicated region lifecycle](lifecycle.md#dedicated-regions) for restoration,
+popout, and application-data behavior.

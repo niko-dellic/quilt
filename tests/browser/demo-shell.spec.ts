@@ -143,9 +143,9 @@ for (const framework of ['vanilla', 'react']) {
     await expect(page.getByText('` or Alt + Space', { exact: true })).toBeVisible();
     await hotkeys.hover();
     await page.keyboard.press('Alt+Space');
-    await expect(page.getByRole('tab', { name: 'Scene', exact: true })).not.toBeVisible();
+    await expect(page.locator('[data-node-id="scene-group"] [data-corner="tl"]')).not.toBeVisible();
     await page.keyboard.press('Alt+Space');
-    await expect(page.getByRole('tab', { name: 'Scene', exact: true })).toBeVisible();
+    await expect(page.locator('[data-node-id="scene-group"] [data-corner="tl"]')).toBeVisible();
     await page.getByRole('button', { name: 'Close Hotkeys', exact: true }).click();
     await expect(hotkeys).toHaveCount(0);
     await page.getByRole('button', { name: 'Reset', exact: true }).click();
