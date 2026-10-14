@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.2
+
+- Right-click while Add tab is open now closes the picker and opens the source pane menu at the pointer, including with the default context-menu setting.
+- Extend right-click pane menus to pane content, keeping them available after Escape dismisses a menu or picker. Application context menus that prevent the event default and embedded workspaces retain priority. This changes the default right-click interaction over pane content.
+- Add cross-browser regressions for picker backdrops, default and explicit menu modes, Escape, and application-owned context menus.
+
 ## 0.9.1
 
 - Size Add tab pickers against the viewport instead of their source pane, keeping them usable in short or narrow regions.

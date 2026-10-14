@@ -169,6 +169,32 @@ export function createPaneMenu(
           });
         pickerScope.add(() => picker.remove());
         pickerScope.listen(picker, 'close', () => pickerScope.dispose());
+        // Modal pickers receive backdrop events instead of the underlying tab bar.
+        // Return to the source pane's actions, cancelling any pending split first.
+        const openPickerContext = (event: Event) => {
+          const mode = options.contextMenu ?? 'both';
+          if (mode !== 'both' && mode !== 'right-click') return;
+          const pointer = event as MouseEvent;
+          if (event.type === 'pointerdown' && pointer.button !== 2) return;
+          event.preventDefault();
+          event.stopPropagation();
+          pickerScope.dispose();
+          const layout = options.store.getSnapshot();
+          const source = findNode(layout.root, group.id);
+          if (source?.kind !== 'group') return;
+          open(
+            anchor,
+            source.active ? layout.panes[source.active] : undefined,
+            source,
+            undefined,
+            0.5,
+            !source.panes.length,
+            false,
+            { x: pointer.clientX, y: pointer.clientY },
+          );
+        };
+        pickerScope.listen(picker, 'contextmenu', openPickerContext, { capture: true });
+        pickerScope.listen(picker, 'pointerdown', openPickerContext, { capture: true });
         root.append(picker);
         pickerScope.listen(picker, 'click', (event) => {
           const e = event as MouseEvent;

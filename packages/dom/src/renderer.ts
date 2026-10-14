@@ -238,7 +238,11 @@ function mountLayoutInternal(
     r.element.dataset.nodeId = node.id;
     if (node.kind === 'group') {
       r.header = el(doc, 'header', 'layouts-header');
-      r.scope.listen(r.header, 'contextmenu', (event) => {
+      r.scope.listen(r.element, 'contextmenu', (event) => {
+        // Pane content keeps the same menu after a modal is dismissed. Let embedded
+        // workspaces and application-owned context menus handle their own events.
+        if (event.defaultPrevented || (event.target as Element).closest('.layouts') !== root)
+          return;
         const mode = options.contextMenu ?? 'both';
         if (mode !== 'right-click' && mode !== 'both') return;
         const layout = options.store.getSnapshot();
