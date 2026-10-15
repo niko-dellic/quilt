@@ -40,6 +40,12 @@ API is introduced.
 
 ## Browser and lifecycle coverage
 
+Linux software WebGPU CI uses Chromium's `Vulkan,VulkanFromANGLE` configuration
+with ANGLE SwiftShader so rendering and canvas presentation share a compatible
+Vulkan device. The focused backend suite runs before the full CI gate and retains
+screenshots and traces on failure. These flags are test infrastructure only;
+applications do not need them on supported hardware.
+
 `tests/browser/three.spec.ts` runs graphics integration in Chromium, Firefox, and
 WebKit. It covers shared scenes, controls and picking, per-view effects and resize,
 DPI, hidden/zero-sized panes, pointer capture, camera persistence, failed/blocked
