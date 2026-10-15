@@ -924,6 +924,12 @@ for (const framework of ['vanilla', 'react']) {
       });
       await page.waitForTimeout(20);
     }
+    // Flush the final coalesced pointer update before measuring idle commits.
+    // A frame can take longer than the 20 ms interval on CI WebKit.
+    await page.evaluate(async () => {
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    });
     const retargetCommits = await page.evaluate(() => window.adaptiveMotionCommits!);
     expect(retargetCommits).toBeGreaterThan(0);
     expect(retargetCommits).toBeLessThanOrEqual(5);
