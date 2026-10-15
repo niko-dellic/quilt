@@ -10,6 +10,8 @@ for (const framework of ['vanilla', 'react']) {
       content:
         '.layouts-stage { scrollbar-width: auto; } .layouts-stage::-webkit-scrollbar { width: 15px; height: 15px; }',
     });
+    // React mounts asynchronously; never record an empty layout as the baseline.
+    await expect(page.locator('[data-node-id="scene-group"]')).toBeVisible();
     const rectangles = () =>
       page.locator('.layouts-node').evaluateAll((nodes) =>
         nodes
