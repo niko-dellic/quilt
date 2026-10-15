@@ -9,12 +9,15 @@ assert.match(
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/,
   'RELEASE_VERSION must be a stable semver',
 );
-const packages = ['core', 'dom', 'react'].map((key) => read(`packages/${key}/package.json`));
+const packages = ['core', 'dom', 'react', 'three'].map((key) =>
+  read(`packages/${key}/package.json`),
+);
 assert.equal(read('package.json').version, version);
 for (const p of packages) {
   assert.equal(p.version, version);
   for (const other of packages)
-    if (p.dependencies?.[other.name]) assert.equal(p.dependencies[other.name], version);
+    for (const field of ['dependencies', 'peerDependencies'])
+      if (p[field]?.[other.name]) assert.equal(p[field][other.name], version);
 }
 const changelog = readFileSync('CHANGELOG.md', 'utf8');
 const heading = `## ${version}\n`;

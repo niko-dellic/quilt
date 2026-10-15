@@ -31,7 +31,7 @@ for (const framework of ['vanilla', 'react']) {
   });
   test(`${framework}: T opens the hovered region picker and prevents default`, async ({ page }) => {
     await page.goto(`/${framework}.html`);
-    await page.getByRole('tab', { name: 'Scene', exact: true }).focus();
+    await page.locator('[data-node-id="scene-group"] [data-corner="tl"]').focus();
     await page.getByRole('tab', { name: 'Hotkeys', exact: true }).hover();
     expect(await press(page)).toBe(true);
     const search = page.getByRole('combobox', { name: 'Search tabs' });

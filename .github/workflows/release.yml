@@ -19,7 +19,7 @@ jobs:
   verify:
     if: github.ref == 'refs/heads/main' || !inputs.publish
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       RELEASE_VERSION: ${{ inputs.version }}
     steps:

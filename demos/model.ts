@@ -1,3 +1,5 @@
+import { customViewGrid } from './custom-views-layout.js';
+import { layout as threeLayout } from './three-layout.js';
 import { TabRegistry } from 'quilt-vanilla';
 import type { WorkspaceHandle } from 'quilt-vanilla';
 import type { Layout, Node as LayoutNode, Pane } from 'quilt-core';
@@ -134,6 +136,7 @@ export const initial: Layout = {
                       {
                         kind: 'group',
                         id: 'scene-group',
+                        dedicatedPaneId: 'canvas',
                         tabPlacement: 'left',
                         tabDisplay: 'compact',
                         panes: ['canvas'],
@@ -184,6 +187,90 @@ function workspaceLayout(content: LayoutNode): Layout {
   }
   return layout;
 }
+const threeWorkspace = workspaceLayout({
+  kind: 'split',
+  id: 'four-view-sidebar',
+  axis: 'horizontal',
+  ratio: 0.76,
+  children: [
+    threeLayout.root,
+    {
+      kind: 'group',
+      id: 'inspector-group',
+      panes: ['theming', 'notes', 'activity'],
+      active: 'theming',
+    },
+  ],
+});
+threeWorkspace.panes = {
+  toolbar: initial.panes.toolbar!,
+  footer: initial.panes.footer!,
+  theming: initial.panes.theming!,
+  notes: initial.panes.notes!,
+  activity: initial.panes.activity!,
+  ...threeLayout.panes,
+};
+function customWorkspace(rows: number, columns: number): Layout {
+  const grid = customViewGrid(rows, columns);
+  const layout = structuredClone(threeWorkspace);
+  const content: LayoutNode = {
+    kind: 'split',
+    id: 'custom-controls-split',
+    axis: 'vertical',
+    ratio: 0.1,
+    children: [
+      {
+        kind: 'group',
+        id: 'custom-controls-group',
+        panes: ['view-controls'],
+        active: 'view-controls',
+      },
+      grid.root,
+    ],
+  };
+  if (layout.root.kind === 'split' && layout.root.children[1].kind === 'split')
+    layout.root.children[1].children[0] = content;
+  for (const id of [...Object.keys(threeLayout.panes), 'theming', 'notes', 'activity'])
+    delete layout.panes[id];
+  Object.assign(layout.panes, grid.panes);
+  layout.panes['view-controls'] = {
+    id: 'view-controls',
+    type: 'view-controls',
+    title: 'Viewport grid',
+    header: false,
+    size: { minHeight: 64, maxHeight: 64 },
+    capabilities: {
+      close: false,
+      popout: false,
+      move: false,
+      split: false,
+      join: false,
+      resize: false,
+    },
+  };
+  return layout;
+}
+let customGrid = { rows: 2, columns: 2 };
+const gridListeners = new Set<() => void>();
+export const customViews = {
+  get: () => customGrid,
+  subscribe(listener: () => void) {
+    gridListeners.add(listener);
+    return () => {
+      gridListeners.delete(listener);
+    };
+  },
+  set(rows: number, columns: number) {
+    if (![rows, columns].every((value) => Number.isInteger(value) && value >= 1))
+      throw new Error('Rows and columns must each be positive whole numbers.');
+    if (rows === customGrid.rows && columns === customGrid.columns) return;
+    const next = customWorkspace(rows, columns);
+    if (activeWorkspace === 'custom') workspace.loadLayout(next);
+    workspaceLayouts.set('custom', next);
+    customGrid = { rows, columns };
+    gridListeners.forEach((listener) => listener());
+  },
+};
 export const workspaces = [
   { id: 'default', title: 'Default', description: 'The original workspace', layout: initial },
   {
@@ -258,6 +345,18 @@ export const workspaces = [
       ],
     }),
   },
+  {
+    id: 'three',
+    title: '4 view',
+    description: 'Four cameras sharing one 3D scene',
+    layout: threeWorkspace,
+  },
+  {
+    id: 'custom',
+    title: 'Custom views',
+    description: 'Choose rows and columns of shared scene views',
+    layout: customWorkspace(2, 2),
+  },
 ] as const;
 export type WorkspaceId = (typeof workspaces)[number]['id'];
 let activeWorkspace: WorkspaceId = 'default';
@@ -280,6 +379,10 @@ export const workspaceSession = {
     workspaceListeners.forEach((listener) => listener());
   },
   reset() {
+    if (activeWorkspace === 'custom') {
+      customGrid = { rows: 2, columns: 2 };
+      gridListeners.forEach((listener) => listener());
+    }
     workspace.loadLayout(workspaces.find((workspace) => workspace.id === activeWorkspace)!.layout);
   },
 };
@@ -346,19 +449,3 @@ export const tabs = new TabRegistry([
     }),
   })),
 ]);
-export interface Camera {
-  azimuth: number;
-  elevation: number;
-  zoom: number;
-}
-export const defaultCamera: Readonly<Camera> = { azimuth: Math.PI / 4, elevation: 0.5, zoom: 1 };
-// App-owned view state survives pane remounts and companion-window transfers.
-const cameras = new Map<string, Camera>();
-export function cameraFor(paneId: string): Camera {
-  let camera = cameras.get(paneId);
-  if (!camera) {
-    camera = { ...defaultCamera };
-    cameras.set(paneId, camera);
-  }
-  return camera;
-}

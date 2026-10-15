@@ -17,6 +17,7 @@ export type {
   Change,
   Bounds,
   JoinOptions,
+  RegionRect,
 } from './types.js';
 export { LayoutError } from './types.js';
 export { LayoutStore } from './controller.js';
@@ -33,3 +34,5 @@ export {
   allocate,
 } from './model.js';
 export { joinRange } from './join.js';
+
+export { joinRectangle } from './join-rectangle.js';

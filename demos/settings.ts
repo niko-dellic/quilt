@@ -1,3 +1,4 @@
+import { navigationSettings } from './navigation-settings.js';
 import { defaultShortcuts } from 'quilt-vanilla';
 import type { Capability, CapabilityPolicy, PaneRenderer, WorkspaceHandle } from 'quilt-vanilla';
 import { groups } from 'quilt-core';
@@ -80,6 +81,26 @@ export const settings: PaneRenderer = ({ element, document: doc }) => {
       'Popout windows is a master switch. Disabling it leaves existing windows open so they can return.',
     ),
   );
+  const navigation = section('Camera navigation');
+  const orbitTarget = select(navigation, 'Orbit target', [
+    ['follow', 'Follow navigation'],
+    ['preserve', 'Preserve orbit point'],
+  ]);
+  navigation.append(
+    text(
+      'small',
+      'Follow keeps your viewing direction. Preserve orbit point restores the saved point. Applies when returning to Orbit, across all viewports.',
+    ),
+  );
+  const updateNavigation = () => {
+    orbitTarget.value = navigationSettings.orbitTargetPolicy;
+  };
+  const unsubscribeNavigation = navigationSettings.subscribe(updateNavigation);
+  updateNavigation();
+  orbitTarget.onchange = () => {
+    navigationSettings.orbitTargetPolicy =
+      orbitTarget.value === 'preserve' ? orbitTarget.value : 'follow';
+  };
   const permissions = section('Interaction rules');
   const scope = select(permissions, 'Settings scope', [
     ['workspace', 'Whole workspace'],
@@ -313,6 +334,7 @@ export const settings: PaneRenderer = ({ element, document: doc }) => {
   });
   return {
     dispose() {
+      unsubscribeNavigation();
       unbind();
       unsubscribe();
       for (const input of element.querySelectorAll('input, select'))

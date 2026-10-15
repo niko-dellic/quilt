@@ -7,7 +7,7 @@ export function chromeMinimum(
   header: HTMLElement,
   style: TabBarStyle,
 ): { minWidth: number; minHeight: number } {
-  if (header.hidden) return { minWidth: 0, minHeight: 0 };
+  if (header.hidden || region.hasAttribute('data-dedicated')) return { minWidth: 0, minHeight: 0 };
   const doc = region.ownerDocument;
   const win = doc.defaultView!;
   const left = style.placement === 'left';

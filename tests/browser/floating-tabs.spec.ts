@@ -1,7 +1,9 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 for (const demo of ['vanilla', 'react']) {
   test(`${demo}: floating controls, fit and orientation`, async ({ page }) => {
     await page.goto(`/${demo}.html`);
+    await allowCanvasTabs(page);
     const scene = page.locator('[data-node-id="scene-group"]');
     // Exercise workspace orientation without the demo's persisted Scene override.
     await scene.getByRole('button', { name: 'Scene actions', exact: true }).click();
@@ -63,6 +65,7 @@ for (const demo of ['vanilla', 'react']) {
     page,
   }) => {
     await page.goto(`/${demo}.html`);
+    await allowCanvasTabs(page);
     await page.getByRole('combobox', { name: 'Fit', exact: true }).selectOption('full');
     const region = page.locator('[data-node-id="inspector-group"]');
     const header = region.locator(':scope > header');

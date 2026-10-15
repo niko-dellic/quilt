@@ -1,9 +1,11 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: resize handle settings update gaps without changing layout JSON`, async ({
     page,
   }) => {
     await page.goto(`/${framework}.html`);
+    await allowCanvasTabs(page);
     await page.getByRole('combobox', { name: 'Resize style', exact: true }).selectOption('gutter');
     const readJSON = async () => {
       await page.getByRole('button', { name: 'Layout JSON', exact: true }).click();

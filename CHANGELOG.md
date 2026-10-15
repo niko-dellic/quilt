@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0
+
+- Add `quilt-three` with shared-scene camera views, demand rendering, one renderer per document, controls factories, picking, and per-view custom rendering pipelines. The base entry requires no React or R3F.
+- Add opt-in `quilt-three/webgpu` with document-owned native devices and an explicit WebGL fallback policy. Support asynchronous renderer factories, readiness-aware popouts, clipped viewports, and awaitable GPU disposal. Keep WebGPU out of the base entry’s runtime imports.
+- Validate graphics across Chromium, Firefox, and WebKit; add native WebGPU, Strict Mode, cancellation, late factory results, and repeated resource lifecycle regressions.
+- Add `quilt-three/react` for React 19 and R3F 9 with a persistent shared scene owner, pane-local events, and same-origin companion views. Existing `quilt-react` support for React 18.3 and 19 is preserved.
+- Add `PaneContext.deferReady` so asynchronous integrations participate in destination-ready popout transactions while preserving the source on initialization failure. Release all Quilt packages together so the Three.js adapter receives this API.
+- Reuse one scene and navigation implementation across the vanilla and React workspace demos, including 4 view and configurable Custom views. Add compact ray-based camera helpers, camera position synchronization, and optional Orbit/Free navigation controls.
+- Support rectangular multi-region joins that preserve the pane where the drag starts and retain joined content. Summarize large join previews instead of overflowing their labels.
+- Enable optional resize snapping by default, highlight all aligned neighboring edges, and expose the setting in the demo Theming pane.
+- Add dedicated panes and document the new layout, rendering, ownership, and compatibility APIs. Extend package, consumer, browser, benchmark, and documentation checks for the new extension.
+- Correct the capability-policy drag test to target the tab rather than its overlapping corner handle, retaining reorder and move permission checks.
+
 ## 0.9.2
 
 - Right-click while Add tab is open now closes the picker and opens the source pane menu at the pointer, including with the default context-menu setting.

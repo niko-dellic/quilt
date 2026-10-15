@@ -11,6 +11,8 @@ export const actionOrder: readonly WorkspaceAction[] = [
   'maximize',
   'addTab',
   'restoreClosedTab',
+  'dedicatePane',
+  'releasePane',
   'closeActiveTab',
   'closePane',
   'closeEmptyPane',

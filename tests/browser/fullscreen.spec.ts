@@ -6,7 +6,7 @@ for (const framework of ['vanilla', 'react']) {
   }) => {
     await page.goto(`/${framework}.html`);
     test.skip(!(await page.evaluate(() => document.fullscreenEnabled)), 'Fullscreen unavailable');
-    const canvas = await page.locator('.scene-canvas').elementHandle();
+    const canvas = await page.locator('[data-quilt-three-canvas]').elementHandle();
     await page.getByRole('button', { name: 'Enter workspace fullscreen' }).click();
     await expect
       .poll(() => page.evaluate(() => document.fullscreenElement?.className))
@@ -57,6 +57,6 @@ for (const framework of ['vanilla', 'react']) {
       page.getByRole('button', { name: 'Fullscreen was blocked. Click to try again.' }),
     ).toBeEnabled();
     expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
-    await expect(page.locator('.scene-canvas')).toBeVisible();
+    await expect(page.locator('[data-quilt-three-canvas]')).toBeVisible();
   });
 }

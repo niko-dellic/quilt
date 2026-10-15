@@ -1,5 +1,6 @@
+import { joinRectangle } from './join-rectangle.js';
 import { joinRange } from './join.js';
-import { findNode, findParent, groups, paneIds, parseLayout, validate } from './model.js';
+import { bounds, findNode, findParent, groups, paneIds, parseLayout, validate } from './model.js';
 import { LayoutError } from './types.js';
 import type {
   AutoCollapse,
@@ -36,9 +37,11 @@ export class LayoutStore {
   private closedTabs: { pane: Pane; groupId: string; index: number }[] = [];
   private notifying = false;
   private pending: Change[] = [];
+  private resizeSnapping = true;
   private autoCollapse: AutoCollapse = 'disabled';
   private capabilities: CapabilityPolicy = {};
   constructor(input: unknown, options: LayoutStoreOptions = {}) {
+    this.setResizeSnapping(options.resizeSnapping ?? true);
     this.setCapabilities(options.capabilities);
     this.setAutoCollapse(options.autoCollapse ?? 'disabled');
     this.state = freeze(parseLayout(input));
@@ -87,7 +90,7 @@ export class LayoutStore {
     }
     // Update session history only after validation, before notifying subscribers.
     if (action === 'load') this.closedTabs = [];
-    if (action === 'close' || action === 'closeGroup') {
+    if (action === 'close' || action === 'closeGroup' || action === 'dedicateGroup') {
       for (const pane of Object.values(this.state.panes)) {
         if (Object.hasOwn(next.panes, pane.id)) continue;
         const group = groups(this.state.root).find((g) => g.panes.includes(pane.id));
@@ -160,6 +163,38 @@ export class LayoutStore {
     if (g.active === id) g.active = g.panes[Math.min(at, g.panes.length - 1)] ?? null;
     return g;
   }
+  getResizeSnapping(): boolean {
+    return this.resizeSnapping;
+  }
+  setResizeSnapping(enabled: boolean): void {
+    this.alive();
+    if (typeof enabled !== 'boolean') problem('resizeSnapping must be a boolean');
+    this.resizeSnapping = enabled;
+  }
+  /** Resolve an interactive resize coordinate against edges in the same coordinate space.
+   * Direct resize commands remain exact. The renderer supplies measured edge coordinates.
+   */
+  snapResize(position: number, edges: readonly number[], threshold = 8): number {
+    this.alive();
+    if (
+      !Number.isFinite(position) ||
+      !Number.isFinite(threshold) ||
+      threshold < 0 ||
+      edges.some((edge) => !Number.isFinite(edge))
+    )
+      problem('Invalid resize snapping coordinates');
+    if (!this.resizeSnapping) return position;
+    let result = position,
+      distance = threshold;
+    for (const edge of edges) {
+      const delta = Math.abs(edge - position);
+      if (delta <= distance && (result === position || delta < distance)) {
+        result = edge;
+        distance = delta;
+      }
+    }
+    return result;
+  }
   getAutoCollapse(): AutoCollapse {
     return this.autoCollapse;
   }
@@ -178,6 +213,14 @@ export class LayoutStore {
       const parent = findParent(draft.root, source.id);
       if (parent)
         this.replace(draft, parent, parent.children[parent.children[0].id === source.id ? 1 : 0]);
+    }
+    for (const g of groups(draft.root)) {
+      if (
+        g.dedicatedPaneId &&
+        !g.panes.includes(g.dedicatedPaneId) &&
+        !draft.popouts.some((p) => p.paneId === g.dedicatedPaneId && p.groupId === g.id)
+      )
+        delete g.dedicatedPaneId;
     }
     if (draft.maximized && !findNode(draft.root, draft.maximized)) draft.maximized = null;
   }
@@ -239,6 +282,7 @@ export class LayoutStore {
   private canNodeIn(layout: Layout, node: Node, capability: Capability): boolean {
     if (node.kind === 'split')
       return node.children.every((child) => this.canNodeIn(layout, child, capability));
+    if (node.dedicatedPaneId && capability === 'addTab') return false;
     return node.panes.length
       ? node.panes.every((id) => this.canPane(layout, id, capability))
       : (this.capabilities.groups?.[node.id]?.[capability] ??
@@ -265,6 +309,22 @@ export class LayoutStore {
   }
   reset() {
     this.load(this.initial);
+  }
+  dedicateGroup(groupId: string, options: CommandOptions = {}) {
+    this.commit('dedicateGroup', (d) => {
+      const group = this.group(d, groupId);
+      if (!group.active) problem('Dedication requires an active tab');
+      const closing = group.panes.filter((id) => id !== group.active);
+      this.permit(d, closing, 'close', options);
+      for (const id of closing) delete d.panes[id];
+      group.panes = [group.active];
+      group.dedicatedPaneId = group.active;
+    });
+  }
+  releaseGroup(groupId: string) {
+    this.commit('releaseGroup', (d) => {
+      delete this.group(d, groupId).dedicatedPaneId;
+    });
   }
   setTabDisplay(groupId: string, display: Group['tabDisplay']) {
     this.commit('setTabDisplay', (draft) => {
@@ -434,6 +494,7 @@ export class LayoutStore {
       if (!parent) return;
       this.permitNode(d, parent, 'join', options);
       g.panes = paneIds(parent);
+      if (g.panes.some((id) => id !== g.dedicatedPaneId)) delete g.dedicatedPaneId;
       g.active ??= g.panes[0] ?? null;
       this.replace(d, parent, g);
       this.tidy(d);
@@ -445,6 +506,7 @@ export class LayoutStore {
       const group = this.group(d, groupId);
       this.permitNode(d, group, 'close', options);
       for (const id of group.panes) delete d.panes[id];
+      delete group.dedicatedPaneId;
       group.panes = [];
       group.active = null;
       if (d.maximized === groupId) d.maximized = null;
@@ -457,6 +519,23 @@ export class LayoutStore {
   joinRegions(receiverId: string, otherId: string, options: JoinOptions = {}) {
     this.commit('join', (d) => {
       const receiver = this.group(d, receiverId);
+      if (options.rectangles) {
+        const plan = joinRectangle(d.root, receiverId, otherId, options.rectangles);
+        if (!plan) problem('Join requires complete regions forming a representable rectangle');
+        plan.selected.forEach((group) => this.permitNode(d, group, 'join', options));
+        const limits = bounds(findNode(plan.root, receiverId)!, d);
+        if (
+          plan.area.width < limits.minWidth - 0.1 ||
+          plan.area.width > limits.maxWidth + 0.1 ||
+          plan.area.height < limits.minHeight - 0.1 ||
+          plan.area.height > limits.maxHeight + 0.1
+        )
+          problem('Joined region does not satisfy content size constraints');
+        d.root = plan.root;
+        if (plan.selected.some((g) => g.id === d.maximized)) d.maximized = receiver.id;
+        this.tidy(d);
+        return;
+      }
       const range = joinRange(d.root, receiverId, otherId);
       if (!range) problem('Join requires contiguous regions in one row or column');
       const { row, regions, boundaries, start, end, selected } = range;
@@ -479,6 +558,7 @@ export class LayoutStore {
         });
       }
       receiver.panes = panes;
+      if (panes.some((id) => id !== receiver.dedicatedPaneId)) delete receiver.dedicatedPaneId;
       receiver.active ??= panes[0] ?? null;
       const combined =
         sizes.slice(start, end + 1).reduce((a, b) => a + b, 0) +

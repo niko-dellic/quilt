@@ -16,5 +16,31 @@ export default defineConfig({
     { name: 'chromium', use: { browserName: 'chromium' } },
     { name: 'firefox', use: { browserName: 'firefox' } },
     { name: 'webkit', use: { browserName: 'webkit' } },
+    {
+      name: 'chromium-webgpu',
+      testMatch: /three-(backends|benchmark)\.spec\.ts/,
+      use: {
+        browserName: 'chromium',
+        // Exercise canvas presentation under Xvfb on Linux, including its compositor.
+        headless: process.platform !== 'linux',
+        screenshot: 'only-on-failure',
+        trace: 'retain-on-failure',
+        launchOptions: {
+          args: [
+            '--enable-unsafe-webgpu',
+            '--use-webgpu-adapter=swiftshader',
+            '--enable-unsafe-swiftshader',
+            '--disable-gpu-watchdog',
+            ...(process.platform === 'linux'
+              ? [
+                  '--enable-features=Vulkan,VulkanFromANGLE',
+                  '--use-angle=swiftshader',
+                  '--disable-vulkan-surface',
+                ]
+              : ['--use-angle=swiftshader']),
+          ],
+        },
+      },
+    },
   ],
 });

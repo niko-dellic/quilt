@@ -90,7 +90,11 @@ test('reorder-only tabs can move within their region but cannot leave it', async
       capabilities: { defaults: { move: true, reorder: false } },
     }),
   );
-  await a.dragTo(c, { targetPosition: { x: 2, y: 10 } });
+  // Drop before C, inside the tab rather than on the region's corner handle.
+  const target = await c.boundingBox();
+  await a.dragTo(c, {
+    targetPosition: { x: target!.width / 4, y: target!.height * 0.75 },
+  });
   await expect(left.getByRole('tab')).toHaveText([/C/, /A/]);
   await a.dragTo(b);
   await expect(left.getByRole('tab')).toHaveCount(1);

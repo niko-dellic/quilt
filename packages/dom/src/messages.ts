@@ -1,9 +1,15 @@
 /** Override English message keys; placeholders use {name}. */
 export const defaultMessages = {
+  'Unpin tab': 'Unpin tab',
+  'Pin active tab': 'Pin active tab',
   'Tabs in {id}': 'Tabs in {id}',
   '{count} empty region': '{count} empty region',
   '{count} empty regions': '{count} empty regions',
+  'These regions cannot be joined': 'These regions cannot be joined',
   '{target} absorbs {source}': '{target} absorbs {source}',
+  '{names} and {count} more': '{names} and {count} more',
+  '{target} absorbs {count} regions': '{target} absorbs {count} regions',
+  'Merge {count} regions': 'Merge {count} regions',
   'Joins {target}': 'Joins {target}',
   '{target} keeps all tabs': '{target} keeps all tabs',
   'Pane could not be rendered.': 'Pane could not be rendered.',
@@ -49,7 +55,7 @@ export const defaultMessages = {
   Close: 'Close',
   'New pane': 'New pane',
   'Empty region': 'Empty region',
-  'Click to add a pane': 'Click to add a pane',
+  'Click to add a tab': 'Click to add a tab',
   'Drag inward to split; drag across adjacent regions to join. Escape cancels.':
     'Drag inward to split; drag across adjacent regions to join. Escape cancels.',
   '{title} actions': '{title} actions',

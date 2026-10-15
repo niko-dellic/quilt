@@ -1,6 +1,8 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 test('corner split, escape cancellation and sibling join preserve panes', async ({ page }) => {
   await page.goto('/vanilla.html');
+  await allowCanvasTabs(page);
   const source = page.locator('[data-node-id="scene-group"]');
   await expect(source).toBeVisible();
   const box = (await source.boundingBox())!;
@@ -33,14 +35,17 @@ test('corner split, escape cancellation and sibling join preserve panes', async 
   await notes.locator('[data-corner="tr"]').hover();
   await page.mouse.down();
   await page.mouse.move(next.x + next.width / 2, next.y + 30);
-  await expect(page.locator('[data-corner-preview=join-source]')).toContainText('Joins Scene');
+  await expect(page.locator('[data-corner-preview=join-source]')).toContainText('Joins Notes');
   await expect(page.locator('[data-corner-preview=join-target]')).toContainText(
-    'Scene absorbs Notes',
+    'Notes absorbs Scene',
   );
   await expect(page.locator('[data-corner-preview=join]')).toBeVisible();
   await page.mouse.up();
-  await expect(source.getByRole('tab', { name: 'Notes', exact: true })).toBeVisible();
-  await expect(source.getByRole('tab', { name: 'Scene', exact: true })).toBeVisible();
+  await expect(notes.getByRole('tab', { name: 'Notes', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(notes.getByRole('tab', { name: 'Scene', exact: true })).toBeVisible();
 });
 test('split orientation follows the gesture; cancelling the picker removes only the empty region', async ({
   page,

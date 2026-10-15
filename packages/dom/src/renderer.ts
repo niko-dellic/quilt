@@ -87,6 +87,7 @@ export function mountLayout<State = unknown>(
     dockLayout(preset?.layout ?? input.initialLayout ?? createLayout()),
     {
       autoCollapse: preset?.autoCollapse ?? 'disabled',
+      resizeSnapping: preset?.resizeSnapping ?? input.resizeSnapping ?? true,
       capabilities: input.capabilities ?? {},
     },
   );
@@ -239,8 +240,13 @@ function mountLayoutInternal(
     if (node.kind === 'group') {
       r.header = el(doc, 'header', 'layouts-header');
       r.scope.listen(r.element, 'contextmenu', (event) => {
-        // Pane content keeps the same menu after a modal is dismissed. Let embedded
-        // workspaces and application-owned context menus handle their own events.
+        // Only this region's header and corner handles own the Quilt menu.
+        const target = event.target as Element;
+        if (
+          !r.header!.contains(target) &&
+          target.closest('.layouts-corner')?.parentElement !== r.element
+        )
+          return;
         if (event.defaultPrevented || (event.target as Element).closest('.layouts') !== root)
           return;
         const mode = options.contextMenu ?? 'both';
@@ -292,6 +298,10 @@ function mountLayoutInternal(
         const current = findNode(options.store.getSnapshot().root, node.id);
         if (current?.kind !== 'group') return;
         const position = dropPosition(e, r.element);
+        if (current.dedicatedPaneId && position === 'tab') {
+          delete r.element.dataset.drop;
+          return;
+        }
         const capability =
           current.panes.includes(dragId) && position === 'tab' ? 'reorder' : 'move';
         if (
@@ -345,6 +355,11 @@ function mountLayoutInternal(
           },
           bounds,
         );
+        const guide = el(doc, 'div', 'layouts-resize-snap-guide');
+        guide.setAttribute('aria-hidden', 'true');
+        guide.hidden = true;
+        root.append(guide);
+        drag.add(() => guide.remove());
         const first = regions.get(n.children[0].id)!.element.getBoundingClientRect();
         const initialSize = n.axis === 'horizontal' ? first.width : first.height;
         const initialPointer = n.axis === 'horizontal' ? e.clientX : e.clientY;
@@ -366,24 +381,81 @@ function mountLayoutInternal(
           const rect = r.element.getBoundingClientRect();
           const available =
             (current.axis === 'horizontal' ? rect.width : rect.height) - (current.gap ?? DIVIDER);
-          if (available > 0)
-            act(() =>
-              options.store.resizeMany(
-                resize.ratios(
-                  Math.max(
-                    0.001,
-                    Math.min(
-                      0.999,
-                      (initialSize +
-                        (current.axis === 'horizontal' ? move.clientX : move.clientY) -
-                        initialPointer) /
-                        available,
-                    ),
-                  ),
-                ),
-                { source: 'user' },
-              ),
+          guide.hidden = true;
+          if (available <= 0) return;
+          const horizontal = current.axis === 'horizontal';
+          const gap = current.gap ?? DIVIDER;
+          const origin = horizontal ? rect.left : rect.top;
+          const desired =
+            origin +
+            initialSize +
+            (horizontal ? move.clientX : move.clientY) -
+            initialPointer +
+            gap / 2;
+          const candidates: { position: number; rect: DOMRect }[] = [];
+          const excluded = new Set<string>();
+          const exclude = (child: Node) => {
+            excluded.add(child.id);
+            if (child.kind === 'split') child.children.forEach(exclude);
+          };
+          exclude(current);
+          if (options.store.getResizeSnapping()) {
+            const visit = (child: Node) => {
+              if (child.kind !== 'split') return;
+              if (!excluded.has(child.id) && child.axis === current.axis) {
+                const first = regions.get(child.children[0].id)?.element.getBoundingClientRect();
+                const second = regions.get(child.children[1].id)?.element.getBoundingClientRect();
+                const edge = regions.get(child.id)?.element.getBoundingClientRect();
+                if (first && second && edge && edge.width > 0 && edge.height > 0) {
+                  candidates.push({
+                    position: horizontal
+                      ? (first.right + second.left) / 2
+                      : (first.bottom + second.top) / 2,
+                    rect: edge,
+                  });
+                }
+              }
+              child.children.forEach(visit);
+            };
+            visit(options.store.getSnapshot().root);
+          }
+          const snapped = options.store.snapResize(
+            desired,
+            candidates.map((c) => c.position),
+          );
+          const ratios = resize.ratios(
+            Math.max(0.001, Math.min(0.999, (snapped - origin - gap / 2) / available)),
+          );
+          const actual = origin + ratios[node.id]! * available + gap / 2;
+          const aligned = candidates.filter(
+            (c) => Math.abs(c.position - actual) < 0.1 && Math.abs(c.position - desired) <= 8,
+          );
+          act(() => options.store.resizeMany(ratios, { source: 'user' }));
+          if (aligned.length) {
+            const start = horizontal
+              ? Math.min(rect.top, ...aligned.map((edge) => edge.rect.top))
+              : Math.min(rect.left, ...aligned.map((edge) => edge.rect.left));
+            const end = horizontal
+              ? Math.max(rect.bottom, ...aligned.map((edge) => edge.rect.bottom))
+              : Math.max(rect.right, ...aligned.map((edge) => edge.rect.right));
+            Object.assign(
+              guide.style,
+              horizontal
+                ? {
+                    left: `${actual - 1}px`,
+                    top: `${start}px`,
+                    width: '2px',
+                    height: `${end - start}px`,
+                  }
+                : {
+                    left: `${start}px`,
+                    top: `${actual - 1}px`,
+                    width: `${end - start}px`,
+                    height: '2px',
+                  },
             );
+            guide.hidden = false;
+          }
         };
         drag.listen(r.divider!, 'pointermove', (move) => set(move as PointerEvent));
         const end = (event: Event) => {
@@ -520,38 +592,46 @@ function mountLayoutInternal(
     const signature = JSON.stringify([
       definitions,
       g.active,
+      g.dedicatedPaneId,
       layout.maximized,
       layout.root.id === g.id,
     ]);
     if (r.signature !== signature) {
       r.signature = signature;
       r.header!.replaceChildren();
-      r.header!.hidden = definitions.length === 1 && definitions[0]!.header === false;
+      r.element.toggleAttribute('data-dedicated', !!g.dedicatedPaneId);
+      r.header!.hidden =
+        !!g.dedicatedPaneId || (definitions.length === 1 && definitions[0]!.header === false);
       const tabs = el(doc, 'div', 'layouts-tabs');
       tabs.setAttribute('role', 'tablist');
       tabs.setAttribute('aria-label', message(options, 'Tabs in {id}', { id: g.id }));
-      fillTabs(tabs, g, definitions, {
-        options,
-        requestClose,
-        prefix,
-        act,
-        getDrag: () => dragId,
-        setDrag: (id) => {
-          dragId = id;
-        },
-        clearDrop: () => {
-          for (const region of regions.values()) delete region.element.dataset.drop;
-          for (const marker of root.querySelectorAll<HTMLElement>('[data-tab-drop]'))
-            delete marker.dataset.tabDrop;
-        },
-        focusActive: () =>
-          regions.get(g.id)?.header?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus(),
-      });
+      if (!g.dedicatedPaneId)
+        fillTabs(tabs, g, definitions, {
+          options,
+          requestClose,
+          prefix,
+          act,
+          getDrag: () => dragId,
+          setDrag: (id) => {
+            dragId = id;
+          },
+          clearDrop: () => {
+            for (const region of regions.values()) delete region.element.dataset.drop;
+            for (const marker of root.querySelectorAll<HTMLElement>('[data-tab-drop]'))
+              delete marker.dataset.tabDrop;
+          },
+          focusActive: () =>
+            regions
+              .get(g.id)
+              ?.header?.querySelector<HTMLElement>('[aria-selected="true"]')
+              ?.focus(),
+        });
       r.header!.append(tabs);
       const showMenuButton =
-        options.contextMenu === undefined ||
-        options.contextMenu === 'button' ||
-        options.contextMenu === 'both';
+        !g.dedicatedPaneId &&
+        (options.contextMenu === undefined ||
+          options.contextMenu === 'button' ||
+          options.contextMenu === 'both');
       if (!definitions.length) {
         const close = button('', message(options, 'Close empty pane'), () =>
           options.store.removeEmptyGroup(g.id, { source: 'user' }),
@@ -587,7 +667,7 @@ function mountLayoutInternal(
       p.element.hidden = pane.id !== g.active;
       p.element.id = `${prefix}-panel-${pane.id}`;
       p.element.setAttribute('role', 'tabpanel');
-      if (r.header!.hidden) {
+      if (r.header!.hidden || g.dedicatedPaneId) {
         p.element.setAttribute('aria-label', pane.title);
         p.element.removeAttribute('aria-labelledby');
       } else {
@@ -939,6 +1019,8 @@ function mountLayoutInternal(
     refreshTheme,
     updateOptions(next) {
       validateResizeMode(next.resizeMode);
+      if (next.resizeSnapping !== undefined && typeof next.resizeSnapping !== 'boolean')
+        throw new Error('resizeSnapping must be a boolean');
       validateContextMenu(next.contextMenu);
       validateContextMenuIcon(next.contextMenuIcon);
       if ('capabilities' in next) {
@@ -986,6 +1068,7 @@ function mountLayoutInternal(
         candidate.contextMenu !== options.contextMenu ||
         candidate.contextMenuIcon !== options.contextMenuIcon ||
         JSON.stringify(candidate.messages) !== JSON.stringify(options.messages);
+      if ('resizeSnapping' in next) options.store.setResizeSnapping(next.resizeSnapping ?? true);
       // Clear maps derived from the old registry when returning to low-level registration.
       if ('registry' in next && !next.registry && options.registry) {
         Object.assign(options, { renderers: undefined, tabs: undefined });
@@ -1011,6 +1094,7 @@ function mountLayoutInternal(
         theme: structuredClone(options.theme ?? {}),
         tabBar: structuredClone(tabBar),
         autoCollapse: options.store.getAutoCollapse(),
+        resizeSnapping: options.store.getResizeSnapping(),
       };
     },
     loadWorkspace(input) {
@@ -1026,6 +1110,7 @@ function mountLayoutInternal(
       tabBar = preset.tabBar;
       applyTheme(root, preset.theme);
       options.store.setAutoCollapse(preset.autoCollapse);
+      options.store.setResizeSnapping(preset.resizeSnapping ?? true);
       options.store.load(preset.layout);
       refreshTheme();
     },

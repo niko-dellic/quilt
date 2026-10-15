@@ -26,6 +26,8 @@ export interface PaneContext<State = unknown> {
   signal: AbortSignal;
   /** Register view-owned cleanup; callbacks run once in reverse order. */
   onCleanup(callback: () => void): void;
+  /** Delay pane readiness until application resources initialize. Register during mount/commit. */
+  deferReady(ready: Promise<void>): void;
   reportError(error: unknown): void;
   document: Document;
   window: Window;
@@ -66,6 +68,8 @@ export interface WorkspaceSettings<State = unknown> {
   capabilities?: import('quilt-core').CapabilityPolicy;
   /** Gutter reserves space; border overlays a resize target on one shared line. */
   resizeMode?: 'gutter' | 'border';
+  /** Align pointer resizing to neighboring dividers within 8 CSS pixels. Defaults to true. */
+  resizeSnapping?: boolean;
   /** Global pane-menu entry points. Defaults to both; not serialized in Layout JSON. */
   contextMenu?: 'button' | 'right-click' | 'both' | 'none';
   /** Global integrated menu button appearance. Defaults to three-dots; session-only. */
@@ -132,6 +136,8 @@ export type LayoutOptionUpdates<State = unknown> = {
 export type WorkspaceAction =
   | 'maximize'
   | 'addTab'
+  | 'dedicatePane'
+  | 'releasePane'
   | 'restoreClosedTab'
   | 'closeActiveTab'
   | 'closePane'
@@ -214,7 +220,7 @@ export interface MountedLayout<State = unknown> {
   loadWorkspace(input: unknown): void;
   refreshTheme(): void;
   retryPane(id: string): void;
-  requestClose(id: string, kind?: 'pane' | 'group'): Promise<boolean>;
+  requestClose(id: string, kind?: 'pane' | 'group' | 'dedicate'): Promise<boolean>;
   setTabBar(options: TabBarOptions): void;
   setTheme(theme: LayoutTheme): void;
   popout(paneId: string, placement?: WindowPlacement): Promise<boolean>;

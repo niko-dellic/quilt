@@ -1,3 +1,4 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { expect, test } from '@playwright/test';
 
 for (const demo of ['vanilla', 'react']) {
@@ -5,6 +6,7 @@ for (const demo of ['vanilla', 'react']) {
     page,
   }) => {
     await page.goto(`/${demo}.html`);
+    await allowCanvasTabs(page);
     const scene = page.locator('[data-node-id="scene-group"]');
     await scene.getByRole('button', { name: 'Scene actions', exact: true }).click();
     const maximize = page.getByRole('button', { name: 'Maximize region', exact: true });
@@ -352,6 +354,7 @@ for (const demo of ['vanilla', 'react']) {
     page,
   }) => {
     await page.goto(`/${demo}.html`);
+    await allowCanvasTabs(page);
     const scene = page.locator('[data-node-id="scene-group"]');
     const actions = scene.getByRole('button', { name: 'Scene actions', exact: true });
     await actions.click();

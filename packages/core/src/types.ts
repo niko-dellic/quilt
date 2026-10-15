@@ -8,6 +8,8 @@ export interface CapabilityPolicy {
   panes?: Record<string, Partial<Record<Capability, boolean>>>;
 }
 export interface LayoutStoreOptions {
+  /** Snap interactive resize coordinates to nearby edges. Defaults to true. */
+  resizeSnapping?: boolean;
   capabilities?: CapabilityPolicy;
   /** Session policy; omitted defaults to disabled. Not serialized in Layout JSON. */
   autoCollapse?: AutoCollapse;
@@ -39,6 +41,8 @@ export interface Group {
   tabPlacement?: 'top' | 'left';
   /** Omitted inherits the workspace tab display setting. */
   tabDisplay?: 'automatic' | 'compact';
+  /** Region reserved for this single docked or detached pane. */
+  dedicatedPaneId?: string;
 }
 export interface Split {
   kind: 'split';
@@ -93,7 +97,17 @@ export interface Bounds {
   maxHeight: number;
 }
 
+/** Renderer-neutral bounds in a common coordinate space. */
+export interface RegionRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 export interface JoinOptions extends CommandOptions {
+  /** Complete measured node bounds enable rectangular joins across split axes. */
+  rectangles?: Record<string, RegionRect>;
   /** Optional rendered extents along the join axis, keyed by node ID, including splits.
    * Supply the complete row to retain actual sizes under constraints and custom dividers.
    * Without measurements, joins retain proportional shares of the row/column.

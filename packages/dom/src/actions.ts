@@ -17,7 +17,7 @@ export function createActions(
     context(): ActionContext;
     disposed(): boolean;
     create(action: WorkspaceAction, group: Group, pane: Pane | undefined): void;
-    close(id: string, kind?: 'pane' | 'group'): Promise<boolean>;
+    close(id: string, kind?: 'pane' | 'group' | 'dedicate'): Promise<boolean>;
     popout(id: string): Promise<boolean>;
     report(error: unknown): void;
   },
@@ -69,6 +69,16 @@ export function createActions(
     const allowed = (cap: 'split' | 'addTab' | 'maximize' | 'close') =>
       options.store.canNode(group.id, cap);
     switch (action) {
+      case 'dedicatePane':
+        return (
+          !!group.active &&
+          !group.dedicatedPaneId &&
+          group.panes
+            .filter((id) => id !== group.active)
+            .every((id) => options.store.can(id, 'close'))
+        );
+      case 'releasePane':
+        return !!group.dedicatedPaneId;
       case 'maximize':
         return layout.maximized === group.id || allowed('maximize');
       case 'addTab':
@@ -109,6 +119,11 @@ export function createActions(
       switch (action) {
         case 'restoreClosedTab':
           options.store.restoreClosedTab();
+          break;
+        case 'dedicatePane':
+          return await dependencies.close(group!.id, 'dedicate');
+        case 'releasePane':
+          options.store.releaseGroup(group!.id);
           break;
         case 'maximize':
           options.store.maximize(layout.maximized === group!.id ? null : group!.id, {

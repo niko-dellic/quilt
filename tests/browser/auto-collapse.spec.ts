@@ -46,7 +46,9 @@ for (const framework of ['vanilla', 'react']) {
     await first.getByRole('combobox').press('Escape');
     await setting.focus();
     await expect(first.getByRole('combobox')).toHaveValue('notes');
-    await page.getByRole('button', { name: 'Scene actions', exact: true }).click();
+    await page
+      .locator('[data-node-id="scene-group"] [data-corner="tl"]')
+      .click({ button: 'right' });
     await page.getByRole('button', { name: 'Split', exact: true }).hover();
     await page.getByRole('menuitem', { name: 'Split down', exact: true }).click();
     await expect(pickers).toHaveCount(1);

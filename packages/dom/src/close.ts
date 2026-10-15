@@ -16,17 +16,33 @@ export function closeRequests(
     pending?.abort();
   });
   const signature = (panes: readonly Pane[]) => JSON.stringify(panes);
-  return async (id: string, kind: 'pane' | 'group' = 'pane'): Promise<boolean> => {
+  return async (id: string, kind: 'pane' | 'group' | 'dedicate' = 'pane'): Promise<boolean> => {
     if (pending || disposed) return false;
     const controller = new AbortController();
     pending = controller;
+    const initialGroup = findNode(options.store.getSnapshot().root, id);
+    const initialActive = initialGroup?.kind === 'group' ? initialGroup.active : null;
     const collect = (): Pane[] => {
       const snapshot = options.store.getSnapshot();
-      const node = kind === 'group' ? findNode(snapshot.root, id) : undefined;
-      const ids = kind === 'group' ? (node?.kind === 'group' ? node.panes : []) : [id];
-      return ids.map((key) => snapshot.panes[key]).filter((pane): pane is Pane => !!pane);
+      const node = kind !== 'pane' ? findNode(snapshot.root, id) : undefined;
+      const ids = kind !== 'pane' ? (node?.kind === 'group' ? node.panes : []) : [id];
+      return ids
+        .filter((key) => kind !== 'dedicate' || key !== initialActive)
+        .map((key) => snapshot.panes[key])
+        .filter((pane): pane is Pane => !!pane);
     };
     const panes = collect();
+    const unchanged = () => {
+      const group = findNode(options.store.getSnapshot().root, id);
+      return (
+        signature(collect()) === signature(panes) &&
+        (kind !== 'dedicate' ||
+          (group?.kind === 'group' &&
+            group.active === initialActive &&
+            !!initialActive &&
+            group.panes.includes(initialActive)))
+      );
+    };
     const requiringConfirmation = panes.filter(
       (pane) =>
         pane.confirmClose ??
@@ -37,11 +53,11 @@ export function closeRequests(
       panes,
       requiringConfirmation,
       signal: controller.signal,
-      ...(kind === 'group' ? { groupId: id } : {}),
+      ...(kind !== 'pane' ? { groupId: id } : {}),
     };
     let cleanup = () => {};
     try {
-      const target = kind === 'group' ? findNode(options.store.getSnapshot().root, id) : undefined;
+      const target = kind !== 'pane' ? findNode(options.store.getSnapshot().root, id) : undefined;
       if (
         (!panes.length && target?.kind !== 'group') ||
         (kind === 'group'
@@ -96,8 +112,7 @@ export function closeRequests(
           controller.signal.addEventListener('abort', () => resolve(false), { once: true }),
         );
         const unsubscribe = options.store.subscribe((event) => {
-          if (event.action === 'load' || signature(collect()) !== signature(panes))
-            controller.abort();
+          if (event.action === 'load' || !unchanged()) controller.abort();
         });
         const previousCleanup = cleanup;
         cleanup = () => {
@@ -108,13 +123,14 @@ export function closeRequests(
       }
       if (
         controller.signal.aborted ||
-        signature(collect()) !== signature(panes) ||
+        !unchanged() ||
         (kind === 'group'
           ? !options.store.canNode(id, 'close')
           : panes.some((pane) => !options.store.can(pane.id, 'close')))
       )
         return false;
-      if (kind === 'group') options.store.closeGroup(id, { source: 'user' });
+      if (kind === 'dedicate') options.store.dedicateGroup(id, { source: 'user' });
+      else if (kind === 'group') options.store.closeGroup(id, { source: 'user' });
       else options.store.close(id, { source: 'user' });
       return true;
     } catch (error) {

@@ -19,7 +19,14 @@ if (packaged && process.platform === 'darwin') {
 }
 const app = await _electron.launch({
   executablePath,
-  args: packaged ? [] : [resolve('artifacts/desktop/app/main.cjs')],
+  args: [
+    ...(packaged ? [] : [resolve('artifacts/desktop/app/main.cjs')]),
+    // Linux and Intel macOS CI have no usable GPU; use Chromium's software renderer.
+    ...(process.env.CI &&
+    (process.platform === 'linux' || (process.platform === 'darwin' && process.arch === 'x64'))
+      ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
+      : []),
+  ],
   timeout: 60000,
 });
 try {
@@ -27,13 +34,16 @@ try {
   const errors = [],
     network = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') console.error(message.text());
+  });
   page.on('request', (request) => {
     if (/^https?:/.test(request.url())) network.push(request.url());
   });
   for (const framework of ['Vanilla TS', 'React']) {
     await page.getByRole('link', { name: framework, exact: true }).click();
-    await expect(page.getByRole('tab', { name: 'Scene', exact: true })).toBeVisible();
-    await expect(page.locator('.scene-canvas')).toBeVisible();
+    await expect(page.locator('[data-pane-id="canvas"] [data-quilt-three-input]')).toBeVisible();
+    await expect(page.locator('canvas[data-quilt-three-canvas]')).toBeVisible();
     await page.getByRole('tab', { name: 'Inspector', exact: true }).click();
     const notes = page.getByRole('textbox', { name: 'Working notes' });
     await notes.fill('Desktop state survives');

@@ -38,6 +38,7 @@ Demo builds have no trusted developer certificate; see the [installation notes](
 | `quilt-core`    | Layout model, validation, constraints, commands, and subscriptions; no browser dependency |
 | `quilt-vanilla` | DOM renderer, tabs, menus, gestures, themes, and companion windows                        |
 | `quilt-react`   | React components and hooks using the same model and DOM renderer                          |
+| `quilt-three`   | Shared-scene camera views, controls, and optional React Three Fiber bindings              |
 
 Packages include ESM, TypeScript declarations, and source maps. React is a peer
 dependency of `quilt-react`; it is not required by `quilt-vanilla`.
@@ -54,6 +55,9 @@ npm install quilt-react
 
 # Layout model only
 npm install quilt-core
+
+# Optional Three.js integration
+npm install quilt-three three
 ```
 
 The adapters install their Quilt dependencies automatically. React applications need
@@ -63,6 +67,10 @@ application’s React installation. In an existing React app, the command above 
 Use ESM imports and a bundler with CSS support. Import the adapter stylesheet once
 and give the workspace container an explicit height. TypeScript React applications
 also need matching `@types/react` and `@types/react-dom` packages.
+
+For `quilt-three/react`, use React 19 and React Three Fiber 9 alongside `quilt-react`.
+The base `quilt-three` entry does not require React or R3F. See the
+[Three.js integration guide](docs/three.md) for installation and supported scope and limitations.
 
 ## Quickstart
 
@@ -116,6 +124,7 @@ See [save/load and storage examples](docs/integration.md#workspace-json).
 - [API reference](https://quilt-layouts.vercel.app/docs/api-reference/)
 - [Themes and tab bars](https://quilt-layouts.vercel.app/docs/theming)
 - [Registration, React context, persistence, and confirmation](https://quilt-layouts.vercel.app/docs/integration)
+- [Three.js integration](https://quilt-layouts.vercel.app/docs/three)
 - [Examples](https://quilt-layouts.vercel.app/docs/examples)
 - [Troubleshooting](https://quilt-layouts.vercel.app/docs/troubleshooting)
 - [Migration](https://quilt-layouts.vercel.app/docs/migration)

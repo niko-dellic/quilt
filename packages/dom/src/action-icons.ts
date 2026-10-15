@@ -6,6 +6,8 @@ const paths = {
   'tab-orientation': ['M3 4h18v16H3z', 'M3 9h18', 'M8 9v11'],
   join: ['M3 4h18v16H3z', 'm7 9 3 3-3 3m10-6-3 3 3 3'],
   maximize: ['M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5'],
+  dedicate: ['M9 3h6v6l3 3v3H6v-3l3-3z', 'M12 15v6'],
+  'allow-tabs': ['M3 4h18v16H3z', 'M3 9h18M9 4v5M15 4v5'],
   restore: ['M3 8h5V3m13 5h-5V3M8 21v-5H3m13 5v-5h5'],
   popout: ['M14 3h7v7m0-7L11 13', 'M10 3H3v18h18v-7'],
   close: ['m6 6 12 12M6 18 18 6'],

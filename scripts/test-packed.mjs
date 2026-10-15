@@ -20,27 +20,27 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const run = (command, args, cwd = root) => execFileSync(command, args, { cwd, stdio: 'inherit' });
 // Exercise a leaf package's prepack from a clean workspace, then pack all
 // packages with stale outputs present to verify clean builds remove them.
-for (const name of ['core', 'dom', 'react']) {
+for (const name of ['core', 'dom', 'react', 'three']) {
   rmSync(resolve(root, 'packages', name, 'dist'), { recursive: true, force: true });
 }
 const direct = mkdtempSync(join(tmpdir(), 'quilt-direct-pack-'));
 try {
-  run('npm', ['pack', '--pack-destination', direct], resolve(root, 'packages/react'));
+  run('npm', ['pack', '--pack-destination', direct], resolve(root, 'packages/three'));
 } finally {
   rmSync(direct, { recursive: true, force: true });
 }
-for (const name of ['core', 'dom', 'react']) {
+for (const name of ['core', 'dom', 'react', 'three']) {
   writeFileSync(resolve(root, 'packages', name, 'dist/stale.js'), 'throw new Error("stale");');
 }
 run(process.execPath, ['scripts/pack.mjs']);
-for (const name of ['core', 'dom', 'react']) {
+for (const name of ['core', 'dom', 'react', 'three']) {
   assert.equal(existsSync(resolve(root, 'packages', name, 'dist/stale.js')), false);
 }
 const manifest = JSON.parse(
   readFileSync(resolve(root, 'artifacts/packages/manifest.json'), 'utf8'),
 );
 const metadata = Object.fromEntries(
-  ['core', 'dom', 'react'].map((key) => [
+  ['core', 'dom', 'react', 'three'].map((key) => [
     key,
     JSON.parse(readFileSync(resolve(root, `packages/${key}/package.json`), 'utf8')),
   ]),
@@ -60,7 +60,12 @@ try {
       name: 'isolated-quilt-consumer',
       private: true,
       type: 'module',
-      dependencies: { [metadata.core.name]: archive('core'), [metadata.dom.name]: archive('dom') },
+      dependencies: {
+        [metadata.core.name]: archive('core'),
+        [metadata.dom.name]: archive('dom'),
+        [metadata.three.name]: archive('three'),
+        three: '^0.186.1',
+      },
     }),
   );
   run('npm', ['install', ...installFlags], temp);
@@ -68,6 +73,20 @@ try {
     existsSync(join(temp, 'node_modules/react')),
     false,
     'Vanilla must not install React',
+  );
+  assert.equal(
+    existsSync(join(temp, 'node_modules/@react-three/fiber')),
+    false,
+    'Base quilt-three must not install R3F',
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "import { ThreeSession, ThreeView, CameraHelpers, NavigationControls, createThreeSession } from 'quilt-three'; import { createWebGPURenderer } from 'quilt-three/webgpu'; if (![createWebGPURenderer, ThreeSession, ThreeView, CameraHelpers, NavigationControls, createThreeSession].every(value => typeof value === 'function')) throw new Error('Missing export');",
+    ],
+    temp,
   );
   writeFileSync(
     join(temp, 'smoke.mjs'),
@@ -108,6 +127,12 @@ try {
       ],
       temp,
     );
+    if (major === '19')
+      run(
+        'npm',
+        ['install', '@react-three/fiber@^9.8.1', '@types/three@^0.186.0', ...installFlags],
+        temp,
+      );
     rmSync(join(temp, 'node_modules'), { recursive: true, force: true });
     run('npm', ['ci', ...installFlags], temp);
     run(process.execPath, ['smoke.mjs'], temp);
@@ -148,6 +173,38 @@ try {
           temp,
         );
       }
+    }
+    if (major === '19') {
+      copyFileSync(
+        resolve(root, 'scripts/fixtures/three-consumer.tsx'),
+        join(temp, 'three-consumer.tsx'),
+      );
+      run(
+        process.execPath,
+        [
+          join(temp, 'node_modules/typescript/bin/tsc'),
+          '--noEmit',
+          '--strict',
+          '--skipLibCheck',
+          '--target',
+          'ES2022',
+          '--module',
+          'NodeNext',
+          '--jsx',
+          'react-jsx',
+          'three-consumer.tsx',
+        ],
+        temp,
+      );
+      run(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          "import { ThreeView } from 'quilt-three/react'; if (typeof ThreeView !== 'function') throw new Error('Missing React export');",
+        ],
+        temp,
+      );
     }
     for (const p of manifest.packages) {
       const location = realpathSync(join(temp, 'node_modules', p.name));

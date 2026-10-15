@@ -3,9 +3,9 @@ import { copyFileSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const order = ['core', 'dom', 'react'];
+const order = ['core', 'dom', 'react', 'three'];
 const target = process.argv[2];
-if (!order.includes(target)) throw new Error('Expected core, dom, or react');
+if (!order.includes(target)) throw new Error('Expected core, dom, react, or three');
 const packages = process.argv.includes('--dependencies')
   ? order.slice(0, order.indexOf(target) + 1)
   : [target];
@@ -17,7 +17,7 @@ for (const name of packages) {
     [resolve(root, 'node_modules/typescript/bin/tsc'), '-p', resolve(directory, 'tsconfig.json')],
     { stdio: 'inherit' },
   );
-  if (name !== 'core') {
+  if (name === 'dom' || name === 'react') {
     writeFileSync(
       resolve(directory, 'dist/styles.css'),
       readFileSync(

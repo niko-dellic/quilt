@@ -52,7 +52,7 @@ Close confirmation is opt-in through pane `confirmClose` or a unified registrati
 
 ## Corner gestures and pending content
 
-Corner dragging previews the new region using the same constraint allocation as the renderer. The dominant drag axis chooses split orientation. A gesture across adjacent regions in the same row or column outlines the contiguous range and labels the region under the pointer as the receiver. This works across nested splits along the same axis; perpendicular splits are barriers. Dragging farther includes intermediate regions, and dragging back shrinks the range. Joining retains all selected content as tabs in the receiver, preserving its ID, active tab, and tab settings. Measured extents retain surrounding sizes, subject to content constraints. Every selected pane must permit joining. A layout change during a gesture cancels it. Escape and pointer cancellation remove the preview without changing state.
+Corner dragging previews the new region using the same constraint allocation as the renderer. The dominant drag axis chooses split orientation. A gesture across regions outlines the rectangle spanning the starting region and the region under the pointer. The starting region survives as the receiver, keeping its active tab visible. This works across rows and columns, including perpendicular splits. All regions within that rectangle must be fully contained; partially intersected regions, disallowed joins, and arrangements that cannot remain a binary split tree show an invalid preview. Dragging farther expands the selection, and dragging back shrinks it; the cursor path does not accumulate regions. The affected split tree is restructured without moving surrounding boundaries. Core callers can supply complete node bounds through `joinRegions(receiverId, otherId, { rectangles })`; `joinRectangle` exposes the same pure planning operation. Without rectangles, the existing same-axis join behavior and optional `extents` remain available. Joining retains all selected content as tabs in the receiver, preserving its ID, active tab, and tab settings. Measured extents retain surrounding sizes, subject to content constraints. Every selected pane must permit joining. A layout change during a gesture cancels it. Escape and pointer cancellation remove the preview without changing state.
 
 Releasing a split creates an empty group before opening a centered registry chooser. Empty regions can also be split repeatedly, even when the entire layout has no content. Without a registry, splitting an empty region simply creates another empty region. Choosing content adds it to that stable group ID. With the default `autoCollapse: "disabled"`, clicking outside the empty region dismisses its chooser without removing the region. Click the diagonal empty surface to reopen search. Escape releases search focus. Multiple pending regions can coexist; select content later or use the empty tab bar’s “Close empty pane” button. With `"enabled"` or `"protected"`, cancelling removes only the still-empty new group, preserving unrelated edits. Empty groups are valid JSON and provide a chooser if restored after a reload. Applications can use `workspace.splitGroup(groupId, axis, null, options)` and `workspace.removeEmptyGroup(groupId)` for the same workflow; filled groups are never removed by the latter.
 
@@ -127,3 +127,57 @@ content. Nested application scroll areas register explicitly through
 callback. Call the returned cleanup before removing a nested host. Pane disposal
 also removes all registrations, controls, listeners, observers, and timers.
 Companion views receive current preferences at mount and on live updates.
+
+## Application readiness barriers
+
+`context.deferReady(promise)` registers an additional readiness barrier during
+mounting or a React layout effect. Quilt first waits for the returned view's
+`ready` acknowledgement, then for registered barriers. Rejection prevents a
+popout commit and preserves the source view. Cleanup still runs if the destination
+closes before readiness. Register only initialization work here; ongoing jobs
+remain application-owned and must not block pane readiness indefinitely.
+
+## Resize snapping
+
+Interactive divider drags snap to neighboring parallel dividers within 8 CSS pixels
+by default. An accent-colored guide highlights the aligned edge while snapped.
+Dragging away releases it; size constraints take priority. Escape restores the
+original sizes and clears the guide.
+
+Set `resizeSnapping: false` in vanilla or React workspace options, or call
+`workspace.updateOptions({ resizeSnapping: false })` to disable it. Workspace
+presets retain the setting; older presets default to enabled. Both demos expose
+the setting under **Theming → Resizing → Resize snapping**.
+
+Core users can supply `new LayoutStore(layout, { resizeSnapping: false })`,
+change it with `setResizeSnapping`, and inspect it with `getResizeSnapping`.
+`store.snapResize(position, edges, threshold = 8)` resolves coordinates without
+browser dependencies. Hosts supply measurements in a common coordinate space.
+Direct resize commands and keyboard resize steps remain exact.
+
+## Dedicated regions
+
+**Pin active tab** closes inactive docked tabs and reserves the region
+for its active view. The operation preserves the region's geometry and IDs and
+does not remount the retained view. Inactive tabs follow existing close permissions
+and confirmation rules; cancellation, denied permission, or changed membership or
+active tab during confirmation leaves the layout unchanged. Closed views enter
+normal restore history; their application data remains application-owned.
+
+Pinned regions hide the tab bar and its actions button, reserving no content
+clearance for them. Right-click a corner split/join handle to open pane actions.
+Explicit `contextMenu` settings still control right-click availability.
+**Unpin tab** releases the restriction without reopening closed tabs.
+This is distinct from `header: false`, which hides a single-tab header without
+restricting the group's contents. Releasing dedication restores ordinary header
+rules and the region's saved tab styling.
+
+Adding tabs and center drops into pinned regions are rejected, including direct
+core API commands. Joins are allowed and preserve all views. A pinned receiver
+becomes tabbed when it receives other views; joining only empty regions preserves
+its pin. Ordinary join permissions still apply. Splitting alongside a pinned
+region remains available. Moving or closing the designated view clears dedication on its emptied
+region. Popping it out reserves a retained source region for its return; normal
+auto-collapse still applies. If the source region is removed, the existing return
+fallback applies. Restoring other closed tabs skips dedicated regions and creates
+an ordinary region if no compatible target exists.

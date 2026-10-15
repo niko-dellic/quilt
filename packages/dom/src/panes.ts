@@ -90,6 +90,7 @@ export function mountPane(
     areaHosts.clear();
     host.remove();
   };
+  const readiness: Promise<void>[] = [];
   let result: MountedPane | undefined;
   const reportError = (error: unknown) => {
     if (result) result.failed = true;
@@ -106,6 +107,10 @@ export function mountPane(
           else cleanups.push(callback);
         },
         element,
+        deferReady(ready) {
+          void ready.catch(() => {});
+          readiness.push(ready);
+        },
         reportError,
         document: doc,
         window: win,
@@ -125,6 +130,20 @@ export function mountPane(
         ),
       );
       view = { dispose() {} };
+    }
+    if (view.ready || readiness.length) {
+      const original = view;
+      const ready = Promise.resolve(original.ready).then(async () => {
+        await Promise.all(readiness);
+        if (disposed) throw new Error('Pane disposed before readiness');
+      });
+      void ready.catch(() => {});
+      view = {
+        ready,
+        dispose: () => original.dispose(),
+        ...(original.resize ? { resize: original.resize.bind(original) } : {}),
+        ...(original.update ? { update: original.update.bind(original) } : {}),
+      };
     }
     observer = new ResizeObserver((entries) => {
       const rect = entries[0]?.contentRect;

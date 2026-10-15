@@ -344,3 +344,79 @@ test('React preset appearance survives callback updates and remount releases its
   });
   expect(lifecycle).toEqual({ ready: 2, disposed: [true, false] });
 });
+
+test('deferred application readiness rejects a companion without disposing the source', async ({
+  page,
+}) => {
+  const result = await page.evaluate(async () => {
+    const { Workspace, fixture } = window.harness;
+    const host = document.createElement('div');
+    document.body.append(host);
+    let sourceDisposals = 0,
+      childDisposals = 0;
+    const errors: string[] = [];
+    const workspace = new Workspace({
+      container: host,
+      initialLayout: fixture,
+      onError: (error) => errors.push(String(error)),
+      renderers: {
+        test(context) {
+          if (context.location === 'popout') {
+            context.deferReady(Promise.reject(new Error('Graphics initialization failed')));
+            context.onCleanup(() => childDisposals++);
+          } else context.onCleanup(() => sourceDisposals++);
+        },
+      },
+    });
+    const opened = await workspace.popout('a');
+    const result = {
+      opened,
+      sourceDisposals,
+      childDisposals,
+      errors,
+      detached: workspace.getLayout().popouts.length,
+    };
+    workspace.dispose();
+    host.remove();
+    return result;
+  });
+  expect(result.opened).toBe(false);
+  expect(result.sourceDisposals).toBe(0);
+  expect(result.childDisposals).toBe(1);
+  expect(result.detached).toBe(0);
+  expect(result.errors.some((error) => error.includes('Graphics initialization failed'))).toBe(
+    true,
+  );
+});
+
+test('readiness preserves immutable class-based pane views and their method receivers', async ({
+  page,
+}) => {
+  const result = await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.cssText = 'width:400px;height:300px';
+    document.body.append(host);
+    const state = { updates: 0, disposals: 0 };
+    class View {
+      readonly ready = Promise.resolve();
+      readonly state = state;
+      update() {
+        this.state.updates++;
+      }
+      dispose() {
+        this.state.disposals++;
+      }
+    }
+    const workspace = new window.harness.Workspace({
+      container: host,
+      initialLayout: window.harness.fixture,
+      renderers: { test: () => Object.freeze(new View()) },
+    });
+    workspace.getPane('a')!.setTitle('Changed');
+    await Promise.resolve();
+    workspace.dispose();
+    host.remove();
+    return state;
+  });
+  expect(result).toEqual({ updates: 1, disposals: 2 });
+});

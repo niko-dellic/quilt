@@ -31,6 +31,8 @@ export default defineConfig({
         vanilla: resolve('vanilla.html'),
         react: resolve('react.html'),
         electron: resolve('electron.html'),
+        three: resolve('three.html'),
+        threeReact: resolve('three-react.html'),
       },
     },
   },

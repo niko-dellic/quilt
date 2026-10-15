@@ -50,9 +50,9 @@ export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
     radius = 5,
     handleWidth = 4,
     showDisabledHandles = false,
-    cornerSize = 8,
+    cornerSize = 16,
     cornerInset = 0,
-    cornerStroke = 2,
+    cornerStroke = 1,
     cornerOpacity = 35;
   let cornerStyle = 'bracket',
     cornerVisibility = 'always',
@@ -460,6 +460,20 @@ export function setupShell(getMounted: () => WorkspaceHandle | undefined) {
     getMounted()?.updateOptions({ resizeMode: resizeStyle.value as 'gutter' | 'border' });
   };
   resizing.append(labelControl(resizeStyle, 'Resize style'));
+  const snapping = choice('Resize snapping', [
+    ['true', 'Enabled'],
+    ['false', 'Disabled'],
+  ]);
+  const syncSnapping = () => {
+    snapping.select.value = String(getMounted()?.exportWorkspace().resizeSnapping ?? true);
+  };
+  snapping.select.onchange = () => {
+    getMounted()?.updateOptions({ resizeSnapping: snapping.select.value === 'true' });
+  };
+  syncSnapping();
+  resizing.append(snapping.field);
+  const unsubscribeSnapping = getMounted()?.on('change', syncSnapping);
+  window.addEventListener('pagehide', () => unsubscribeSnapping?.(), { once: true });
   settings.prepend(
     themeSection.region,
     colorSection.region,

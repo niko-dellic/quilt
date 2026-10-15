@@ -96,6 +96,7 @@ export function validate(input: unknown): Issue[] {
     else if (assigned.has(id)) fail(path, 'Pane is placed more than once');
     else assigned.add(id);
   };
+  const detachedRecords = input.popouts;
   function walk(node: unknown, path: string, depth: number) {
     if (depth > 64) {
       fail(path, 'Maximum split depth is 64');
@@ -124,6 +125,24 @@ export function validate(input: unknown): Issue[] {
       if (!Array.isArray(node.panes)) {
         fail(path, 'Expected pane array');
         return;
+      }
+      if (node.dedicatedPaneId !== undefined) {
+        const id = node.dedicatedPaneId;
+        const detached =
+          Array.isArray(detachedRecords) &&
+          detachedRecords.some((p) => record(p) && p.paneId === id && p.groupId === node.id);
+        if (
+          typeof id !== 'string' ||
+          !Object.hasOwn(panes, id) ||
+          !(
+            (node.panes.length === 1 && node.panes[0] === id) ||
+            (node.panes.length === 0 && detached)
+          )
+        )
+          fail(
+            path + '.dedicatedPaneId',
+            'Dedicated region must contain only its designated pane or reserve its popout',
+          );
       }
       node.panes.forEach((p, i) => use(p, `${path}.panes[${i}]`));
       if (node.panes.length ? !node.panes.includes(node.active) : node.active !== null)

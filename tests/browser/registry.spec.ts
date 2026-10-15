@@ -1,9 +1,11 @@
+import { allowCanvasTabs } from './demo-helpers';
 import { test, expect } from '@playwright/test';
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: picker searches tab registrations and adds Canvas using the keyboard`, async ({
     page,
   }) => {
     await page.goto(`/${framework}.html`);
+    await allowCanvasTabs(page);
     await page.getByRole('tab', { name: 'Inspector', exact: true }).click();
     await page.getByRole('button', { name: 'Inspector actions', exact: true }).click();
     await page.getByRole('button', { name: '+ Add tab', exact: true }).click();
@@ -20,7 +22,8 @@ for (const framework of ['vanilla', 'react']) {
       'aria-selected',
       'true',
     );
-    await expect(group.locator('canvas')).toBeVisible();
+    await expect(group.locator('[data-quilt-three-input]')).toBeVisible();
+    await expect(page.locator('[data-quilt-three-canvas]')).toBeVisible();
     await page.getByRole('tab', { name: 'Theming', exact: true }).click();
     await page.getByRole('button', { name: 'Reset', exact: true }).click();
     await page.getByRole('tab', { name: 'Inspector', exact: true }).click();
@@ -32,7 +35,11 @@ for (const framework of ['vanilla', 'react']) {
       'true',
     );
     await search.press('Escape');
-    await expect(page.getByRole('tab', { name: 'Scene', exact: true })).toHaveCount(1);
+    await expect(page.locator('[data-node-id="scene-group"]')).toHaveAttribute(
+      'data-dedicated',
+      '',
+    );
+    await expect(page.locator('[data-node-id="scene-group"] [data-corner="tl"]')).toBeVisible();
   });
 }
 test('registry additions and removals update an open picker; factory errors preserve the layout', async ({

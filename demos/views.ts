@@ -1,9 +1,9 @@
+import { mountHelperToggle } from './camera-helper-controls.js';
+import { customViews } from './model.js';
 import { settings } from './settings.js';
 import { formatShortcut } from 'quilt-vanilla';
 import { mountFullscreenToggle } from './fullscreen.js';
 import { mountTheming } from './shell.js';
-import { canvas } from './scene.js';
-export { canvas } from './scene.js';
 import type { PaneRenderer, PaneContext } from 'quilt-vanilla';
 import { state, workspaces, workspaceSession, onWorkspace } from './model.js';
 import { surfaces, swatchBackground } from './surfaces.js';
@@ -182,7 +182,28 @@ export const hotkeys: PaneRenderer = ({ element, document: doc }) => {
     unsubscribe();
     const update = () => {
       body.replaceChildren();
-      appendRow('Drag on canvas', 'Orbit scene', 'Scroll to zoom. Double-click to reset.');
+      appendRow(
+        'Left-drag on canvas',
+        'Orbit scene',
+        'Returns to Orbit from Free navigation. Double-click to reset.',
+      );
+      appendRow('Right / middle / Shift-drag', 'Pan scene', 'Smooth pan while in Orbit.');
+      appendRow(
+        'WASD / Arrow keys',
+        'Free navigation',
+        'Hover a viewport to move forward, backward, or sideways.',
+      );
+      appendRow(
+        'Q / E',
+        'Move down / up',
+        'In the hovered viewport. Shift increases movement speed.',
+      );
+      appendRow('Right-drag', 'Look around', 'While Free navigation is active.');
+      appendRow(
+        'Scroll',
+        'Zoom / movement speed',
+        'Zoom in Orbit; adjust speed in Free navigation.',
+      );
       for (const registration of workspace.getShortcuts()) {
         const customLabel = workspace
           .getCommands()
@@ -203,10 +224,13 @@ export const hotkeys: PaneRenderer = ({ element, document: doc }) => {
         );
       }
       for (const [keys, title, description] of [
-        ['← / → or ↑ / ↓', 'Switch tabs', 'Use up/down for left-side tabs.'],
+        ['← / → or ↑ / ↓', 'Switch tabs', 'When a tab is focused. Use up/down for left-side tabs.'],
         ['Home / End', 'First / last tab', 'When a tab is focused.'],
-        ['Arrow keys', 'Resize divider', 'Hold Shift for larger steps.'],
-        ['Escape', 'Cancel', 'Stop a drag or close a dialog.'],
+        [
+          'Escape',
+          'Return to Orbit / cancel',
+          'Stop Free navigation, cancel a drag, or close a dialog.',
+        ],
         ['Middle click', 'Close tab', 'When closing is allowed.'],
       ])
         appendRow(keys!, title!, description!);
@@ -228,15 +252,66 @@ export const hotkeys: PaneRenderer = ({ element, document: doc }) => {
 };
 export const footer: PaneRenderer = ({ element, document: doc }) => {
   element.classList.add('demo-footer');
-  element.append(field(doc, 'span', '●  Ready'), field(doc, 'span', 'Local session'));
+  const status = field(doc, 'span', '●  Ready');
+  status.id = 'status';
+  element.append(status, field(doc, 'span', 'Local session'));
   return { dispose() {} };
 };
 export const theming: PaneRenderer = ({ element }) => mountTheming(element);
+const viewControls: PaneRenderer = ({ element, document: doc, signal }) => {
+  const form = doc.createElement('form');
+  form.className = 'demo-view-controls';
+  const inputs = ['Rows', 'Columns'].map((title) => {
+    const label = doc.createElement('label');
+    label.textContent = title;
+    const input = doc.createElement('input');
+    input.type = 'number';
+    input.min = '1';
+    input.step = '1';
+    input.required = true;
+    input.setAttribute('aria-label', title);
+    label.append(input);
+    form.append(label);
+    return input;
+  });
+  const apply = doc.createElement('button');
+  apply.type = 'submit';
+  apply.textContent = 'Apply grid';
+  const status = doc.createElement('span');
+  status.setAttribute('aria-live', 'polite');
+  form.append(apply);
+  const disposeToggle = mountHelperToggle(form, 'custom');
+  form.append(status);
+  const sync = () => {
+    const { rows, columns } = customViews.get();
+    inputs[0]!.value = String(rows);
+    inputs[1]!.value = String(columns);
+    status.textContent = `${rows * columns} viewports`;
+  };
+  sync();
+  const unsubscribe = customViews.subscribe(sync);
+  form.addEventListener(
+    'submit',
+    (event) => {
+      event.preventDefault();
+      if (form.reportValidity())
+        customViews.set(inputs[0]!.valueAsNumber, inputs[1]!.valueAsNumber);
+    },
+    { signal },
+  );
+  element.append(form);
+  return {
+    dispose() {
+      unsubscribe();
+      disposeToggle();
+    },
+  };
+};
 export const renderers = {
+  'view-controls': viewControls,
   settings,
   theming,
   notes,
-  canvas,
   toolbar,
   tools,
   timeline,
