@@ -7,7 +7,7 @@ import {
   ThreeSessionProvider,
   ThreeView,
   useThreeSession,
-} from 'quilt-three/react';
+} from 'quilt-three-react';
 export function plain(window: Window) {
   const session = new ThreeSession({ scene: new Scene(), window });
   const helpers = new CameraHelpers(session);

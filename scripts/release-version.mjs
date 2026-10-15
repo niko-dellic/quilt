@@ -6,6 +6,7 @@ const paths = [
   'packages/dom/package.json',
   'packages/react/package.json',
   'packages/three/package.json',
+  'packages/three-react/package.json',
 ];
 const read = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const manifests = paths.map(read);

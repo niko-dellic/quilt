@@ -1,6 +1,6 @@
 {
   "name": "quilt-three",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Shared-scene Three.js viewports for Quilt",
   "type": "module",
   "license": "MIT",
@@ -15,10 +15,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
-    },
     "./webgpu": {
       "types": "./dist/webgpu.d.ts",
       "import": "./dist/webgpu.js"
@@ -29,28 +25,11 @@
     "prepack": "node ../../scripts/build-package.mjs three --dependencies"
   },
   "dependencies": {
-    "quilt-vanilla": "0.10.0"
+    "quilt-vanilla": "0.11.0",
+    "@types/three": "^0.186.0"
   },
   "peerDependencies": {
-    "three": "^0.186.0",
-    "@react-three/fiber": "^9.8.1",
-    "react": "^18.3.0 || ^19.0.0",
-    "react-dom": "^18.3.0 || ^19.0.0",
-    "quilt-react": "0.10.0"
-  },
-  "peerDependenciesMeta": {
-    "@react-three/fiber": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    },
-    "quilt-react": {
-      "optional": true
-    }
+    "three": "^0.186.0"
   },
   "sideEffects": false,
   "publishConfig": {

@@ -1,0 +1,45 @@
+{
+  "name": "quilt-three-react",
+  "version": "0.11.0",
+  "description": "React Three Fiber bindings for Quilt shared-scene viewports",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs three-react",
+    "prepack": "node ../../scripts/build-package.mjs three-react --dependencies"
+  },
+  "dependencies": {
+    "quilt-three": "0.11.0",
+    "quilt-react": "0.11.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  },
+  "peerDependencies": {
+    "three": "^0.186.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@react-three/fiber": "^9.8.1"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niko-dellic/quilt.git",
+    "directory": "packages/three-react"
+  },
+  "homepage": "https://github.com/niko-dellic/quilt/tree/main/packages/three-react"
+}

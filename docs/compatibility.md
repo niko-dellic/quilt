@@ -11,7 +11,7 @@ dependency to either published package.
 | Three.js 0.186, WebGL                      | Tested in Chromium, Firefox, WebKit                        | Shared-scene views, controls, picking, per-document renderers, and companion lifecycle              |
 | WebGPURenderer, native backend             | Tested in Chromium and WebKit when an adapter is available | Opt-in factory, effects, clipping, input, same-origin companions, and disposal                      |
 | WebGPURenderer, WebGL fallback             | Tested in Chromium, Firefox, WebKit                        | Same viewport/lifecycle contracts without a native WebGPU adapter                                   |
-| React Three Fiber 9 with React 19          | Tested in Chromium, Firefox, WebKit                        | `quilt-three/react` persistent scene owner, scheduling, events, and companion views                 |
+| React Three Fiber 9 with React 19          | Tested in Chromium, Firefox, WebKit                        | `quilt-three-react` persistent scene owner, scheduling, events, and companion views                 |
 | TypeScript 5.9 and 7                       | Tested with packed declarations                            | NodeNext and Bundler, strict and exact optional properties                                          |
 | Electron 44.3.0 desktop demo               | Tested on macOS arm64/x64, Windows x64, and Ubuntu x64     | Packaged showcase: both frameworks, offline assets, themes, resize, JSON, popout/return and cleanup |
 | Tauri docked webview                       | Expected; unverified                                       | Ordinary DOM layout with `popouts: false`                                                           |
@@ -23,7 +23,7 @@ dependency to either published package.
 ## Three.js extension
 
 The React 18.3 compatibility row applies to `quilt-react`, not the R3F adapter.
-`quilt-three/react` requires React 19 with R3F 9. The base `quilt-three` entry
+`quilt-three-react` requires React 19 with R3F 9. The base `quilt-three` entry
 requires Three.js but does not import React or R3F. Existing Quilt packages do not
 depend on Three.js.
 

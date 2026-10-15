@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 const out = resolve('artifacts/packages');
 mkdirSync(out, { recursive: true });
 const archives = [];
-for (const name of ['core', 'dom', 'react', 'three']) {
+for (const name of ['core', 'dom', 'react', 'three', 'three-react']) {
   const result = JSON.parse(
     execFileSync('npm', ['pack', '--json', '--pack-destination', out], {
       cwd: resolve('packages', name),

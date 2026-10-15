@@ -1,6 +1,6 @@
 # quilt-three
 
-Shared-scene Three.js viewports for Quilt, with optional React Three Fiber bindings.
+Shared-scene Three.js viewports for Quilt, with React Three Fiber bindings available separately in `quilt-three-react`.
 The main workspace shares one canvas and renderer. Each same-origin companion document
 has its own renderer. Geometry, authored materials, and camera poses remain
 application-owned; moving a pane does not delete scene data.
@@ -8,20 +8,21 @@ application-owned; moving a pane does not delete scene data.
 ## Install
 
 ```sh
-npm install quilt-three three
-npm install --save-dev @types/three
+npm install quilt-three
 ```
 
-The compatibility target is Three.js r186. For React:
+With modern npm's default peer resolution, this installs the Quilt renderer,
+Three.js r186, and its TypeScript declarations automatically. React and R3F are
+not installed. For React applications instead use:
 
 ```sh
-npm install quilt-react react@^19 react-dom@^19 @react-three/fiber@^9.8.1
+npm install quilt-three-react
 ```
 
-`quilt-three` does not import or install React or R3F. The `/react` entry requires
-React 19 and R3F 9.8.1 or newer within major 9. The optional React peer range also
-allows React 18 applications to use the **imperative base entry** without adopting
-R3F. Existing `quilt-react` React 18 support is unchanged.
+That package installs the shared integration, Quilt React bindings, React 19,
+React DOM 19, R3F 9, and the required declarations. Compatible existing peers
+are reused; incompatible versions must be upgraded. Existing `quilt-react`
+React 18 support is unchanged.
 
 ## Vanilla
 
@@ -141,7 +142,7 @@ Disposal is idempotent and releases only helper-owned graphics. Session disposal
 disposes attached helpers, without disposing application scene assets.
 
 In React, place `<CameraHelpers visible={showCameras} ray="pointer" />` from
-`quilt-three/react` inside `ThreeSessionProvider`, alongside `SharedScene` and the workspace.
+`quilt-three-react` inside `ThreeSessionProvider`, alongside `SharedScene` and the workspace.
 `visible` updates reactively; other helper options are mount-only. Unmounting cleans up
 the helper instance, including React Strict Mode effect replays.
 
@@ -150,7 +151,7 @@ the helper instance, including React Strict Mode effect replays.
 ```tsx
 import { Workspace } from 'quilt-react';
 import type { PaneProps } from 'quilt-react';
-import { SharedScene, ThreeSessionProvider, ThreeView } from 'quilt-three/react';
+import { SharedScene, ThreeSessionProvider, ThreeView } from 'quilt-three-react';
 
 // `camera` and `initialLayout` are application-owned, as in the vanilla example.
 function ScenePane(props: PaneProps) {

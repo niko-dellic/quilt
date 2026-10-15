@@ -16,8 +16,8 @@ import {
   ThreeSession,
   isWebGPURenderer,
   CameraHelpers as CameraHelpersController,
-} from './index.js';
-import type { CameraHelpersOptions, SessionOptions, ViewOptions } from './index.js';
+} from 'quilt-three';
+import type { CameraHelpersOptions, SessionOptions, ViewOptions } from 'quilt-three';
 
 interface Bridge {
   session: ThreeSession;
@@ -134,7 +134,7 @@ export function ThreeSessionProvider({ children, options, onReady }: ThreeSessio
         const created =
           initial.current.options?.createRenderer?.(canvas) ??
           new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-        const connect = (renderer: import('./index.js').ThreeRenderer) => {
+        const connect = (renderer: import('quilt-three').ThreeRenderer) => {
           if (!disposed && canvas.ownerDocument === win.document) {
             root = createRoot(canvas);
             const currentRoot = root;
@@ -273,7 +273,7 @@ export function ThreeView({ paneContext, children, ...options }: ThreeViewProps)
   );
 }
 
-// Preserve R3F JSX augmentation for consumers importing only quilt-three/react.
+// Preserve R3F JSX augmentation for consumers importing only quilt-three-react.
 export type { ThreeElements, ThreeEvent } from '@react-three/fiber';
 
 /** Mount inside ThreeSessionProvider, alongside SharedScene (not inside its R3F tree).

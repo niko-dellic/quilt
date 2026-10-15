@@ -11,7 +11,7 @@ import {
 import { WebGPURenderer } from 'three/webgpu';
 import { createWebGPURenderer } from 'quilt-three/webgpu';
 import { ThreeSession, type ThreeRenderer } from 'quilt-three';
-import { ThreeSessionProvider, ThreeView, SharedScene } from 'quilt-three/react';
+import { ThreeSessionProvider, ThreeView, SharedScene } from 'quilt-three-react';
 import { Workspace as ReactWorkspace, type PaneProps } from 'quilt-react';
 import { Workspace, type WorkspaceHandle } from 'quilt-vanilla';
 import type { Layout } from 'quilt-core';

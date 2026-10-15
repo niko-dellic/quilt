@@ -38,7 +38,9 @@ Demo builds have no trusted developer certificate; see the [installation notes](
 | `quilt-core`    | Layout model, validation, constraints, commands, and subscriptions; no browser dependency |
 | `quilt-vanilla` | DOM renderer, tabs, menus, gestures, themes, and companion windows                        |
 | `quilt-react`   | React components and hooks using the same model and DOM renderer                          |
-| `quilt-three`   | Shared-scene camera views, controls, and optional React Three Fiber bindings              |
+| `quilt-three`   | Shared-scene camera views, controls, and rendering infrastructure                         |
+
+| `quilt-three-react` | React Three Fiber bindings sharing the Three.js integration |
 
 Packages include ESM, TypeScript declarations, and source maps. React is a peer
 dependency of `quilt-react`; it is not required by `quilt-vanilla`.
@@ -57,7 +59,10 @@ npm install quilt-react
 npm install quilt-core
 
 # Optional Three.js integration
-npm install quilt-three three
+npm install quilt-three
+
+# Three.js with React / R3F
+npm install quilt-three-react
 ```
 
 The adapters install their Quilt dependencies automatically. React applications need
@@ -68,7 +73,8 @@ Use ESM imports and a bundler with CSS support. Import the adapter stylesheet on
 and give the workspace container an explicit height. TypeScript React applications
 also need matching `@types/react` and `@types/react-dom` packages.
 
-For `quilt-three/react`, use React 19 and React Three Fiber 9 alongside `quilt-react`.
+`quilt-three-react` installs React 19, React Three Fiber 9, Quilt dependencies, and
+required type declarations automatically with modern npm.
 The base `quilt-three` entry does not require React or R3F. See the
 [Three.js integration guide](docs/three.md) for installation and supported scope and limitations.
 

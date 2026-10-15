@@ -1,7 +1,18 @@
 # Three.js integration
 
-`quilt-three` adds shared-scene camera views and optional React Three Fiber bindings
+`quilt-three` adds shared-scene camera views; `quilt-three-react` adds React Three Fiber bindings
 without adding Three.js to the existing core, vanilla, or React packages.
+
+Install `quilt-three` for vanilla or `quilt-three-react` for React:
+
+```sh
+npm install quilt-three
+# Or, for React / R3F:
+npm install quilt-three-react
+```
+
+Modern npm resolves required peers and declarations automatically. The React
+package requires React 19 and R3F 9; vanilla installs remain free of React.
 
 See the [package guide](https://github.com/niko-dellic/quilt/tree/main/packages/three)
 for installation, APIs, ownership, controls, rendering pipelines, and limitations.
@@ -47,6 +58,17 @@ adapter is available; `{ fallback: false }` requires native WebGPU.
 
 Add `&renderer=webgpu` to either demo URL. `&effects` uses the corresponding
 node-material pipeline; `&forceWebGL` explicitly exercises fallback rendering.
+Install `quilt-three` for vanilla or `quilt-three-react` for React:
+
+```sh
+npm install quilt-three
+# Or, for React / R3F:
+npm install quilt-three-react
+```
+
+Modern npm resolves required peers and declarations automatically. The React
+package requires React 19 and R3F 9; vanilla installs remain free of React.
+
 See the [package guide](https://github.com/niko-dellic/quilt/tree/main/packages/three#webgpu)
 for installation and ownership, and the [validation record](three-validation.md)
 for tested engines and limits.

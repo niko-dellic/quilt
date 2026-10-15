@@ -1,14 +1,14 @@
 {
   "name": "quilt-workspace",
   "private": true,
-  "version": "0.10.0",
+  "version": "0.11.0",
   "type": "module",
   "workspaces": [
     "packages/*",
     "tools/docs"
   ],
   "scripts": {
-    "build": "npm run build -w quilt-core && npm run build -w quilt-vanilla && npm run build -w quilt-react && npm run build -w quilt-three",
+    "build": "npm run build -w quilt-core && npm run build -w quilt-vanilla && npm run build -w quilt-react && npm run build -w quilt-three && npm run build -w quilt-three-react",
     "typecheck": "tsc -p tsconfig.demo.json --noEmit",
     "test": "vitest run",
     "test:browser": "playwright test",

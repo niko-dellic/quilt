@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { PaneProps } from 'quilt-react';
-import { SharedScene, ThreeSessionProvider, ThreeView, useThreeSession } from 'quilt-three/react';
+import { SharedScene, ThreeSessionProvider, ThreeView, useThreeSession } from 'quilt-three-react';
 import type { ThreeSession } from 'quilt-three';
 import { workspace } from './model.js';
 import {
