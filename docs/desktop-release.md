@@ -2,6 +2,13 @@
 
 The vanilla and React demos packaged with Electron. Includes pane layouts, popout windows, themes, resizing, and workspace JSON. Runs offline without a separate Node.js installation.
 
+## Published download version
+
+Desktop builds are released independently from npm packages. The website uses
+`desktop/downloads.json` to point at the latest verified, published desktop release.
+Update that manifest only after the desktop workflow publishes all four assets;
+verify each download URL first. An npm version bump must not change desktop links.
+
 ## Downloads
 
 - **macOS Apple Silicon:** `mac-arm64.dmg`

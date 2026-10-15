@@ -1,12 +1,27 @@
 import { Application } from 'typedoc';
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { resolve, relative } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const out = resolve(root, 'docs/api-reference');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const version = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version;
+// Deployment checkouts may omit Git metadata or release tags. Pin links to the
+// actual source commit instead of assuming a version tag already exists.
+let sourceRevision = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA;
+if (!sourceRevision) {
+  try {
+    sourceRevision = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+  } catch {
+    sourceRevision = 'main';
+  }
+}
+if (!/^(?:[a-f0-9]{40}|main)$/.test(sourceRevision)) throw new Error('Invalid source revision');
 for (const [folder, name, entry] of [
   ['core', 'quilt-core'],
   ['dom', 'quilt-vanilla'],
@@ -30,7 +45,9 @@ for (const [folder, name, entry] of [
     excludePrivate: true,
     excludeInternal: true,
     disableSources: false,
-    gitRevision: `v${version}`,
+    disableGit: true,
+    basePath: root,
+    sourceLinkTemplate: `https://github.com/niko-dellic/quilt/blob/${sourceRevision}/{path}#L{line}`,
     entryFileName: 'index.md',
     hidePageHeader: true,
     hideBreadcrumbs: true,
@@ -38,6 +55,20 @@ for (const [folder, name, entry] of [
   });
   const project = await app.convert();
   if (!project) throw new Error(`Cannot generate ${name} reference`);
+  // Only repository-owned sources belong in Quilt GitHub links. Inherited
+  // standard-library/dependency members retain their inheritance information,
+  // without leaking machine-specific node_modules paths into the public docs.
+  for (const reflection of Object.values(project.reflections)) {
+    if (!reflection.sources) continue;
+    reflection.sources = reflection.sources.filter((source) => {
+      const path = relative(root, source.fullFileName).replaceAll('\\', '/');
+      if (!path.startsWith('packages/') || path.includes('/node_modules/')) return false;
+      source.fileName = path;
+      source.url = `https://github.com/niko-dellic/quilt/blob/${sourceRevision}/${path}#L${source.line}`;
+      return true;
+    });
+    if (!reflection.sources.length) delete reflection.sources;
+  }
   await app.generateOutputs(project);
   // Re-exported names occur in more than one adapter. Include the package in
   // headings so search results identify which public import they describe.

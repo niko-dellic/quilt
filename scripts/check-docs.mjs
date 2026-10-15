@@ -10,10 +10,24 @@ function files(dir) {
 const pages = files(root).filter((file) => file.endsWith('.html'));
 const failures = new Set();
 const cache = new Map();
+let sourceLinks = 0;
 for (const file of pages) {
   const html = readFileSync(file, 'utf8');
+  if (/<p>Defined in:\s*<\/p>/.test(html))
+    failures.add(`${relative(root, file)} → empty source label`);
+  if (html.includes('Defined in:') && /Defined in:[^<]*node_modules/.test(html))
+    failures.add(`${relative(root, file)} → external source path leaked into docs`);
   for (const match of html.matchAll(/href="([^"<>]+)"/g)) {
     const href = match[1].replaceAll('&amp;', '&');
+    const source = href.match(
+      /^https:\/\/github\.com\/niko-dellic\/quilt\/blob\/([a-f0-9]{40}|main)\/(packages\/[^#]+)#L(\d+)$/,
+    );
+    if (source) {
+      sourceLinks++;
+      const path = resolve(source[2]);
+      if (!existsSync(path) || Number(source[3]) > readFileSync(path, 'utf8').split('\n').length)
+        failures.add(`${relative(root, file)} → invalid source location ${href}`);
+    }
     if (/^(?:[a-z]+:|\/\/)/i.test(href) || (href.startsWith('/') && !href.startsWith('/docs/')))
       continue;
     const url = new URL(href, 'https://docs.test/docs/' + relative(root, file));
@@ -34,6 +48,7 @@ for (const file of pages) {
     }
   }
 }
+if (!sourceLinks) failures.add('API reference has no repository source links');
 if (failures.size) throw new Error([...failures].join('\n'));
 const snippets = resolve('artifacts/docs-snippets');
 mkdirSync(snippets, { recursive: true });

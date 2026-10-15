@@ -1,5 +1,6 @@
 import { chromium, expect } from '@playwright/test';
 import { preview } from 'vite';
+import { readFileSync } from 'node:fs';
 import { checkSiteDocs } from './check-site-docs.mjs';
 import { checkSiteNavbar } from './check-site-navbar.mjs';
 
@@ -74,6 +75,23 @@ try {
   await page.goto(baseURL);
   await page.getByRole('link', { name: 'Desktop demo' }).click();
   await expect(page).toHaveTitle(/Desktop demo/);
+  const desktopVersion = JSON.parse(readFileSync('desktop/downloads.json', 'utf8')).version;
+  const downloads = page.locator('.electron-platform');
+  await expect(downloads).toHaveCount(4);
+  for (const [index, suffix] of [
+    'mac-arm64.dmg',
+    'mac-x64.dmg',
+    'win-x64.exe',
+    'linux-amd64.deb',
+  ].entries()) {
+    await expect(downloads.nth(index)).toHaveAttribute(
+      'href',
+      `https://github.com/niko-dellic/quilt/releases/download/desktop-v${desktopVersion}/Quilt-Demo-${desktopVersion}-${suffix}`,
+    );
+  }
+  await expect(page.locator('.electron-meta').first()).toContainText(
+    `Desktop version ${desktopVersion}`,
+  );
 
   await page.goto(baseURL);
   for (const [label, command] of [
