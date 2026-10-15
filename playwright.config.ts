@@ -33,9 +33,8 @@ export default defineConfig({
             '--disable-gpu-watchdog',
             ...(process.platform === 'linux'
               ? [
-                  '--enable-features=Vulkan',
-                  '--use-angle=vulkan',
-                  '--use-vulkan=swiftshader',
+                  '--enable-features=Vulkan,VulkanFromANGLE',
+                  '--use-angle=swiftshader',
                   '--disable-vulkan-surface',
                 ]
               : ['--use-angle=swiftshader']),
