@@ -1,3 +1,5 @@
+import { adaptiveGrid } from './adaptive-layout.js';
+import { mountAdaptiveController, resetAdaptiveSettings } from './adaptive.js';
 import { customViewGrid } from './custom-views-layout.js';
 import { layout as threeLayout } from './three-layout.js';
 import { TabRegistry } from 'quilt-vanilla';
@@ -175,8 +177,15 @@ export function onWorkspace(listener: (value: WorkspaceHandle) => void) {
     workspaceBindings.delete(listener);
   };
 }
+let adaptiveController: ReturnType<typeof mountAdaptiveController> | undefined;
 export function bindWorkspace(value: WorkspaceHandle) {
+  adaptiveController?.dispose();
   workspace = value;
+  adaptiveController = mountAdaptiveController(
+    value,
+    document.querySelector<HTMLElement>('#workspace')!,
+    () => activeWorkspace === 'adaptive',
+  );
   for (const listener of workspaceBindings) listener(value);
 }
 // Presets share pane IDs and application data; each keeps its session layout edits.
@@ -250,6 +259,68 @@ function customWorkspace(rows: number, columns: number): Layout {
   };
   return layout;
 }
+function adaptiveWorkspace(rows = 6, columns = 10): Layout {
+  const grid = adaptiveGrid(rows, columns);
+  const layout = workspaceLayout({
+    kind: 'split',
+    id: 'adaptive-controls-split',
+    axis: 'vertical',
+    ratio: 0.08,
+    children: [
+      {
+        kind: 'group',
+        id: 'adaptive-controls-group',
+        panes: ['adaptive-controls'],
+        active: 'adaptive-controls',
+      },
+      grid.root,
+    ],
+  });
+  layout.panes = {
+    toolbar: initial.panes.toolbar!,
+    footer: initial.panes.footer!,
+    ...grid.panes,
+    'adaptive-controls': {
+      id: 'adaptive-controls',
+      type: 'adaptive-controls',
+      title: 'Adaptive grid',
+      header: false,
+      size: { minHeight: 64, maxHeight: 64 },
+      capabilities: {
+        close: false,
+        popout: false,
+        move: false,
+        split: false,
+        join: false,
+        resize: false,
+      },
+    },
+  };
+  return layout;
+}
+let adaptiveSize = { rows: 6, columns: 10 };
+const adaptiveGridListeners = new Set<() => void>();
+export const adaptiveViews = {
+  get: () => adaptiveSize,
+  subscribe(listener: () => void) {
+    adaptiveGridListeners.add(listener);
+    return () => {
+      adaptiveGridListeners.delete(listener);
+    };
+  },
+  set(rows: number, columns: number) {
+    const next = adaptiveWorkspace(rows, columns);
+    if (activeWorkspace === 'adaptive') {
+      adaptiveController?.leave();
+      adaptiveController?.clearManualEdges();
+      workspace.loadLayout(next);
+      adaptiveController?.enter();
+    }
+    workspaceLayouts.set('adaptive', next);
+    adaptiveSize = { rows, columns };
+    adaptiveGridListeners.forEach((listener) => listener());
+  },
+};
 let customGrid = { rows: 2, columns: 2 };
 const gridListeners = new Set<() => void>();
 export const customViews = {
@@ -357,6 +428,12 @@ export const workspaces = [
     description: 'Choose rows and columns of shared scene views',
     layout: customWorkspace(2, 2),
   },
+  {
+    id: 'adaptive',
+    title: 'Adaptive',
+    description: 'A living grid that responds to focus',
+    layout: adaptiveWorkspace(),
+  },
 ] as const;
 export type WorkspaceId = (typeof workspaces)[number]['id'];
 let activeWorkspace: WorkspaceId = 'default';
@@ -373,17 +450,26 @@ export const workspaceSession = {
   select(id: WorkspaceId) {
     if (id === activeWorkspace) return;
     const preset = workspaces.find((workspace) => workspace.id === id)!;
+    if (activeWorkspace === 'adaptive') adaptiveController?.leave();
     workspaceLayouts.set(activeWorkspace, workspace.exportLayout());
-    workspace.loadLayout(workspaceLayouts.get(id) ?? preset.layout);
     activeWorkspace = id;
+    workspace.loadLayout(workspaceLayouts.get(id) ?? preset.layout);
+    if (id === 'adaptive') adaptiveController?.enter();
     workspaceListeners.forEach((listener) => listener());
   },
   reset() {
+    if (activeWorkspace === 'adaptive') {
+      adaptiveController?.leave();
+      adaptiveSize = { rows: 6, columns: 10 };
+      adaptiveGridListeners.forEach((listener) => listener());
+      resetAdaptiveSettings();
+    }
     if (activeWorkspace === 'custom') {
       customGrid = { rows: 2, columns: 2 };
       gridListeners.forEach((listener) => listener());
     }
     workspace.loadLayout(workspaces.find((workspace) => workspace.id === activeWorkspace)!.layout);
+    if (activeWorkspace === 'adaptive') adaptiveController?.enter();
   },
 };
 export interface DemoData {

@@ -23,5 +23,9 @@ setupShell(() => layout);
 window.addEventListener('pagehide', () => layout.dispose(), { once: true });
 
 const requestedWorkspace = new URLSearchParams(location.search).get('workspace');
-if (requestedWorkspace === 'three' || requestedWorkspace === 'custom')
+if (
+  requestedWorkspace === 'three' ||
+  requestedWorkspace === 'custom' ||
+  requestedWorkspace === 'adaptive'
+)
   workspaceSession.select(requestedWorkspace);

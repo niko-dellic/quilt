@@ -77,6 +77,7 @@ function Imperative(props: PaneProps) {
   );
 }
 const components = {
+  'adaptive-controls': Imperative,
   'view-controls': Imperative,
   three: ThreePane,
   settings: Imperative,
@@ -102,7 +103,11 @@ root.render(
         bindWorkspace(handle);
         setupShell(() => handle);
         const requestedWorkspace = new URLSearchParams(location.search).get('workspace');
-        if (requestedWorkspace === 'three' || requestedWorkspace === 'custom')
+        if (
+          requestedWorkspace === 'three' ||
+          requestedWorkspace === 'custom' ||
+          requestedWorkspace === 'adaptive'
+        )
           workspaceSession.select(requestedWorkspace);
       }}
       components={components}

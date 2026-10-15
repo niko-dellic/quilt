@@ -243,8 +243,7 @@ html:has(.demo-main:fullscreen) {
     padding: 0 8px;
   }
   .demo-toolbar > .slash,
-  .demo-toolbar > .muted,
-  .toolbar-right > .session-dot {
+  .demo-toolbar > .muted {
     display: none;
   }
   .workspace-switcher button {
@@ -253,15 +252,6 @@ html:has(.demo-main:fullscreen) {
   .demo-toolbar .toolbar-right {
     margin-left: 0;
   }
-}
-.session-dot {
-  font-size: 10px;
-  color: var(--layouts-muted);
-}
-.session-dot::before {
-  content: '●';
-  color: var(--layouts-muted);
-  margin-right: 7px;
 }
 .demo-tools {
   padding: var(--layouts-panel-padding, 8px);
@@ -971,10 +961,10 @@ html:has(.demo-main:fullscreen) {
   align-items: center;
   gap: 8px;
 }
-.demo-view-controls input {
+.demo-view-controls input[type='number'] {
   width: 48px;
 }
-.demo-view-controls input,
+.demo-view-controls input[type='number'],
 .demo-view-controls button {
   color: var(--layouts-text);
   background: var(--layouts-header);
@@ -1047,4 +1037,185 @@ html:has(.demo-main:fullscreen) {
   color: var(--layouts-text);
   background: var(--layouts-header);
   font-size: 11px;
+}
+
+/* One shared-edge layer for motion and rest. Pixel snapping changes geometry
+   only when it crosses half a physical pixel; stroke thickness never scales. */
+@property --adaptive-edge-x {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --adaptive-edge-y {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --adaptive-edge-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+.layouts-split.adaptive-border-owner::after,
+.layouts-group.adaptive-border-owner::before {
+  visibility: hidden;
+}
+.adaptive-motion-borders {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.adaptive-motion-borders::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--layouts-line);
+  box-sizing: border-box;
+}
+.adaptive-motion-edge {
+  position: absolute;
+  background: var(--layouts-line);
+  left: calc(
+    round(nearest, var(--adaptive-edge-x), var(--adaptive-pixel)) - var(--adaptive-origin-x)
+  );
+  top: calc(
+    round(nearest, var(--adaptive-edge-y), var(--adaptive-pixel)) - var(--adaptive-origin-y)
+  );
+}
+.adaptive-motion-edge[data-axis='horizontal'] {
+  height: 1px;
+  width: calc(
+    round(nearest, var(--adaptive-edge-end), var(--adaptive-pixel)) -
+      round(nearest, var(--adaptive-edge-x), var(--adaptive-pixel))
+  );
+}
+.adaptive-motion-edge[data-axis='vertical'] {
+  width: 1px;
+  height: calc(
+    round(nearest, var(--adaptive-edge-end), var(--adaptive-pixel)) -
+      round(nearest, var(--adaptive-edge-y), var(--adaptive-pixel))
+  );
+}
+
+/* Adaptive hides chrome through the native hidden attribute as well. These
+   styles keep it invisible during structural repaints before capture runs. */
+.layouts-group.adaptive-pinned > .layouts-header {
+  visibility: hidden;
+  pointer-events: none;
+  width: max-content;
+  max-width: none;
+  max-height: none;
+}
+.layouts-group.adaptive-pinned > .layouts-body {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+}
+
+.adaptive-inverted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.adaptive-inverted input {
+  margin: 0;
+  accent-color: var(--layouts-accent);
+}
+.adaptive-inverted input:focus-visible {
+  outline: 2px solid var(--layouts-focus);
+  outline-offset: 3px;
+}
+
+.layouts-node.adaptive-border-root {
+  overflow: clip;
+}
+
+/* Position the empty hint inside its pane; motion counter-scales only the
+   visible hint, leaving the empty body entirely on the transform-only path. */
+.layouts:has(.adaptive-pinned) > .layouts-tab-tooltip {
+  display: none;
+}
+.adaptive-empty-hint {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  max-width: calc(100% - 16px);
+  padding: 6px 9px;
+  border: 1px solid var(--layouts-line);
+  border-radius: var(--layouts-radius, 5px);
+  background: var(--layouts-panel);
+  color: var(--layouts-text);
+  box-shadow: 0 3px 12px #0003;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.adaptive-pinned:not(:has(.layouts-picker))
+  .layouts-empty:is(:hover, :focus-visible)
+  > .adaptive-empty-hint {
+  display: block;
+}
+.adaptive-motion-running .adaptive-empty-hint:not(.adaptive-moving-hint) {
+  visibility: hidden;
+}
+
+@property --adaptive-scale-x {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+@property --adaptive-scale-y {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+.adaptive-motion-content {
+  width: calc(var(--adaptive-content-width) * var(--adaptive-scale-x));
+  height: calc(var(--adaptive-content-height) * var(--adaptive-scale-y));
+  transform-origin: 0 0;
+  transform: scale(calc(1 / var(--adaptive-scale-x)), calc(1 / var(--adaptive-scale-y)));
+}
+.adaptive-moving-hint {
+  transform-origin: 50% 50%;
+  transform: translate(-50%, -50%)
+    scale(calc(1 / var(--adaptive-scale-x)), calc(1 / var(--adaptive-scale-y)));
+}
+
+/* A size guide only: it never intercepts pane/divider interactions or scrolls. */
+.adaptive-radius-overlay {
+  position: fixed;
+  overflow: clip;
+  pointer-events: none;
+  z-index: 30;
+  contain: strict;
+}
+.adaptive-radius-circle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  border: 1px dashed var(--layouts-accent, #90b9aa);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--layouts-accent, #90b9aa) 4%, transparent);
+}
+.adaptive-radius-circle span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(16px, 16px);
+  width: max-content;
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: var(--layouts-background, #171717);
+  color: var(--layouts-text, #ddd);
+  font:
+    11px/1.4 system-ui,
+    sans-serif;
 }

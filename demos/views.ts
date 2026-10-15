@@ -1,5 +1,6 @@
+import { mountAdaptiveSettings } from './adaptive.js';
 import { mountHelperToggle } from './camera-helper-controls.js';
-import { customViews } from './model.js';
+import { customViews, adaptiveViews } from './model.js';
 import { settings } from './settings.js';
 import { formatShortcut } from 'quilt-vanilla';
 import { mountFullscreenToggle } from './fullscreen.js';
@@ -89,7 +90,6 @@ export const toolbar: PaneRenderer = ({ element, document: doc }) => {
   update();
   const unsubscribe = workspaceSession.subscribe(update);
   right.append(switcher);
-  right.append(field(doc, 'span', 'Local session', 'session-dot'));
   element.append(right);
   return {
     dispose() {
@@ -254,60 +254,75 @@ export const footer: PaneRenderer = ({ element, document: doc }) => {
   element.classList.add('demo-footer');
   const status = field(doc, 'span', '●  Ready');
   status.id = 'status';
-  element.append(status, field(doc, 'span', 'Local session'));
+  element.append(status);
   return { dispose() {} };
 };
 export const theming: PaneRenderer = ({ element }) => mountTheming(element);
-const viewControls: PaneRenderer = ({ element, document: doc, signal }) => {
-  const form = doc.createElement('form');
-  form.className = 'demo-view-controls';
-  const inputs = ['Rows', 'Columns'].map((title) => {
-    const label = doc.createElement('label');
-    label.textContent = title;
-    const input = doc.createElement('input');
-    input.type = 'number';
-    input.min = '1';
-    input.step = '1';
-    input.required = true;
-    input.setAttribute('aria-label', title);
-    label.append(input);
-    form.append(label);
-    return input;
-  });
-  const apply = doc.createElement('button');
-  apply.type = 'submit';
-  apply.textContent = 'Apply grid';
-  const status = doc.createElement('span');
-  status.setAttribute('aria-live', 'polite');
-  form.append(apply);
-  const disposeToggle = mountHelperToggle(form, 'custom');
-  form.append(status);
-  const sync = () => {
-    const { rows, columns } = customViews.get();
-    inputs[0]!.value = String(rows);
-    inputs[1]!.value = String(columns);
-    status.textContent = `${rows * columns} viewports`;
+function gridControls(kind: 'custom' | 'adaptive'): PaneRenderer {
+  return ({ element, document: doc, signal }) => {
+    const controller = kind === 'adaptive' ? adaptiveViews : customViews;
+    const form = doc.createElement('form');
+    form.className = 'demo-view-controls';
+    const inputs = ['Rows', 'Columns'].map((title) => {
+      const label = doc.createElement('label');
+      label.textContent = title;
+      const input = doc.createElement('input');
+      input.type = 'number';
+      input.min = '1';
+      input.step = '1';
+      input.required = true;
+      input.setAttribute('aria-label', title);
+      label.append(input);
+      form.append(label);
+      return input;
+    });
+    const apply = doc.createElement('button');
+    apply.type = 'submit';
+    apply.textContent = 'Apply grid';
+    const status = doc.createElement('span');
+    status.setAttribute('aria-live', 'polite');
+    form.append(apply);
+    const disposeToggle = kind === 'custom' ? mountHelperToggle(form, 'custom') : () => {};
+    const disposeSettings = kind === 'adaptive' ? mountAdaptiveSettings(form, signal) : () => {};
+    if (kind === 'adaptive') {
+      const reset = doc.createElement('button');
+      reset.type = 'button';
+      reset.textContent = 'Reset Adaptive';
+      reset.addEventListener('click', () => workspaceSession.reset(), { signal });
+      form.append(reset);
+    }
+    form.append(status);
+    const sync = () => {
+      const { rows, columns } = controller.get();
+      inputs[0]!.value = String(rows);
+      inputs[1]!.value = String(columns);
+      status.textContent = `${rows * columns} ${kind === 'adaptive' ? 'panes' : 'viewports'}`;
+    };
+    sync();
+    const unsubscribe = controller.subscribe(sync);
+    form.addEventListener(
+      'submit',
+      (event) => {
+        event.preventDefault();
+        if (form.reportValidity())
+          controller.set(inputs[0]!.valueAsNumber, inputs[1]!.valueAsNumber);
+      },
+      { signal },
+    );
+    element.append(form);
+    return {
+      dispose() {
+        unsubscribe();
+        disposeToggle();
+        disposeSettings();
+      },
+    };
   };
-  sync();
-  const unsubscribe = customViews.subscribe(sync);
-  form.addEventListener(
-    'submit',
-    (event) => {
-      event.preventDefault();
-      if (form.reportValidity())
-        customViews.set(inputs[0]!.valueAsNumber, inputs[1]!.valueAsNumber);
-    },
-    { signal },
-  );
-  element.append(form);
-  return {
-    dispose() {
-      unsubscribe();
-      disposeToggle();
-    },
-  };
-};
+}
+const viewControls = gridControls('custom');
+const adaptiveControls = gridControls('adaptive');
 export const renderers = {
+  'adaptive-controls': adaptiveControls,
   'view-controls': viewControls,
   settings,
   theming,
