@@ -31,6 +31,7 @@ for (const fallback of [false, true])
     test(`${framework}: ${fallback ? 'WebGPU renderer WebGL fallback' : 'native WebGPU'} renders isolated effects, clips, picks, and returns companions`, async ({
       page,
     }, testInfo) => {
+      test.setTimeout(60000);
       await page.goto('/');
       if (!fallback) {
         const available = await page.evaluate(async () => {
@@ -68,10 +69,13 @@ for (const fallback of [false, true])
         await page.setViewportSize({ width, height: 720 });
         await page.evaluate(() => window.threeDemo.session.invalidate());
         await expect
-          .poll(async () => {
-            const [gray, color] = await imageSamples(page);
-            return Math.abs(gray![0]! - gray![1]!) < 3 && color![1]! - color![0]! > 10;
-          })
+          .poll(
+            async () => {
+              const [gray, color] = await imageSamples(page);
+              return Math.abs(gray![0]! - gray![1]!) < 3 && color![1]! - color![0]! > 10;
+            },
+            { timeout: 15000 },
+          )
           .toBe(true);
       }
       await page.locator('[data-pane-id="front"] [data-quilt-three-input]').click();

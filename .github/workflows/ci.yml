@@ -20,6 +20,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox webkit
       - name: Check software WebGPU before the full suite
+        env:
+          DEBUG: pw:browser
         run: npm run build && xvfb-run -a npx playwright test tests/browser/three-backends.spec.ts --project=chromium-webgpu
       - run: xvfb-run -a npm run check
       - uses: actions/upload-artifact@v7

@@ -30,6 +30,7 @@ export default defineConfig({
             '--enable-unsafe-webgpu',
             '--use-webgpu-adapter=swiftshader',
             '--enable-unsafe-swiftshader',
+            '--disable-gpu-watchdog',
             ...(process.platform === 'linux'
               ? [
                   '--enable-features=Vulkan',
