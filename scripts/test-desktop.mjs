@@ -21,8 +21,9 @@ const app = await _electron.launch({
   executablePath,
   args: [
     ...(packaged ? [] : [resolve('artifacts/desktop/app/main.cjs')]),
-    // Headless Linux CI has no hardware GPU; explicitly use Chromium's software renderer.
-    ...(process.env.CI && process.platform === 'linux'
+    // Linux and Intel macOS CI have no usable GPU; use Chromium's software renderer.
+    ...(process.env.CI &&
+    (process.platform === 'linux' || (process.platform === 'darwin' && process.arch === 'x64'))
       ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
       : []),
   ],
