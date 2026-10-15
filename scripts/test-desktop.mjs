@@ -19,7 +19,13 @@ if (packaged && process.platform === 'darwin') {
 }
 const app = await _electron.launch({
   executablePath,
-  args: packaged ? [] : [resolve('artifacts/desktop/app/main.cjs')],
+  args: [
+    ...(packaged ? [] : [resolve('artifacts/desktop/app/main.cjs')]),
+    // Headless Linux CI has no hardware GPU; explicitly use Chromium's software renderer.
+    ...(process.env.CI && process.platform === 'linux'
+      ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
+      : []),
+  ],
   timeout: 60000,
 });
 try {
@@ -27,6 +33,9 @@ try {
   const errors = [],
     network = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') console.error(message.text());
+  });
   page.on('request', (request) => {
     if (/^https?:/.test(request.url())) network.push(request.url());
   });
