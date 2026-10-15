@@ -19,7 +19,8 @@ for (const [id, position] of [
       ? new THREE.PerspectiveCamera(40, 1, 0.1, 50)
       : new THREE.OrthographicCamera(-2.3, 2.3, 2.3, -2.3, 0.1, 8);
   camera.position.set(position[0], position[1], position[2]);
-  if (id === 'top') camera.up.set(0, 0, -1);
+  // Keep world Y-up in every view: OrbitControls uses camera.up as its orbit axis.
+  // lookAt and OrbitControls handle the top view's initial pole orientation.
   camera.lookAt(0, 0, 0);
   camera.name = id;
   cameras.set(id, camera);

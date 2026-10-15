@@ -269,3 +269,58 @@ for (const framework of ['vanilla', 'react']) {
     }
   });
 }
+
+for (const framework of ['vanilla', 'react']) {
+  for (const [workspace, id] of [
+    ['three', 'top'],
+    ['custom', 'custom-view-0-1'],
+  ] as const) {
+    test(`${framework}: ${workspace} top view orbits around world Y`, async ({ page }) => {
+      await page.goto(`/${framework}.html?workspace=${workspace}`);
+      const input = page.locator(`[data-pane-id="${id}"] [data-quilt-three-input]`);
+      await expect(input).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => window.threeDemo?.session?.stats.drawCalls))
+        .toBeGreaterThan(0);
+      const pose = () =>
+        page.evaluate((id) => {
+          const camera = window.threeDemo.cameras.get(id)!;
+          return { position: camera.position.toArray(), up: camera.up.toArray() };
+        }, id);
+      const settle = () =>
+        page.evaluate(() => {
+          for (let i = 0; i < 180; i++) window.threeDemo.session.render(performance.now());
+        });
+      const initial = await pose();
+      expect(initial.up).toEqual([0, 1, 0]);
+      expect(initial.position[1]).toBeCloseTo(5, 4);
+      const box = (await input.boundingBox())!;
+      const x = box.x + box.width * 0.5;
+      const y = box.y + box.height * 0.5;
+      const tiltedY = y - box.height * 0.1;
+      // Move away from the top pole, then orbit horizontally: height should
+      // remain constant while the camera moves around the world's Y axis.
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x, tiltedY, { steps: 8 });
+      await page.mouse.up();
+      await settle();
+      const tilted = await pose();
+      expect(tilted.position[1]).toBeLessThan(initial.position[1]! - 0.1);
+      await page.mouse.down();
+      await page.mouse.move(x + box.width * 0.1, tiltedY, { steps: 8 });
+      await page.mouse.up();
+      await settle();
+      const orbited = await pose();
+      expect(orbited.position[1]).toBeCloseTo(tilted.position[1]!, 5);
+      expect(Math.abs(orbited.position[0]! - tilted.position[0]!)).toBeGreaterThan(0.1);
+      await input.dblclick();
+      await settle();
+      const reset = await pose();
+      reset.position.forEach((value, index) =>
+        expect(value).toBeCloseTo(initial.position[index]!, 4),
+      );
+      expect(reset.up).toEqual([0, 1, 0]);
+    });
+  }
+}
