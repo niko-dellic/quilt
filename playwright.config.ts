@@ -23,12 +23,21 @@ export default defineConfig({
         browserName: 'chromium',
         // Exercise canvas presentation under Xvfb on Linux, including its compositor.
         headless: process.platform !== 'linux',
+        screenshot: 'only-on-failure',
+        trace: 'retain-on-failure',
         launchOptions: {
           args: [
             '--enable-unsafe-webgpu',
             '--use-webgpu-adapter=swiftshader',
-            '--use-angle=swiftshader',
             '--enable-unsafe-swiftshader',
+            ...(process.platform === 'linux'
+              ? [
+                  '--enable-features=Vulkan',
+                  '--use-angle=vulkan',
+                  '--use-vulkan=swiftshader',
+                  '--disable-vulkan-surface',
+                ]
+              : ['--use-angle=swiftshader']),
           ],
         },
       },
