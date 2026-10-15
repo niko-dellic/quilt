@@ -11,6 +11,7 @@
     "../../packages/core/src",
     "../../packages/dom/src",
     "../../packages/react/src",
-    "../../packages/three/src"
+    "../../packages/three/src",
+    "../../packages/three-react/src"
   ]
 }

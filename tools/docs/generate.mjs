@@ -12,7 +12,7 @@ for (const [folder, name, entry] of [
   ['dom', 'quilt-vanilla'],
   ['react', 'quilt-react'],
   ['three', 'quilt-three'],
-  ['three', 'quilt-three-react', 'react.tsx'],
+  ['three-react', 'quilt-three-react', 'index.tsx'],
   ['three', 'quilt-three-webgpu', 'webgpu.ts'],
 ]) {
   const app = await Application.bootstrapWithPlugins({

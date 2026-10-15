@@ -9,7 +9,7 @@ assert.match(
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/,
   'RELEASE_VERSION must be a stable semver',
 );
-const packages = ['core', 'dom', 'react', 'three'].map((key) =>
+const packages = ['core', 'dom', 'react', 'three', 'three-react'].map((key) =>
   read(`packages/${key}/package.json`),
 );
 assert.equal(read('package.json').version, version);

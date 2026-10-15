@@ -3,9 +3,9 @@ import { copyFileSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const order = ['core', 'dom', 'react', 'three'];
+const order = ['core', 'dom', 'react', 'three', 'three-react'];
 const target = process.argv[2];
-if (!order.includes(target)) throw new Error('Expected core, dom, react, or three');
+if (!order.includes(target)) throw new Error('Expected core, dom, react, three, or three-react');
 const packages = process.argv.includes('--dependencies')
   ? order.slice(0, order.indexOf(target) + 1)
   : [target];

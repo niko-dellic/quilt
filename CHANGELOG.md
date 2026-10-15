@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.0
+
+- **Breaking:** Move React Three Fiber bindings into `quilt-three-react` and remove `quilt-three/react`. Install `quilt-three-react` and update imports. Rendering and lifecycle implementation remain shared with `quilt-three`.
+- Make each Three.js integration a single-command install with required peer dependencies and TypeScript declarations. Vanilla installations do not install React or R3F.
+
 ## 0.10.0
 
 - Add `quilt-three` with shared-scene camera views, demand rendering, one renderer per document, controls factories, picking, and per-view custom rendering pipelines. The base entry requires no React or R3F.

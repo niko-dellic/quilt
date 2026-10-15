@@ -20,27 +20,27 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const run = (command, args, cwd = root) => execFileSync(command, args, { cwd, stdio: 'inherit' });
 // Exercise a leaf package's prepack from a clean workspace, then pack all
 // packages with stale outputs present to verify clean builds remove them.
-for (const name of ['core', 'dom', 'react', 'three']) {
+for (const name of ['core', 'dom', 'react', 'three', 'three-react']) {
   rmSync(resolve(root, 'packages', name, 'dist'), { recursive: true, force: true });
 }
 const direct = mkdtempSync(join(tmpdir(), 'quilt-direct-pack-'));
 try {
-  run('npm', ['pack', '--pack-destination', direct], resolve(root, 'packages/three'));
+  run('npm', ['pack', '--pack-destination', direct], resolve(root, 'packages/three-react'));
 } finally {
   rmSync(direct, { recursive: true, force: true });
 }
-for (const name of ['core', 'dom', 'react', 'three']) {
+for (const name of ['core', 'dom', 'react', 'three', 'three-react']) {
   writeFileSync(resolve(root, 'packages', name, 'dist/stale.js'), 'throw new Error("stale");');
 }
 run(process.execPath, ['scripts/pack.mjs']);
-for (const name of ['core', 'dom', 'react', 'three']) {
+for (const name of ['core', 'dom', 'react', 'three', 'three-react']) {
   assert.equal(existsSync(resolve(root, 'packages', name, 'dist/stale.js')), false);
 }
 const manifest = JSON.parse(
   readFileSync(resolve(root, 'artifacts/packages/manifest.json'), 'utf8'),
 );
 const metadata = Object.fromEntries(
-  ['core', 'dom', 'react', 'three'].map((key) => [
+  ['core', 'dom', 'react', 'three', 'three-react'].map((key) => [
     key,
     JSON.parse(readFileSync(resolve(root, `packages/${key}/package.json`), 'utf8')),
   ]),
@@ -54,6 +54,72 @@ try {
     copyFileSync(resolve(root, 'artifacts/packages', p.file), join(vendor, p.file));
   const archive = (key) =>
     `file:vendor/${manifest.packages.find((p) => p.name === metadata[key].name).file}`;
+  // Install each public integration alone: only Quilt archive overrides are
+  // supplied so these checks exercise unpublished local packages, not npm copies.
+  for (const key of ['three', 'three-react']) {
+    const consumer = join(temp, `single-${key}`);
+    mkdirSync(consumer);
+    const spec = (name) =>
+      `file:${join(vendor, manifest.packages.find((p) => p.name === name).file)}`;
+    writeFileSync(
+      join(consumer, 'package.json'),
+      JSON.stringify({
+        private: true,
+        type: 'module',
+        overrides: Object.fromEntries(
+          manifest.packages
+            .filter((p) => p.name !== metadata[key].name)
+            .map((p) => [p.name, spec(p.name)]),
+        ),
+      }),
+    );
+    run('npm', ['install', spec(metadata[key].name), ...installFlags], consumer);
+    for (const name of ['three', '@types/three', 'quilt-core', 'quilt-vanilla'])
+      assert.ok(existsSync(join(consumer, 'node_modules', name)), `${key} must install ${name}`);
+    for (const name of [
+      'react',
+      'react-dom',
+      '@react-three/fiber',
+      'quilt-react',
+      '@types/react',
+      '@types/react-dom',
+    ])
+      assert.equal(
+        existsSync(join(consumer, 'node_modules', name)),
+        key === 'three-react',
+        `${key}: ${name}`,
+      );
+    run(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `import { ThreeView } from '${metadata[key].name}'; if (typeof ThreeView !== 'function') throw Error('Missing view');
+       try { await import('quilt-three/react'); throw Error('Removed subpath still exported'); }
+       catch (error) { if (error.code !== 'ERR_PACKAGE_PATH_NOT_EXPORTED') throw error; }`,
+      ],
+      consumer,
+    );
+    run('npm', ['install', 'typescript@~7.0.2', ...installFlags], consumer);
+    writeFileSync(
+      join(consumer, 'types.ts'),
+      `export * from '${metadata[key].name}'; export * from 'quilt-three/webgpu';`,
+    );
+    run(
+      process.execPath,
+      [
+        join(consumer, 'node_modules/typescript/bin/tsc'),
+        '--noEmit',
+        '--strict',
+        '--target',
+        'ES2022',
+        '--module',
+        'NodeNext',
+        'types.ts',
+      ],
+      consumer,
+    );
+  }
   writeFileSync(
     join(temp, 'package.json'),
     JSON.stringify({
@@ -64,7 +130,6 @@ try {
         [metadata.core.name]: archive('core'),
         [metadata.dom.name]: archive('dom'),
         [metadata.three.name]: archive('three'),
-        three: '^0.186.1',
       },
     }),
   );
@@ -127,12 +192,7 @@ try {
       ],
       temp,
     );
-    if (major === '19')
-      run(
-        'npm',
-        ['install', '@react-three/fiber@^9.8.1', '@types/three@^0.186.0', ...installFlags],
-        temp,
-      );
+    if (major === '19') run('npm', ['install', archive('three-react'), ...installFlags], temp);
     rmSync(join(temp, 'node_modules'), { recursive: true, force: true });
     run('npm', ['ci', ...installFlags], temp);
     run(process.execPath, ['smoke.mjs'], temp);
@@ -201,12 +261,14 @@ try {
         [
           '--input-type=module',
           '-e',
-          "import { ThreeView } from 'quilt-three/react'; if (typeof ThreeView !== 'function') throw new Error('Missing React export');",
+          "import { ThreeView } from 'quilt-three-react'; if (typeof ThreeView !== 'function') throw new Error('Missing React export');",
         ],
         temp,
       );
     }
-    for (const p of manifest.packages) {
+    for (const p of manifest.packages.filter(
+      (p) => major === '19' || p.name !== 'quilt-three-react',
+    )) {
       const location = realpathSync(join(temp, 'node_modules', p.name));
       assert.ok(location.startsWith(realpathSync(temp)), 'Packages must not link to checkout');
       assert.ok(existsSync(join(location, 'LICENSE')));
