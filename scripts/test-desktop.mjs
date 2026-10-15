@@ -32,8 +32,8 @@ try {
   });
   for (const framework of ['Vanilla TS', 'React']) {
     await page.getByRole('link', { name: framework, exact: true }).click();
-    await expect(page.getByRole('tab', { name: 'Scene', exact: true })).toBeVisible();
-    await expect(page.locator('.scene-canvas')).toBeVisible();
+    await expect(page.locator('[data-pane-id="canvas"] [data-quilt-three-input]')).toBeVisible();
+    await expect(page.locator('canvas[data-quilt-three-canvas]')).toBeVisible();
     await page.getByRole('tab', { name: 'Inspector', exact: true }).click();
     const notes = page.getByRole('textbox', { name: 'Working notes' });
     await notes.fill('Desktop state survives');
