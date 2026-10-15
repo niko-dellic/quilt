@@ -21,7 +21,16 @@ export default defineConfig({
       testMatch: /three-(backends|benchmark)\.spec\.ts/,
       use: {
         browserName: 'chromium',
-        launchOptions: { args: ['--enable-unsafe-webgpu', '--use-angle=swiftshader'] },
+        // Exercise canvas presentation under Xvfb on Linux, including its compositor.
+        headless: process.platform !== 'linux',
+        launchOptions: {
+          args: [
+            '--enable-unsafe-webgpu',
+            '--use-webgpu-adapter=swiftshader',
+            '--use-angle=swiftshader',
+            '--enable-unsafe-swiftshader',
+          ],
+        },
       },
     },
   ],
