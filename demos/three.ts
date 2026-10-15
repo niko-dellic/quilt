@@ -1,4 +1,5 @@
-import { Scene, WebGLRenderer } from 'three';
+import { Scene } from 'three';
+import { createDemoRenderer } from './three-renderer.js';
 import type { PaneRenderer } from 'quilt-vanilla';
 import { workspace } from './model.js';
 import { ThreeSession } from 'quilt-three';
@@ -16,11 +17,7 @@ export const session = new ThreeSession({
   scene,
   window,
   onError: console.error,
-  createRenderer(canvas) {
-    if (canvas.ownerDocument !== document && new URLSearchParams(location.search).has('failPopout'))
-      throw new Error('Simulated renderer initialization failure');
-    return new WebGLRenderer({ canvas, alpha: true, antialias: true });
-  },
+  createRenderer: createDemoRenderer,
 });
 const model = populate(scene, () => session.invalidate());
 const helperController = createDemoHelpers(session);

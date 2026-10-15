@@ -16,5 +16,13 @@ export default defineConfig({
     { name: 'chromium', use: { browserName: 'chromium' } },
     { name: 'firefox', use: { browserName: 'firefox' } },
     { name: 'webkit', use: { browserName: 'webkit' } },
+    {
+      name: 'chromium-webgpu',
+      testMatch: /three-(backends|benchmark)\.spec\.ts/,
+      use: {
+        browserName: 'chromium',
+        launchOptions: { args: ['--enable-unsafe-webgpu', '--use-angle=swiftshader'] },
+      },
+    },
   ],
 });

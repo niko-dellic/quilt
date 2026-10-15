@@ -7,11 +7,15 @@ import {
   Vector4,
   WebGLRenderTarget,
 } from 'three';
-import type { WebGLRenderer } from 'three';
+import { isWebGPURenderer } from 'quilt-three';
+import type { ThreeRenderer } from 'quilt-three';
+import { MeshBasicNodeMaterial, RenderTarget } from 'three/webgpu';
+import { texture, vec3, vec4 } from 'three/tsl';
 import type { ViewPipeline } from 'quilt-three';
 
 /** Proof of per-view effects; intentionally not a built-in Quilt effect or composer adapter. */
-export function grayscale(renderer: WebGLRenderer): ViewPipeline {
+export function grayscale(renderer: ThreeRenderer): ViewPipeline {
+  if (isWebGPURenderer(renderer)) return grayscaleGPU(renderer);
   const target = new WebGLRenderTarget(1, 1);
   const geometry = new PlaneGeometry(2, 2);
   const material = new ShaderMaterial({
@@ -34,6 +38,55 @@ export function grayscale(renderer: WebGLRenderer): ViewPipeline {
     render(frame) {
       const viewport = renderer.getViewport(new Vector4()),
         scissor = renderer.getScissor(new Vector4());
+      const scissorTest = renderer.getScissorTest();
+      const previous = renderer.getRenderTarget();
+      try {
+        renderer.setRenderTarget(target);
+        renderer.setScissorTest(false);
+        renderer.clear();
+        renderer.render(frame.scene, frame.camera);
+        renderer.setRenderTarget(previous);
+        renderer.setViewport(viewport);
+        renderer.setScissor(scissor);
+        renderer.setScissorTest(scissorTest);
+        renderer.render(output, camera);
+      } finally {
+        renderer.setRenderTarget(previous);
+        renderer.setViewport(viewport);
+        renderer.setScissor(scissor);
+        renderer.setScissorTest(scissorTest);
+      }
+    },
+    dispose() {
+      target.dispose();
+      geometry.dispose();
+      material.dispose();
+    },
+  };
+}
+
+/** Node-material proof using a pane-local target, not a full-canvas RenderPipeline. */
+function grayscaleGPU(renderer: import('three/webgpu').WebGPURenderer): ViewPipeline {
+  const target = new RenderTarget(1, 1);
+  const geometry = new PlaneGeometry(2, 2);
+  const sample = texture(target.texture);
+  const gray = sample.rgb.dot(vec3(0.2126, 0.7152, 0.0722));
+  const material = new MeshBasicNodeMaterial({
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  material.colorNode = vec4(vec3(gray), sample.a);
+  const output = new Scene();
+  output.add(new Mesh(geometry, material));
+  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  return {
+    resize(width, height, dpr) {
+      target.setSize(Math.max(1, Math.round(width * dpr)), Math.max(1, Math.round(height * dpr)));
+    },
+    render(frame) {
+      const viewport = renderer.getViewport(new Vector4());
+      const scissor = renderer.getScissor(new Vector4());
       const scissorTest = renderer.getScissorTest();
       const previous = renderer.getRenderTarget();
       try {

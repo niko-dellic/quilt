@@ -58,7 +58,7 @@ export default defineConfig({
           { text: 'Themes and tab bars', link: '/docs/theming' },
           { text: 'Pane and window lifecycle', link: '/docs/lifecycle' },
           { text: 'Examples', link: '/docs/examples' },
-          { text: 'Three.js (experimental)', link: '/docs/three' },
+          { text: 'Three.js', link: '/docs/three' },
           { text: 'Compatibility', link: '/docs/compatibility' },
           { text: 'Troubleshooting', link: '/docs/troubleshooting' },
           { text: 'Migration', link: '/docs/migration' },

@@ -23,12 +23,7 @@ for (const pageName of ['three', 'three-react']) {
   for (const effect of [false, true]) {
     test(`${pageName}${effect ? ' with effects' : ''}: four views share graphics, pick, pop out, and clean up`, async ({
       page,
-      browserName,
     }) => {
-      test.skip(
-        browserName !== 'chromium',
-        'WebGL integration is validated with Chromium software GL in CI',
-      );
       const errors: string[] = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(
@@ -79,9 +74,7 @@ for (const pageName of ['three', 'three-react']) {
 
 test('Three rollback, hidden views, resize, demand scheduling, and repeated disposal', async ({
   page,
-  browserName,
 }) => {
-  test.skip(browserName !== 'chromium', 'Requires WebGL');
   await page.goto('/vanilla.html?workspace=three&failPopout');
   await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
   const before = await page.evaluate(() => window.threeDemo.session.stats.drawCalls);
@@ -123,11 +116,7 @@ test('Three rollback, hidden views, resize, demand scheduling, and repeated disp
   await expect(page.locator('canvas')).toHaveCount(0);
 });
 
-test('effect output is isolated to its pane, including after resize', async ({
-  page,
-  browserName,
-}) => {
-  test.skip(browserName !== 'chromium', 'Requires WebGL');
+test('effect output is isolated to its pane, including after resize', async ({ page }) => {
   await page.goto('/react.html?workspace=three&effects');
   await expect
     .poll(() => page.evaluate(() => window.threeDemo?.session?.stats.drawCalls))
@@ -164,11 +153,7 @@ test('effect output is isolated to its pane, including after resize', async ({
 });
 
 for (const demo of ['three', 'three-react']) {
-  test(`${demo}: retained views, new cameras, and a hidden opener`, async ({
-    page,
-    browserName,
-  }) => {
-    test.skip(browserName !== 'chromium', 'Requires WebGL');
+  test(`${demo}: retained views, new cameras, and a hidden opener`, async ({ page }) => {
     await page.goto(`/${demo === 'three' ? 'vanilla' : 'react'}.html?workspace=three`);
     await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
     expect(
@@ -233,10 +218,8 @@ for (const demo of ['three', 'three-react']) {
 
 test('Three high-DPI cap, zero size, pointer capture, and application resource ownership', async ({
   browser,
-  browserName,
   baseURL,
 }) => {
-  test.skip(browserName !== 'chromium', 'Requires WebGL');
   const context = await browser.newContext({ deviceScaleFactor: 3, baseURL: baseURL! });
   const page = await context.newPage();
   try {
@@ -304,9 +287,7 @@ test('Three high-DPI cap, zero size, pointer capture, and application resource o
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: Three workspace retains cameras and renders only other camera helpers`, async ({
     page,
-    browserName,
   }) => {
-    test.skip(browserName !== 'chromium', 'Requires WebGL');
     await page.goto(`/${framework}.html`);
     await page.getByRole('button', { name: '4 view', exact: true }).click();
     await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
@@ -398,9 +379,7 @@ for (const framework of ['vanilla', 'react']) {
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: four-view chrome and right-click menus use ordinary Quilt actions`, async ({
     page,
-    browserName,
   }) => {
-    test.skip(browserName !== 'chromium', 'Requires WebGL');
     await page.goto(`/${framework}.html?workspace=three`);
     await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
     await expect(
@@ -430,9 +409,7 @@ for (const framework of ['vanilla', 'react']) {
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: custom views configure rows and columns and retain camera state`, async ({
     page,
-    browserName,
   }) => {
-    test.skip(browserName !== 'chromium', 'Requires WebGL');
     await page.goto(`/${framework}.html`);
     await page.getByRole('button', { name: 'Custom views', exact: true }).click();
     await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
@@ -512,11 +489,7 @@ for (const framework of ['vanilla', 'react']) {
   });
 }
 
-test('camera rays stop at the nearest mesh or their maximum length', async ({
-  page,
-  browserName,
-}) => {
-  test.skip(browserName !== 'chromium', 'Requires WebGL');
+test('camera rays stop at the nearest mesh or their maximum length', async ({ page }) => {
   await page.goto('/vanilla.html?workspace=three');
   await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
   const rays = await page.evaluate(() => {
@@ -571,9 +544,7 @@ test('camera rays stop at the nearest mesh or their maximum length', async ({
 for (const framework of ['vanilla', 'react']) {
   test(`${framework}: custom views merge a rectangular block and retain cameras`, async ({
     page,
-    browserName,
   }) => {
-    test.skip(browserName !== 'chromium', 'Requires WebGL');
     await page.goto(`/${framework}.html?workspace=custom`);
     await page.getByRole('spinbutton', { name: 'Rows', exact: true }).fill('3');
     await page.getByRole('spinbutton', { name: 'Columns', exact: true }).fill('3');
@@ -608,11 +579,7 @@ for (const framework of ['vanilla', 'react']) {
 }
 
 for (const framework of ['vanilla', 'react']) {
-  test(`${framework}: camera rays follow viewport cursors and reset on leave`, async ({
-    page,
-    browserName,
-  }) => {
-    test.skip(browserName !== 'chromium', 'Requires WebGL');
+  test(`${framework}: camera rays follow viewport cursors and reset on leave`, async ({ page }) => {
     await page.goto(`/${framework}.html?workspace=three`);
     await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
     const read = () =>
@@ -644,9 +611,7 @@ for (const framework of ['vanilla', 'react']) {
 
 test('camera helper classes toggle globally and per camera without changing the scene', async ({
   page,
-  browserName,
 }) => {
-  test.skip(browserName !== 'chromium', 'Requires WebGL');
   await page.goto('/vanilla.html?workspace=three');
   await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
   const result = await page.evaluate(() => {
@@ -697,11 +662,7 @@ test('camera helper classes toggle globally and per camera without changing the 
 });
 
 for (const framework of ['vanilla', 'react']) {
-  test(`${framework}: pane and grid helper toggles retain their settings`, async ({
-    page,
-    browserName,
-  }) => {
-    test.skip(browserName !== 'chromium', 'Requires WebGL');
+  test(`${framework}: pane and grid helper toggles retain their settings`, async ({ page }) => {
     await page.goto(`/${framework}.html?workspace=three`);
     await expect.poll(() => page.evaluate(() => window.threeDemo?.session?.stats.views)).toBe(4);
     const draws = () =>

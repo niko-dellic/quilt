@@ -1,3 +1,4 @@
+import { createWebGPURenderer } from 'quilt-three/webgpu';
 import { Scene } from 'three';
 import { ThreeSession, ThreeView as View, CameraHelpers, NavigationControls } from 'quilt-three';
 import {
@@ -30,3 +31,19 @@ export function App() {
 export { ThreeView, useThreeSession };
 
 export { NavigationControls };
+export function gpu(window: Window) {
+  return new ThreeSession({
+    scene: new Scene(),
+    window,
+    createRenderer: (canvas) => createWebGPURenderer(canvas, { fallback: false }),
+  });
+}
+export function GPUProvider() {
+  return (
+    <ThreeSessionProvider options={{ createRenderer: createWebGPURenderer }}>
+      <SharedScene>
+        <mesh />
+      </SharedScene>
+    </ThreeSessionProvider>
+  );
+}

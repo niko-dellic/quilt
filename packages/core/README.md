@@ -75,6 +75,7 @@ See [API documentation](https://github.com/niko-dellic/quilt/blob/main/docs/api.
 - [API reference](https://quilt-layouts.vercel.app/docs/api-reference/)
 - [Themes and tab bars](https://quilt-layouts.vercel.app/docs/theming)
 - [Registration, React context, persistence, and confirmation](https://quilt-layouts.vercel.app/docs/integration)
+- [Three.js integration](https://quilt-layouts.vercel.app/docs/three)
 - [Examples](https://quilt-layouts.vercel.app/docs/examples)
 - [Troubleshooting](https://quilt-layouts.vercel.app/docs/troubleshooting)
 - [Migration](https://quilt-layouts.vercel.app/docs/migration)

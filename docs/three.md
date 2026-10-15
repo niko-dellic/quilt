@@ -1,4 +1,4 @@
-# Experimental Three.js integration
+# Three.js integration
 
 `quilt-three` adds shared-scene camera views and optional React Three Fiber bindings
 without adding Three.js to the existing core, vanilla, or React packages.
@@ -37,6 +37,20 @@ maximum. This preset uses the full width for viewports, without the right sideba
 associated with their grid cells when reducing and expanding the grid. Open
 `/vanilla.html?workspace=custom` or `/react.html?workspace=custom` directly.
 
+## Renderer selection
+
+WebGL is the default. Use `createWebGPURenderer` from `quilt-three/webgpu` as the
+session/provider's `createRenderer` factory to enable WebGPU. It initializes the
+renderer asynchronously, creates devices in the canvas's owning document, and
+releases them on disposal. It falls back to Three.js's WebGL backend when no native
+adapter is available; `{ fallback: false }` requires native WebGPU.
+
+Add `&renderer=webgpu` to either demo URL. `&effects` uses the corresponding
+node-material pipeline; `&forceWebGL` explicitly exercises fallback rendering.
+See the [package guide](https://github.com/niko-dellic/quilt/tree/main/packages/three#webgpu)
+for installation and ownership, and the [validation record](three-validation.md)
+for tested engines and limits.
+
 ## Ownership
 
 The stateful APIs are classes: `new ThreeSession(options)` owns rendering and
@@ -49,7 +63,9 @@ the same class instances; pure geometry utilities remain functions.
 The application owns scene data and camera poses. The session owns a renderer per
 document; individual mounted views own controls and effect resources. The React
 adapter owns one persistent R3F scene tree, outside pane lifetimes. The session ends
-when its owner is disposed, not when its last visible pane closes.
+when its owner is disposed, not when its last visible pane closes. Await
+`session.dispose()` to wait for asynchronous graphics cleanup. Factories may return
+a renderer or a promise; a late result is released even after its view has unmounted.
 
 `PaneContext.deferReady(promise)` lets pane integrations delay Quilt's readiness
 barrier beyond synchronous mounting or React commit. Register during mount or a

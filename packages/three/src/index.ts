@@ -1,5 +1,13 @@
 import { Raycaster, Vector2, WebGLRenderer } from 'three';
 import type { Camera, Intersection, OrthographicCamera, PerspectiveCamera, Scene } from 'three';
+import type { WebGPURenderer } from 'three/webgpu';
+
+/** Supported renderer instances. The session initializes and disposes its factory results. */
+export type ThreeRenderer = WebGLRenderer | WebGPURenderer;
+export function isWebGPURenderer(renderer: ThreeRenderer): renderer is WebGPURenderer {
+  return 'isWebGPURenderer' in renderer && renderer.isWebGPURenderer === true;
+}
+
 import type { PaneContext, PaneView } from 'quilt-vanilla';
 
 export interface ViewControls {
@@ -15,7 +23,7 @@ export interface ControlsContext {
   invalidate(): void;
 }
 export interface RenderFrame {
-  renderer: WebGLRenderer;
+  renderer: ThreeRenderer;
   scene: Scene;
   camera: Camera;
   /** Full view dimensions in CSS pixels (before clipping). */
@@ -24,7 +32,7 @@ export interface RenderFrame {
   delta: number;
   pixelRatio: number;
 }
-/** Pipelines render into the current viewport/scissor and restore any other GL state they change. */
+/** Pipelines render into the current viewport/scissor and restore any other renderer state they change. */
 export interface ViewPipeline {
   resize(width: number, height: number, pixelRatio: number): void;
   render(frame: RenderFrame): void;
@@ -33,7 +41,7 @@ export interface ViewPipeline {
 export interface ViewOptions {
   camera: Camera;
   controls?: (context: ControlsContext) => ViewControls;
-  pipeline?: (renderer: WebGLRenderer) => ViewPipeline;
+  pipeline?: (renderer: ThreeRenderer) => ViewPipeline;
   onPointer?: (
     event: PointerEvent | MouseEvent | WheelEvent,
     hits: Intersection[],
@@ -45,7 +53,7 @@ export interface SessionOptions {
   window: Window;
   frameloop?: 'demand' | 'always';
   maxPixelRatio?: number;
-  createRenderer?: (canvas: HTMLCanvasElement) => WebGLRenderer;
+  createRenderer?: (canvas: HTMLCanvasElement) => ThreeRenderer | Promise<ThreeRenderer>;
   /** Main workspace host, and companion host when called with a companion document. */
   container?: (document: Document) => HTMLElement;
   update?: (delta: number) => void;
@@ -60,6 +68,12 @@ export interface ViewHandle extends PaneView {
 /** A mounted viewport. Create through ThreeSession.register(), dispose independently or with its session. */
 export class ThreeView implements ViewHandle {
   private disposed = false;
+  /** Resolves after renderer initialization and the first draw; rejects on initialization failure. */
+  ready: Promise<void> = Promise.resolve();
+  /** @internal */ initialized = false;
+  /** @internal */ get isDisposed(): boolean {
+    return this.disposed;
+  }
   /** @internal */ readonly cleanups: (() => void)[] = [];
   /** @internal */ controls?: ViewControls;
   /** @internal */ pipeline?: ViewPipeline;
@@ -167,10 +181,13 @@ interface Surface {
   window: Window;
   host: HTMLElement;
   canvas: HTMLCanvasElement;
-  renderer: WebGLRenderer;
+  renderer: ThreeRenderer;
   cleanup(): void;
   views: Set<ThreeView>;
   lost: boolean;
+  ready: Promise<void>;
+  initialized: boolean;
+  failed: boolean;
 }
 
 function bounds(element: HTMLElement, win: Window): { full: Rect; clip: Rect } | undefined {
@@ -204,6 +221,8 @@ function bounds(element: HTMLElement, win: Window): { full: Rect; clip: Rect } |
 export class ThreeSession {
   readonly scene: Scene;
   private readonly surfaces = new Map<Document, Surface>();
+  private readonly pendingDisposals = new Set<Promise<void>>();
+  private disposal: Promise<void> | undefined;
   private readonly observers = new Set<SessionObserver>();
   private readonly views = new Set<ThreeView>();
   private readonly metrics: SessionStats = {
@@ -320,24 +339,32 @@ export class ThreeSession {
       pointerEvents: 'none',
       zIndex: '0',
     });
-    let renderer: WebGLRenderer | undefined;
+    let renderer: ThreeRenderer | undefined;
+    let release: (() => void) | undefined;
     const cleanup: (() => void)[] = [];
     try {
-      renderer =
+      const created =
         this.options.createRenderer?.(canvas) ??
         new WebGLRenderer({ canvas, alpha: true, antialias: true });
-      renderer.autoClear = false;
-      renderer.info.autoReset = false;
       host.append(canvas);
+      let released = false;
       const surface: Surface = {
         document: doc,
         window: win,
         host,
         canvas,
-        renderer,
+        get renderer() {
+          if (!renderer) throw new Error('Three renderer is not ready');
+          return renderer;
+        },
         views: new Set(),
         lost: false,
+        initialized: false,
+        failed: false,
+        ready: Promise.resolve(),
         cleanup: () => {
+          if (released) return;
+          released = true;
           for (const fn of cleanup.reverse()) {
             try {
               fn();
@@ -345,14 +372,65 @@ export class ThreeSession {
               this.report(error);
             }
           }
-          try {
-            renderer!.dispose();
-            renderer!.forceContextLoss();
-          } finally {
-            canvas.remove();
+          const dispose = () => {
+            if (!renderer) return;
+            if (isWebGPURenderer(renderer)) {
+              // Three r186 dispose() restarts initialization when init failed.
+              if (renderer.hasInitialized()) return renderer.dispose();
+            } else {
+              try {
+                renderer.dispose();
+              } finally {
+                renderer.forceContextLoss();
+              }
+            }
+          };
+          if (renderer && !isWebGPURenderer(renderer)) {
+            try {
+              dispose();
+            } catch (error) {
+              this.report(error);
+            }
+          } else {
+            const pending = surface.ready
+              .catch(() => {})
+              .then(dispose)
+              .catch(this.report);
+            this.pendingDisposals.add(pending);
+            void pending.then(() => this.pendingDisposals.delete(pending));
           }
+          canvas.remove();
         },
       };
+      release = surface.cleanup;
+      const initialize = (value: ThreeRenderer): void | Promise<void> => {
+        renderer = value;
+        renderer.autoClear = false;
+        renderer.info.autoReset = false;
+        if (!isWebGPURenderer(renderer)) {
+          surface.initialized = true;
+          return;
+        }
+        const gpu = renderer;
+        const previousLost = gpu.onDeviceLost;
+        gpu.onDeviceLost = (info) => {
+          surface.lost = true;
+          this.report(new Error(`Three.js device lost: ${info.message}`));
+        };
+        cleanup.push(() => {
+          gpu.onDeviceLost = previousLost;
+        });
+        return gpu.init().then(() => {
+          surface.initialized = true;
+        });
+      };
+      if ('then' in created) surface.ready = Promise.resolve(created).then(initialize);
+      else surface.ready = Promise.resolve(initialize(created));
+      surface.ready = surface.ready.catch((error: unknown) => {
+        surface.failed = true;
+        throw error;
+      });
+      void surface.ready.catch(() => {});
       const listener = (target: EventTarget, type: string, fn: EventListener, capture = false) => {
         target.addEventListener(type, fn, capture);
         cleanup.push(() => target.removeEventListener(type, fn, capture));
@@ -396,9 +474,8 @@ export class ThreeSession {
       this.metrics.documents = this.surfaces.size;
       return surface;
     } catch (error) {
-      for (const fn of cleanup.reverse()) fn();
-      renderer?.dispose();
-      canvas.remove();
+      if (release) release();
+      else canvas.remove();
       throw error;
     }
   }
@@ -413,7 +490,10 @@ export class ThreeSession {
       () => {
         this.views.delete(view);
         surface.views.delete(view);
-        if (!surface.views.size && context.document !== this.options.window.document) {
+        if (
+          !surface.views.size &&
+          (surface.failed || context.document !== this.options.window.document)
+        ) {
           this.surfaces.delete(context.document);
           surface.cleanup();
         }
@@ -455,7 +535,7 @@ export class ThreeSession {
         });
         view.controls.enabled = this.active(view) === view;
       }
-      if (viewOptions.pipeline) view.pipeline = viewOptions.pipeline(surface.renderer);
+
       const raycaster = new Raycaster(),
         pointer = new Vector2();
       const handle = (event: Event) => {
@@ -519,23 +599,40 @@ export class ThreeSession {
       cleanups.push(() => observer.disconnect());
       context.onCleanup(view.dispose);
       this.metrics.views = this.views.size;
-      // Exercise graphics initialization synchronously so Quilt can roll back failed mounts.
-      surface.renderer.setSize(1, 1, false);
-      surface.renderer.setScissorTest(false);
-      this.draw(view, () => {
-        if (view.pipeline) {
-          view.pipeline.resize(1, 1, surface.renderer.getPixelRatio());
-          view.pipeline.render({
-            renderer: surface.renderer,
-            scene: this.options.scene,
-            camera: viewOptions.camera,
-            width: 1,
-            height: 1,
-            delta: 0,
-            pixelRatio: surface.renderer.getPixelRatio(),
-          });
-        } else surface.renderer.render(this.options.scene, viewOptions.camera);
-      });
+      const initialize = () => {
+        if (view.isDisposed || this.disposed) return;
+        if (viewOptions.pipeline) view.pipeline = viewOptions.pipeline(surface.renderer);
+        viewOptions.camera.coordinateSystem = surface.renderer.coordinateSystem;
+        resizeCamera(viewOptions.camera, 1, 1);
+        surface.renderer.setSize(1, 1, false);
+        surface.renderer.setScissorTest(false);
+        this.draw(view, () => {
+          if (view.pipeline) {
+            view.pipeline.resize(1, 1, surface.renderer.getPixelRatio());
+            view.pipeline.render({
+              renderer: surface.renderer,
+              scene: this.options.scene,
+              camera: viewOptions.camera,
+              width: 1,
+              height: 1,
+              delta: 0,
+              pixelRatio: surface.renderer.getPixelRatio(),
+            });
+          } else surface.renderer.render(this.options.scene, viewOptions.camera);
+        });
+        view.initialized = true;
+        this.invalidate();
+      };
+      if (surface.initialized) initialize();
+      else {
+        view.ready = surface.ready.then(initialize).catch((error: unknown) => {
+          if (view.isDisposed || this.disposed) return;
+          view.dispose();
+          throw error;
+        });
+        void view.ready.catch(() => {});
+        context.deferReady(view.ready);
+      }
       this.invalidate();
       this.notifyViews();
       return view;
@@ -562,7 +659,13 @@ export class ThreeSession {
         this.metrics.textures =
           0;
       for (const surface of this.surfaces.values()) {
-        if (surface.lost || surface.document.hidden) continue;
+        if (
+          !surface.initialized ||
+          surface.lost ||
+          surface.window.closed ||
+          surface.document.hidden
+        )
+          continue;
         const attached = [...surface.views].find((view) => view.context.element.isConnected);
         const destination =
           this.options.container?.(surface.document) ??
@@ -586,6 +689,7 @@ export class ThreeSession {
         renderer.info.reset();
         renderer.setScissorTest(true);
         for (const view of surface.views) {
+          if (!view.initialized) continue;
           const rect = bounds(view.context.element, win);
           if (view.controls) view.controls.enabled = this.active(view) === view && !!rect;
           if (!rect) {
@@ -596,27 +700,58 @@ export class ThreeSession {
           const clip = intersectRects(rect.clip, hostRect);
           if (!clip.width || !clip.height) continue;
           const camera = view.options.camera;
+          camera.coordinateSystem = renderer.coordinateSystem;
           if (view.controls?.enabled) moving = view.controls.update(delta) === true || moving;
           resizeCamera(camera, full.width, full.height);
           camera.updateMatrixWorld();
+          // WebGPU requires the viewport to lie inside its attachment. Crop the
+          // camera frustum rather than moving/stretching partially scrolled views.
+          const viewport = isWebGPURenderer(renderer) ? intersectRects(full, hostRect) : full;
+          const sizedCamera = camera as PerspectiveCamera | OrthographicCamera;
+          const previousView = sizedCamera.view ? { ...sizedCamera.view } : null;
+          const cropped = viewport.width !== full.width || viewport.height !== full.height;
+          if (cropped && ('isPerspectiveCamera' in camera || 'isOrthographicCamera' in camera)) {
+            const base = previousView?.enabled
+              ? previousView
+              : {
+                  fullWidth: full.width,
+                  fullHeight: full.height,
+                  offsetX: 0,
+                  offsetY: 0,
+                  width: full.width,
+                  height: full.height,
+                };
+            sizedCamera.setViewOffset(
+              base.fullWidth,
+              base.fullHeight,
+              base.offsetX + ((viewport.left - full.left) * base.width) / full.width,
+              base.offsetY + ((viewport.top - full.top) * base.height) / full.height,
+              (viewport.width * base.width) / full.width,
+              (viewport.height * base.height) / full.height,
+            );
+          }
           renderer.setViewport(
-            full.left - hostRect.left,
-            hostRect.height - (full.top - hostRect.top) - full.height,
-            full.width,
-            full.height,
+            viewport.left - hostRect.left,
+            isWebGPURenderer(renderer)
+              ? viewport.top - hostRect.top
+              : hostRect.height - (viewport.top - hostRect.top) - viewport.height,
+            viewport.width,
+            viewport.height,
           );
           renderer.setScissor(
             clip.left - hostRect.left,
-            hostRect.height - (clip.top - hostRect.top) - clip.height,
+            isWebGPURenderer(renderer)
+              ? clip.top - hostRect.top
+              : hostRect.height - (clip.top - hostRect.top) - clip.height,
             clip.width,
             clip.height,
           );
-          const key = `${full.width}:${full.height}:${dpr}`;
-          if (view.size !== key) {
-            view.pipeline?.resize(full.width, full.height, dpr);
-            view.size = key;
-          }
           try {
+            const key = `${full.width}:${full.height}:${dpr}`;
+            if (view.size !== key) {
+              view.pipeline?.resize(full.width, full.height, dpr);
+              view.size = key;
+            }
             this.draw(view, () => {
               if (view.pipeline)
                 view.pipeline.render({
@@ -633,6 +768,10 @@ export class ThreeSession {
           } catch (error) {
             view.context.reportError(error);
           } finally {
+            if (cropped && ('isPerspectiveCamera' in camera || 'isOrthographicCamera' in camera)) {
+              sizedCamera.view = previousView;
+              sizedCamera.updateProjectionMatrix();
+            }
             renderer.setRenderTarget(null);
             renderer.setScissorTest(true);
           }
@@ -641,7 +780,9 @@ export class ThreeSession {
         // Transparent cleared regions leave all non-3D content and chrome visible.
         canvas.style.width = `${hostRect.width}px`;
         canvas.style.height = `${hostRect.height}px`;
-        this.metrics.drawCalls += renderer.info.render.calls;
+        this.metrics.drawCalls += isWebGPURenderer(renderer)
+          ? renderer.info.render.drawCalls
+          : renderer.info.render.calls;
         this.metrics.triangles += renderer.info.render.triangles;
         this.metrics.geometries += renderer.info.memory.geometries;
         this.metrics.textures += renderer.info.memory.textures;
@@ -655,8 +796,9 @@ export class ThreeSession {
     }
     if (moving || this.options.frameloop === 'always') this.invalidate();
   }
-  dispose() {
-    if (this.disposed) return;
+  /** Detaches views synchronously; await the result to finish asynchronous GPU resource disposal. */
+  dispose(): Promise<void> {
+    if (this.disposed) return this.disposal ?? Promise.resolve();
     this.disposed = true;
     if (this.frame) this.frameWindow.cancelAnimationFrame(this.frame);
     for (const observer of [...this.observers]) {
@@ -672,6 +814,8 @@ export class ThreeSession {
     this.surfaces.clear();
     this.metrics.documents = 0;
     this.lastTime = undefined;
+    this.disposal = Promise.all([...this.pendingDisposals]).then(() => {});
+    return this.disposal;
   }
 }
 

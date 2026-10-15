@@ -1,3 +1,4 @@
+import { createDemoRenderer } from './three-renderer.js';
 import { useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
@@ -52,6 +53,7 @@ export function ThreePane(props: PaneProps) {
 export function ThreeDemo({ children }: { children: ReactNode }) {
   return (
     <ThreeSessionProvider
+      options={{ createRenderer: createDemoRenderer }}
       onReady={(value) => {
         session = value;
       }}

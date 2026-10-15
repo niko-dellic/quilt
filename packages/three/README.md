@@ -1,7 +1,7 @@
-# quilt-three (experimental)
+# quilt-three
 
 Shared-scene Three.js viewports for Quilt, with optional React Three Fiber bindings.
-The main workspace shares one WebGL canvas. Each same-origin companion document
+The main workspace shares one canvas and renderer. Each same-origin companion document
 has its own renderer. Geometry, authored materials, and camera poses remain
 application-owned; moving a pane does not delete scene data.
 
@@ -12,7 +12,7 @@ npm install quilt-three three
 npm install --save-dev @types/three
 ```
 
-The current experimental compatibility target is Three.js r186. For React:
+The compatibility target is Three.js r186. For React:
 
 ```sh
 npm install quilt-react react@^19 react-dom@^19 @react-three/fiber@^9.8.1
@@ -53,7 +53,7 @@ const workspace = new Workspace({
 session.invalidate();
 // At application shutdown:
 workspace.dispose();
-session.dispose();
+await session.dispose();
 // Dispose application-owned geometries/materials/textures separately.
 ```
 
@@ -64,7 +64,45 @@ orthographic resizing preserves its vertical extent, horizontal center, and zoom
 `register()` returns a `ThreeView` class instance and registers cleanup with Quilt.
 The session retains its main renderer until session disposal, even if all panes
 are hidden, closed, or popped out. Companion renderers are released when unused.
-The main application must dispose the session explicitly.
+The main application must dispose the session explicitly. Disposal detaches views
+synchronously; await its returned promise to wait for GPU resources, including
+factories or initialization that finish after unmounting. `ThreeView.ready` resolves
+after initialization and the first draw. Quilt automatically includes it in pane
+readiness; cancelled mounts settle quietly and failed initialization rejects readiness.
+
+## WebGPU
+
+WebGL remains the default. Opt in through the separate entry point:
+
+```ts
+import { ThreeSession } from 'quilt-three';
+import { createWebGPURenderer } from 'quilt-three/webgpu';
+
+const session = new ThreeSession({
+  scene,
+  window,
+  createRenderer: (canvas) => createWebGPURenderer(canvas, { antialias: true }),
+});
+```
+
+React uses the same factory with
+`<ThreeSessionProvider options={{ createRenderer: createWebGPURenderer }}>`.
+The factory initializes asynchronously and acquires native devices from the canvas's
+own document, including companions. It releases those devices when its renderer is
+disposed. Do not reuse a renderer or device across workspace documents.
+
+When no native adapter is available, the factory uses Three.js's WebGL backend.
+Set `{ fallback: false }` to require native WebGPU and report unavailability instead;
+`forceWebGL: true` explicitly selects the fallback backend. WebGPU availability
+requires a compatible browser/device and a secure context (localhost qualifies).
+`quilt-three` itself does not load `three/webgpu`; only this opt-in entry does.
+
+Pipelines receive `ThreeRenderer`, a union of `WebGLRenderer` and `WebGPURenderer`.
+Use `isWebGPURenderer(renderer)` from the base entry to narrow it. GLSL
+`ShaderMaterial` pipelines are not portable to WebGPU; use Three.js node materials
+for that backend. Quilt sets each renderer's viewport coordinates appropriately.
+Try `&renderer=webgpu` in either demo, with `&effects` for the node-material proof
+or `&forceWebGL` to exercise its fallback.
 
 ## Classes and camera helpers
 
@@ -171,13 +209,18 @@ across different documents is not a supported interaction model in this release.
 - Only the first live view of a given camera accepts input during overlapping mounts.
   Use independent cameras for independently interactive docked views.
 - A renderer factory receives a canvas created in the correct document. Return a
-  fresh renderer owned by the session; do not share it with another session/root.
+  fresh renderer or a promise for one, owned by the session; do not share it with another
+  session/root. A factory that rejects must release resources it allocated before
+  rejecting. The session releases returned renderers even if the view was removed
+  while the factory was pending. Use the supplied WebGPU factory for document/device ownership.
 - The default canvas host is the closest Quilt workspace/companion. `container(doc)`
   can supply an explicit positioned host. Avoid transformed/scaled ancestors and
-  arbitrary nonrectangular clipping in this experimental release.
+  arbitrary nonrectangular clipping in this release.
 - Renderer initialization failure rejects mounting. Quilt preserves the original
   view if a companion cannot initialize. Context loss pauses that surface, reports
-  the error, and redraws when the context is restored.
+  the error, and redraws when the WebGL context is restored. Native GPU device loss
+  pauses the affected document and reports through `onError`; recreate the session
+  to recover. Automatic device replacement is not provided.
 
 ## Custom pipelines and the effect proof
 
@@ -189,10 +232,11 @@ Caller-supplied scene assets must remain untouched.
 The session sets the output viewport/scissor before rendering. A pipeline must
 restore any renderer state it changes, including target, viewport, scissor, clear
 settings, and color/tone-mapping configuration. No arbitrary third-party composer
-compatibility is promised. Render target resources cannot cross WebGL contexts.
+compatibility is promised. Render target resources cannot cross renderer instances or GPU devices.
 
 The demo's grayscale pipeline renders into a pane-sized target, then composites
 into the pane's scissored rectangle. Other panes retain their ordinary materials.
+It has separate GLSL and node-material implementations for WebGL and WebGPU.
 It is a validation example, not a built-in effect API.
 
 ## Examples and validation
@@ -210,10 +254,14 @@ npm run dev
 - `npm run benchmark:three`: writes `artifacts/three-benchmark.json` with CPU submission
   timings, draw calls, resource counts, and GPU timings when the extension is available.
 
-Browser integration currently validates WebGL with Chromium. Existing Quilt browser
-coverage still runs across Chromium, Firefox, and WebKit. Treat cross-browser graphics,
-third-party R3F components, and production workload performance as experimental.
-Material overrides, WebGPU, XR, workers, and effect collections are deferred.
+WebGL graphics are tested in Chromium, Firefox, and WebKit. Native WebGPU is
+validated in a dedicated Chromium project and in WebKit when an adapter is available;
+its WebGL fallback is tested in all three engines. Native Firefox WebGPU was not
+available on the validation host. Tests include Strict Mode, pending initialization,
+late factory results, repeated disposal, shared asset preservation, and companion
+return. See the [validation record](https://github.com/niko-dellic/quilt/blob/main/docs/three-validation.md).
+Third-party R3F components must support the renderer selected by the application.
+Material overrides, XR, workers, and effect collections remain outside the supported scope.
 
 Select **4 view** in the existing workspace switcher. Switching presets preserves
 the scene and camera poses. Each camera has a compact oriented marker and a ray

@@ -12,7 +12,11 @@ import { createRoot, events, extend, useFrame } from '@react-three/fiber';
 import type { RootStore, ReconcilerRoot, Events } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { PaneProps } from 'quilt-react';
-import { ThreeSession, CameraHelpers as CameraHelpersController } from './index.js';
+import {
+  ThreeSession,
+  isWebGPURenderer,
+  CameraHelpers as CameraHelpersController,
+} from './index.js';
 import type { CameraHelpersOptions, SessionOptions, ViewOptions } from './index.js';
 
 interface Bridge {
@@ -127,44 +131,52 @@ export function ThreeSessionProvider({ children, options, onReady }: ThreeSessio
         });
       },
       createRenderer(canvas) {
-        const renderer =
+        const created =
           initial.current.options?.createRenderer?.(canvas) ??
           new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-        if (canvas.ownerDocument === win.document) {
-          root = createRoot(canvas);
-          void root
-            .configure({
-              gl: renderer,
-              scene: session.scene,
-              frameloop: 'never',
-              events,
-              size: { width: 1, height: 1, top: 0, left: 0 },
-              onCreated(state) {
-                state.set({ invalidate: session.invalidate });
-              },
-            })
-            .then(() => {
-              if (disposed) return;
-              store = root!.render(sceneTree());
-              // Events are forwarded from pane elements, including companion documents.
-              store.getState().events.disconnect?.();
-              store.getState().setEvents({
-                enabled: true,
-                compute(event, state) {
-                  const element = event.currentTarget as HTMLElement;
-                  const rect = element.getBoundingClientRect();
-                  state.pointer.set(
-                    ((event.clientX - rect.left) / rect.width) * 2 - 1,
-                    (-(event.clientY - rect.top) / rect.height) * 2 + 1,
-                  );
-                  state.raycaster.layers.mask = state.camera.layers.mask;
-                  state.raycaster.setFromCamera(state.pointer, state.camera);
-                },
-              });
-            })
-            .catch(failed);
-        }
-        return renderer;
+        const connect = (renderer: import('./index.js').ThreeRenderer) => {
+          if (!disposed && canvas.ownerDocument === win.document) {
+            root = createRoot(canvas);
+            const currentRoot = root;
+            const initialized = isWebGPURenderer(renderer) ? renderer.init() : Promise.resolve();
+            void initialized
+              .then(() => {
+                if (disposed) return;
+                return currentRoot.configure({
+                  gl: renderer,
+                  scene: session.scene,
+                  frameloop: 'never',
+                  events,
+                  size: { width: 1, height: 1, top: 0, left: 0 },
+                  onCreated(state) {
+                    state.set({ invalidate: session.invalidate });
+                  },
+                });
+              })
+              .then(() => {
+                if (disposed) return;
+                store = root!.render(sceneTree());
+                // Events are forwarded from pane elements, including companion documents.
+                store.getState().events.disconnect?.();
+                store.getState().setEvents({
+                  enabled: true,
+                  compute(event, state) {
+                    const element = event.currentTarget as HTMLElement;
+                    const rect = element.getBoundingClientRect();
+                    state.pointer.set(
+                      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+                      (-(event.clientY - rect.top) / rect.height) * 2 + 1,
+                    );
+                    state.raycaster.layers.mask = state.camera.layers.mask;
+                    state.raycaster.setFromCamera(state.pointer, state.camera);
+                  },
+                });
+              })
+              .catch(failed);
+          }
+          return renderer;
+        };
+        return 'then' in created ? Promise.resolve(created).then(connect) : connect(created);
       },
     });
     const names: Record<string, keyof Events> = {

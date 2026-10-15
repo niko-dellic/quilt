@@ -1,21 +1,37 @@
 # Releasing Quilt
 
-All three packages share a stable version. Release creation is explicit; ordinary merges never publish.
+All four packages share a stable version. Release creation is explicit; ordinary merges never publish.
 
-1. Create a branch and run `npm run release:version -- 0.5.0` (substitute the next version).
-2. Add a `## 0.5.0` entry to `CHANGELOG.md`. Review the version and internal dependency changes, then merge a pull request after CI passes.
+1. Create a branch and run `npm run release:version -- 0.10.0` (substitute the next version).
+2. Add a `## 0.10.0` entry to `CHANGELOG.md`. Review the version and internal dependency changes, then merge a pull request after CI passes.
 3. Open GitHub Actions → Release → Run workflow on `main`. Enter the committed version and leave **publish** unchecked to rehearse the complete release.
 4. Run again with **publish** checked. Approve the `npm` environment deployment after verification succeeds.
 
 Dry runs are also allowed on development branches and validate archives without contacting npm publication endpoints. Actual publication is restricted to `main`.
 
-The workflow tests and packs once, then publishes those exact archives in core → vanilla → React order. It checks the shared version, changelog, clean source commit, and artifact hashes. A retry accepts already-published packages only if their integrity matches, allowing recovery from a partially completed release. Never change an already-published version; bump again if contents differ. The original manually published 0.1.0 archives cannot be republished by this workflow.
+The workflow tests and packs once, then publishes those exact archives in core → vanilla → React → Three order. It checks the shared version, changelog, clean source commit, and artifact hashes. A retry accepts already-published packages only if their integrity matches, allowing recovery from a partially completed release. Never change an already-published version; bump again if contents differ. The original manually published 0.1.0 archives cannot be republished by this workflow.
 
 Publishing uses npm trusted publishing with GitHub OIDC and automatic provenance. Each package trusts `niko-dellic/quilt`, workflow `release.yml`, environment `npm`, with direct publishing allowed. No npm token secret is needed. The environment is restricted to `main` and requires maintainer approval; the maintainer may approve their own manually triggered release.
 
 On success the workflow creates a `v<version>` GitHub release with changelog notes and tarballs. If publication succeeds but GitHub release creation fails, rerun the same workflow run using its original commit. Release jobs are serialized to avoid concurrent publishing.
 
 CI runs `npm run check` on pull requests and pushes under Node 24. The required `verify` check protects `main`; dependency updates arrive through weekly Dependabot pull requests.
+
+## First quilt-three release
+
+Release all four packages at 0.10.0, including matching internal dependencies and
+starter dependencies. Published 0.9.2 archives cannot be replaced. In particular,
+`quilt-three/react` uses the new `PaneContext.deferReady` readiness barrier and must
+not resolve to the previously published vanilla adapter. The supported rendering scope is WebGL and WebGPU with the documented Three.js
+and R3F versions. Review the [graphics validation record](three-validation.md)
+alongside the general release gate.
+
+Before the first publication, verify npm package-name availability and configure
+the new `quilt-three` package for the same trusted-publishing workflow and
+environment. Local checks and release rehearsals do not verify registry permissions.
+The base entry must import without React/R3F; the React entry is validated with
+React 19 and R3F 9. Keep the guide, API reference, compatibility overview, and
+changelog synchronized with the release.
 
 ## Local rehearsal with uncommitted release work
 
@@ -28,7 +44,7 @@ and writes `artifacts/release-rehearsal.json`.
 This preserves the clean-tree and archive-provenance requirements. It does not
 publish, push, tag, dispatch GitHub Actions, or verify npm trusted-publishing
 permissions. The real release must still run from the reviewed, clean commit via
-the existing workflow. All three package versions and starter dependencies
+the existing workflow. All four package versions and starter dependencies
 advance together through `release:version`.
 
 `npm run check` includes packed starter tests and starts Electron. Linux CI runs
