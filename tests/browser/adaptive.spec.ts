@@ -897,18 +897,22 @@ for (const framework of ['vanilla', 'react']) {
     expect(await page.evaluate(() => window.adaptiveMotionCommits)).toBe(1);
     const expanded = (await pane.boundingBox())!;
     const contraction = pane.evaluate(async (el) => {
-      const widths: number[] = [];
-      for (let i = 0; i < 30; i++) {
+      // Inspect native interpolation deterministically, even if a busy runner
+      // cannot deliver an intermediate frame within the short transition.
+      let animation: Animation | undefined;
+      while (!(animation = el.getAnimations()[0])) {
         await new Promise(requestAnimationFrame);
-        widths.push(el.getBoundingClientRect().width);
       }
-      return widths;
+      animation.pause();
+      animation.currentTime = 110;
+      const width = el.getBoundingClientRect().width;
+      animation.play();
+      return width;
     });
     await page.mouse.move(0, 0);
-    const widths = await contraction;
-    expect(widths.some((width) => width > start.width + 0.5 && width < expanded.width - 0.5)).toBe(
-      true,
-    );
+    const intermediateWidth = await contraction;
+    expect(intermediateWidth).toBeGreaterThan(start.width + 0.5);
+    expect(intermediateWidth).toBeLessThan(expanded.width - 0.5);
     await expect.poll(async () => (await pane.boundingBox())!.width).toBeCloseTo(start.width, 0);
     await expect.poll(() => page.evaluate(() => window.adaptiveMotionCommits)).toBe(2);
     await page.evaluate(() => {
