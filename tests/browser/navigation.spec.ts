@@ -152,3 +152,77 @@ for (const framework of ['vanilla', 'react']) {
     await expect(policy).toHaveValue('preserve');
   });
 }
+
+for (const framework of ['vanilla', 'react']) {
+  test(`${framework}: viewport keycaps highlight accepted keys and clear across panes`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'Requires WebGL');
+    await page.emulateMedia({ colorScheme: framework === 'react' ? 'dark' : 'light' });
+    await page.goto(`/${framework}.html?workspace=three`);
+    const pane = page.locator('[data-pane-id="perspective"]');
+    const input = pane.locator('[data-quilt-three-input]');
+    const key = (action: string) => pane.locator(`kbd[data-action="${action}"]`);
+    await expect(key('forward')).toBeVisible();
+    await expect(pane.locator('.demo-navigation-overlay')).toHaveCSS('pointer-events', 'none');
+    await input.hover();
+    await page.keyboard.down('w');
+    await page.keyboard.down('d');
+    await page.keyboard.down('Shift');
+    for (const action of ['forward', 'right', 'boost'])
+      await expect(key(action)).toHaveAttribute('data-pressed', 'true');
+    await page.keyboard.up('w');
+    await expect(key('forward')).toHaveAttribute('data-pressed', 'false');
+    await page.keyboard.down('ArrowUp');
+    await expect(key('forward')).toHaveAttribute('data-pressed', 'true');
+    const mouse = pane.locator('.demo-navigation-mouse');
+    await expect(mouse).toBeVisible();
+    await page.mouse.down({ button: 'right' });
+    await expect(mouse.locator('[data-mouse-button="right"]')).toHaveAttribute(
+      'data-pressed',
+      'true',
+    );
+    await expect(
+      page.locator('.demo-navigation-mouse [data-mouse-button][data-pressed="true"]'),
+    ).toHaveCount(1);
+    await page.screenshot({ path: `artifacts/navigation-keycaps-${framework}.png` });
+    await page.mouse.up({ button: 'right' });
+    await expect(mouse.locator('[data-mouse-button="right"]')).toHaveAttribute(
+      'data-pressed',
+      'false',
+    );
+    await page.locator('[data-pane-id="top"] [data-quilt-three-input]').hover();
+    await expect(page.locator('kbd[data-pressed="true"]')).toHaveCount(0);
+    await page.keyboard.down('ArrowUp'); // Repeat cannot light up the next viewport.
+    await expect(page.locator('kbd[data-pressed="true"]')).toHaveCount(0);
+    for (const code of ['ArrowUp', 'd', 'Shift']) await page.keyboard.up(code);
+    await input.hover();
+    await page.keyboard.down('q');
+    await expect(key('down')).toHaveAttribute('data-pressed', 'true');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('kbd[data-pressed="true"]')).toHaveCount(0);
+    await page.keyboard.up('q');
+    await page.mouse.down();
+    await expect(mouse.locator('[data-mouse-button="left"]')).toHaveAttribute(
+      'data-pressed',
+      'true',
+    );
+    await page.keyboard.press('Escape');
+    await expect(mouse.locator('[data-mouse-button="left"]')).toHaveAttribute(
+      'data-pressed',
+      'false',
+    );
+    await page.mouse.up();
+    // Leaving a typing field focused must not highlight a navigation key.
+    await page.evaluate(() => {
+      const field = document.createElement('input');
+      field.id = 'navigation-typing-test';
+      document.body.append(field);
+      field.focus();
+    });
+    await page.keyboard.press('w');
+    await expect(page.locator('kbd[data-pressed="true"]')).toHaveCount(0);
+    await page.evaluate(() => document.getElementById('navigation-typing-test')?.remove());
+  });
+}

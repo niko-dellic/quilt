@@ -347,8 +347,10 @@ These are the default bindings; the example above disables Q/down deliberately.
 
 Hover the viewport to use navigation keys. Diagonal movement is normalized, and
 movement accelerates smoothly. Releasing keys brakes smoothly but leaves Free
-navigation active. The demos display a noninteractive indicator with an Escape hint
-while Free navigation is active. The library leaves overlay UI to the application.
+navigation active. The demos display noninteractive Q/W/E, A/S/D, and Shift keycaps in each viewport,
+highlighting accepted input (including arrow-key aliases). A mode indicator and
+Escape hint appear while Free navigation is active. A mouse icon beside the keys
+highlights left/right presses without intercepting canvas input. The library leaves overlay UI to the application.
 
 Both perspective and orthographic cameras retain their projection. In orthographic
 views, forward movement changes camera position without perspective-style zoom.
@@ -428,7 +430,11 @@ boost, inertia, and sensitivity are constructor options.
 
 Use `addEventListener('change', handler)` for camera changes and
 `addEventListener('modechange', handler)` for mode changes; the latter event carries
-`mode`. Remove application subscriptions when their owner is disposed.
+`mode`. Read `activeActions` or subscribe to `inputchange` to reflect accepted keyboard
+input in an overlay. Its `actions` array resolves aliases and custom bindings, and
+clears on key release, ownership loss, disabling, or disposal. This describes held
+input, not residual movement while braking. Remove application subscriptions when
+their owner is disposed.
 
 ### Scheduling and input ownership
 

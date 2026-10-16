@@ -245,3 +245,35 @@ for (const projection of ['perspective', 'orthographic']) {
     next.controls.dispose();
   });
 }
+
+it('reports accepted input actions, aliases and cleanup for keyboard overlays', () => {
+  const f = fixture({ bindings: { forward: ['KeyI', 'ArrowUp'] } });
+  const observed: string[][] = [];
+  f.controls.addEventListener('inputchange', (event) => observed.push([...event.actions]));
+  f.key('KeyI');
+  expect(f.controls.activeActions).toEqual([]);
+  f.hover();
+  f.key('KeyW');
+  expect(observed).toEqual([]);
+  f.key('KeyI');
+  f.key('ArrowUp');
+  f.key('ShiftLeft');
+  expect(f.controls.activeActions).toEqual(['forward', 'boost']);
+  f.key('KeyI', 'keyup');
+  expect(f.controls.activeActions).toEqual(['forward', 'boost']);
+  f.key('ArrowUp', 'keyup');
+  expect(f.controls.activeActions).toEqual(['boost']);
+  f.element.dispatchEvent(new Event('pointerleave'));
+  expect(observed.at(-1)).toEqual([]);
+  f.hover();
+  f.key('KeyI', 'keydown', { repeat: true });
+  expect(f.controls.activeActions).toEqual([]);
+  f.key('KeyI');
+  f.controls.enabled = false;
+  expect(observed.at(-1)).toEqual([]);
+  f.controls.enabled = true;
+  f.hover();
+  f.key('KeyI');
+  f.controls.dispose();
+  expect(observed.at(-1)).toEqual([]);
+});
