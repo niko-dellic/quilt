@@ -1,3 +1,4 @@
+import { mountNavigationOverlay } from './navigation-overlay.js';
 import { navigationSettings } from './navigation-settings.js';
 import { cameraKinds } from './custom-views-layout.js';
 import * as THREE from 'three';
@@ -130,15 +131,7 @@ export function orbit(context: ControlsContext) {
     }
     invalidate();
   };
-  const indicator = element.ownerDocument.createElement('span');
-  indicator.className = 'demo-free-navigation';
-  indicator.textContent = 'Free navigation · Esc to orbit';
-  const mode = () => {
-    indicator.hidden = controls.mode !== 'free';
-  };
-  mode();
-  element.parentElement!.append(indicator);
-  controls.addEventListener('modechange', mode);
+  const overlay = mountNavigationOverlay(element.parentElement!, controls, element);
   controls.addEventListener('change', change);
   return {
     get enabled() {
@@ -146,14 +139,14 @@ export function orbit(context: ControlsContext) {
     },
     set enabled(value: boolean) {
       controls.enabled = value;
+      if (!value) overlay.clearMouse();
     },
     update: (delta: number) => controls.update(delta),
     dispose() {
       unsubscribeNavigation();
-      indicator.remove();
+      overlay.dispose();
       orbitInstances.delete(controls);
       controls.removeEventListener('change', change);
-      controls.removeEventListener('modechange', mode);
       controls.dispose();
     },
   };

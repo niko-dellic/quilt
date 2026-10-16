@@ -1026,17 +1026,63 @@ html:has(.demo-main:fullscreen) {
   cursor: not-allowed;
 }
 
-.demo-free-navigation {
+.demo-navigation-overlay {
   position: absolute;
   left: 10px;
   bottom: 10px;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: calc(100% - 100px);
   pointer-events: none;
-  padding: 5px 7px;
+  user-select: none;
+  color: var(--layouts-muted);
+  font-size: 10px;
+}
+.demo-navigation-keys {
+  display: grid;
+  grid-template-columns: repeat(3, 24px);
+  gap: 3px;
+}
+.demo-navigation-overlay kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 21px;
+  box-sizing: border-box;
+  padding: 0 5px;
+  border: 1px solid var(--layouts-line);
   border-radius: 4px;
-  color: var(--layouts-text);
   background: var(--layouts-header);
-  font-size: 11px;
+  color: var(--layouts-muted);
+  box-shadow: 0 1px 0 var(--layouts-line);
+  font:
+    500 10px/1 system-ui,
+    sans-serif;
+}
+.demo-navigation-keys [data-action='boost'] {
+  grid-column: 1 / -1;
+}
+.demo-navigation-overlay kbd[data-pressed='true'] {
+  background: var(--layouts-accent);
+  border-color: var(--layouts-accent);
+  color: var(--layouts-panel);
+  box-shadow: none;
+  transform: translateY(1px);
+}
+.demo-navigation-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.demo-navigation-hints [hidden] {
+  display: none;
+}
+.demo-free-navigation {
+  color: var(--layouts-text);
 }
 
 /* One shared-edge layer for motion and rest. Pixel snapping changes geometry
@@ -1218,4 +1264,30 @@ html:has(.demo-main:fullscreen) {
   font:
     11px/1.4 system-ui,
     sans-serif;
+}
+
+.demo-navigation-mouse {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 40px;
+  fill: var(--layouts-header);
+}
+.demo-navigation-mouse rect,
+.demo-navigation-mouse .demo-mouse-outline {
+  fill: none;
+  stroke: var(--layouts-muted);
+  stroke-width: 1;
+}
+.demo-navigation-mouse [data-mouse-button][data-pressed='true'] {
+  fill: var(--layouts-accent);
+}
+.demo-navigation-mouse text {
+  fill: var(--layouts-muted);
+  font:
+    8px system-ui,
+    sans-serif;
+  text-anchor: middle;
+}
+.demo-navigation-mouse text[data-pressed='true'] {
+  fill: var(--layouts-panel);
 }

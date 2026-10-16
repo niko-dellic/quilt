@@ -59,7 +59,11 @@ const defaults: Record<NavigationAction, readonly string[]> = {
 
 /** Optional hovered-viewport keyboard navigation, coordinated with damped OrbitControls. */
 export class NavigationControls
-  extends EventDispatcher<{ change: {}; modechange: { mode: NavigationMode } }>
+  extends EventDispatcher<{
+    change: {};
+    modechange: { mode: NavigationMode };
+    inputchange: { actions: readonly NavigationAction[] };
+  }>
   implements ViewControls
 {
   readonly camera: PerspectiveCamera | OrthographicCamera;
@@ -302,7 +306,9 @@ export class NavigationControls
     this.context.invalidate();
   };
   private stop(): void {
+    const hadKeys = this.keys.size > 0;
     this.keys.clear();
+    if (hadKeys) this.inputChanged();
     this.velocity.set(0, 0, 0);
     if (this.look && this.context.element.hasPointerCapture(this.look.id))
       this.context.element.releasePointerCapture(this.look.id);
@@ -328,6 +334,15 @@ export class NavigationControls
     return [...doc.querySelectorAll('[role="menu"], [role="dialog"], dialog[open]')].some(
       (element) => element.getClientRects().length > 0,
     );
+  }
+  /** Actions currently held by this viewport; aliases and custom bindings are resolved. */
+  get activeActions(): readonly NavigationAction[] {
+    return (Object.keys(this.bindings) as NavigationAction[]).filter((action) =>
+      this.action(action),
+    );
+  }
+  private inputChanged(): void {
+    this.dispatchEvent({ type: 'inputchange', actions: this.activeActions });
   }
   private action(action: NavigationAction): boolean {
     return this.bindings[action].some((code) => this.keys.has(code));
@@ -357,7 +372,9 @@ export class NavigationControls
     const boost = this.bindings.boost.includes(event.code);
     if ((!movement && !boost) || (event.repeat && !this.keys.has(event.code))) return;
     if (boost && this.mode === 'orbit') {
+      const held = this.keys.has(event.code);
       this.keys.add(event.code);
+      if (!held) this.inputChanged();
       return;
     }
     if (movement && this.mode === 'orbit') {
@@ -366,13 +383,16 @@ export class NavigationControls
       for (const code of heldBoost) this.keys.add(code);
     }
     if (this.mode !== 'free') return;
+    const held = this.keys.has(event.code);
     this.keys.add(event.code);
+    if (!held) this.inputChanged();
     event.preventDefault();
     event.stopPropagation();
     this.context.invalidate();
   };
   private keyUp = (event: KeyboardEvent): void => {
     if (!this.keys.delete(event.code)) return;
+    this.inputChanged();
     event.preventDefault();
     event.stopPropagation();
     this.context.invalidate();
