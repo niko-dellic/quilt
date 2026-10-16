@@ -99,7 +99,11 @@ test('Three rollback, hidden views, resize, demand scheduling, and repeated disp
       }),
     )
     .toBeLessThanOrEqual(1);
-  await page.waitForTimeout(250);
+  // Let viewport resize observers and their queued redraws finish before
+  // measuring demand-rendering idleness; wall-clock delays can precede a frame.
+  await page.evaluate(async () => {
+    for (let i = 0; i < 4; i++) await new Promise(requestAnimationFrame);
+  });
   const frames = await page.evaluate(() => window.threeDemo.session.stats.frames);
   await page.waitForTimeout(250);
   expect(await page.evaluate(() => window.threeDemo.session.stats.frames)).toBe(frames);
