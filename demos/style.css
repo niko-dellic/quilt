@@ -1026,6 +1026,10 @@ html:has(.demo-main:fullscreen) {
   cursor: not-allowed;
 }
 
+.demo-navigation-overlay[hidden] {
+  display: none;
+}
+
 .demo-navigation-overlay {
   position: absolute;
   left: 10px;

@@ -139,7 +139,7 @@ export function orbit(context: ControlsContext) {
     },
     set enabled(value: boolean) {
       controls.enabled = value;
-      if (!value) overlay.clearMouse();
+      if (!value) overlay.hide();
     },
     update: (delta: number) => controls.update(delta),
     dispose() {
