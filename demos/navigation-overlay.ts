@@ -9,6 +9,7 @@ export function mountNavigationOverlay(
   const doc = host.ownerDocument;
   const overlay = doc.createElement('div');
   overlay.className = 'demo-navigation-overlay';
+  overlay.hidden = true;
   overlay.setAttribute('aria-label', 'Camera navigation keys');
   const keyboard = doc.createElement('div');
   keyboard.className = 'demo-navigation-keys';
@@ -78,14 +79,24 @@ export function mountNavigationOverlay(
     }
   };
   const clearMouse = () => setMouse(0);
+  const hide = () => {
+    overlay.hidden = true;
+    clearMouse();
+  };
+  const show = () => {
+    overlay.hidden = !controls.enabled;
+  };
+  const visibilityChanged = () => {
+    if (doc.hidden) hide();
+  };
   const pointerDown = (event: PointerEvent) => {
+    show();
     if (controls.enabled && event.pointerType !== 'touch') setMouse(event.buttons);
   };
   const pointerUp = (event: PointerEvent) => {
     if (mouseButtons) setMouse(event.buttons);
   };
   const pointerMove = (event: PointerEvent) => {
-    if (!mouseButtons) return;
     const rect = input.getBoundingClientRect();
     if (
       event.clientX < rect.left ||
@@ -93,19 +104,22 @@ export function mountNavigationOverlay(
       event.clientY < rect.top ||
       event.clientY > rect.bottom
     )
-      clearMouse();
+      hide();
+    else show();
   };
   const escapePressed = (event: KeyboardEvent) => {
     if (event.key === 'Escape') clearMouse();
   };
   input.addEventListener('pointerdown', pointerDown);
-  input.addEventListener('pointerleave', clearMouse);
+  input.addEventListener('pointerenter', show);
+  input.addEventListener('pointerleave', hide);
   input.addEventListener('pointermove', pointerMove);
   input.addEventListener('pointercancel', clearMouse);
   input.addEventListener('lostpointercapture', clearMouse);
   doc.addEventListener('pointerup', pointerUp);
   doc.addEventListener('keydown', escapePressed, true);
-  doc.defaultView?.addEventListener('blur', clearMouse);
+  doc.defaultView?.addEventListener('blur', hide);
+  doc.addEventListener('visibilitychange', visibilityChanged);
   clearMouse();
   const hints = doc.createElement('div');
   hints.className = 'demo-navigation-hints';
@@ -138,18 +152,20 @@ export function mountNavigationOverlay(
   update();
   host.append(overlay);
   return {
-    clearMouse,
+    hide,
     dispose() {
       controls.removeEventListener('inputchange', update);
       controls.removeEventListener('modechange', update);
       input.removeEventListener('pointerdown', pointerDown);
-      input.removeEventListener('pointerleave', clearMouse);
+      input.removeEventListener('pointerenter', show);
+      input.removeEventListener('pointerleave', hide);
       input.removeEventListener('pointermove', pointerMove);
       input.removeEventListener('pointercancel', clearMouse);
       input.removeEventListener('lostpointercapture', clearMouse);
       doc.removeEventListener('pointerup', pointerUp);
       doc.removeEventListener('keydown', escapePressed, true);
-      doc.defaultView?.removeEventListener('blur', clearMouse);
+      doc.defaultView?.removeEventListener('blur', hide);
+      doc.removeEventListener('visibilitychange', visibilityChanged);
       overlay.remove();
     },
   };

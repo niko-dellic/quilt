@@ -78,8 +78,10 @@ for (const framework of ['vanilla', 'react']) {
     const popupEvent = page.waitForEvent('popup');
     await page.getByRole('button', { name: 'Open in window', exact: true }).click();
     const popup = await popupEvent;
+    await popup.locator('[data-quilt-three-input]').hover();
     await expect(popup.locator('.demo-free-navigation')).toBeVisible();
     await popup.close();
+    await input.hover();
     await expect(page.locator('.demo-free-navigation')).toBeVisible();
     await page.getByRole('button', { name: '4 view', exact: true }).click();
     const pane = page.locator('[data-pane-id="perspective"]');
@@ -164,9 +166,11 @@ for (const framework of ['vanilla', 'react']) {
     const pane = page.locator('[data-pane-id="perspective"]');
     const input = pane.locator('[data-quilt-three-input]');
     const key = (action: string) => pane.locator(`kbd[data-action="${action}"]`);
-    await expect(key('forward')).toBeVisible();
+    await expect(page.locator('.demo-navigation-overlay:visible')).toHaveCount(0);
     await expect(pane.locator('.demo-navigation-overlay')).toHaveCSS('pointer-events', 'none');
     await input.hover();
+    await expect(key('forward')).toBeVisible();
+    await expect(page.locator('.demo-navigation-overlay:visible')).toHaveCount(1);
     await page.keyboard.down('w');
     await page.keyboard.down('d');
     await page.keyboard.down('Shift');
@@ -192,6 +196,12 @@ for (const framework of ['vanilla', 'react']) {
       'data-pressed',
       'false',
     );
+    await page.locator('[data-pane-id="top"] [data-quilt-three-input]').hover();
+    await expect(pane.locator('.demo-navigation-overlay')).toBeHidden();
+    await expect(page.locator('[data-pane-id="top"] .demo-navigation-overlay')).toBeVisible();
+    await expect(page.locator('.demo-navigation-overlay:visible')).toHaveCount(1);
+    await page.mouse.move(0, 0);
+    await expect(page.locator('.demo-navigation-overlay:visible')).toHaveCount(0);
     await page.locator('[data-pane-id="top"] [data-quilt-three-input]').hover();
     await expect(page.locator('kbd[data-pressed="true"]')).toHaveCount(0);
     await page.keyboard.down('ArrowUp'); // Repeat cannot light up the next viewport.

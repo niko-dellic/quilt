@@ -140,7 +140,7 @@ layouts; switching presets does not create a different implementation of the sce
 Hover the viewport to use navigation keys. Forward motion includes camera pitch;
 diagonals are normalized. Movement accelerates and brakes smoothly. Releasing keys
 leaves Free navigation active, with a small noninteractive indicator and Escape hint.
-Each viewport shows Q/W/E, A/S/D, and Shift keycaps. Accepted keys light up while
+Only the hovered viewport shows Q/W/E, A/S/D, and Shift keycaps and mouse hints. Accepted keys light up while
 held; arrow-key aliases light the corresponding WASD keys. Highlights clear when
 input is released or the viewport loses keyboard ownership. A small mouse icon
 alongside the keys highlights its left and right buttons while pressed.

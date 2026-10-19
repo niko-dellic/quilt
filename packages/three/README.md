@@ -347,7 +347,7 @@ These are the default bindings; the example above disables Q/down deliberately.
 
 Hover the viewport to use navigation keys. Diagonal movement is normalized, and
 movement accelerates smoothly. Releasing keys brakes smoothly but leaves Free
-navigation active. The demos display noninteractive Q/W/E, A/S/D, and Shift keycaps in each viewport,
+navigation active. The demos display noninteractive Q/W/E, A/S/D, and Shift keycaps in the hovered viewport,
 highlighting accepted input (including arrow-key aliases). A mode indicator and
 Escape hint appear while Free navigation is active. A mouse icon beside the keys
 highlights left/right presses without intercepting canvas input. The library leaves overlay UI to the application.
