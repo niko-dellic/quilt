@@ -30,7 +30,7 @@
     "prepack": "node ../../scripts/build-package.mjs dom --dependencies"
   },
   "dependencies": {
-    "overlayscrollbars": "^2.16.0",
+    "overlayscrollbars": "^2.17.0",
     "quilt-core": "0.11.0"
   },
   "sideEffects": [
