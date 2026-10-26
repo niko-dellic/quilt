@@ -38,21 +38,21 @@
     "benchmark:three": "QUILT_THREE_BENCHMARK=1 playwright test tests/browser/three-benchmark.spec.ts --project=chromium"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.0",
-    "@react-three/fiber": "^9.8.1",
+    "@playwright/test": "^1.64.1",
+    "@react-three/fiber": "^9.8.2",
     "@types/node": "^24.19.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.186.0",
     "electron": "44.4.5",
-    "electron-builder": "26.15.3",
-    "lucide": "1.48.0",
-    "prettier": "3.9.9",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "electron-builder": "26.18.0",
+    "lucide": "1.61.0",
+    "prettier": "3.9.10",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "three": "^0.186.1",
     "typescript": "~7.0.2",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.1"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   }
 }
