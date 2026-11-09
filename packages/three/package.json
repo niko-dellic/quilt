@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "quilt-vanilla": "0.11.0",
-    "@types/three": "^0.186.0"
+    "@types/three": "^0.187.0"
   },
   "peerDependencies": {
     "three": "^0.186.0"
